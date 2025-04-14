@@ -1,8 +1,15 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head th:fragment="staticHead">
+    <title>Random Sound</title>
     <meta charset="UTF-8">
+    <meta name="description" content="랜덤으로 사운드 하나를 보여줍니다. 어떤 사운드가 들리시나요?">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>비디오 페이지</title>
+
+    <meta property="og:title" content="Random Sound">
+    <meta property="og:description" content="랜덤으로 사운드 하나를 보여줍니다. 어떤 사운드가 들리시나요?">
+    <meta property="og:image" content="https://avatars.githubusercontent.com/u/37291245">
+    <meta property="og:type" content="website">
+
     <link rel="stylesheet" th:href="@{/css/style.css}">
     <style th:replace="~{fragments/home :: staticStyle}"></style>
     <script defer th:src="@{/js/script.js}"></script>

@@ -16,8 +16,8 @@ body {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     overflow: hidden;
-    margin: 78px 0 20px;
-    position: relative; /* 홈 버튼 위치 지정을 위해 추가 */
+    margin-bottom: 20px;
+    position: relative;
 }
 
 .video-wrapper {
