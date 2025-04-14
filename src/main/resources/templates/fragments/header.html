@@ -1,0 +1,10 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="staticHead">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비디오 페이지</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <style th:replace="~{fragments/home :: staticStyle}"></style>
+    <script defer th:src="@{/js/script.js}"></script>
+</head>
+</html>

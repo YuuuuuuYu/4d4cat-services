@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/header :: staticHead}">
+</head>
+<body>
+    <a th:replace="~{fragments/home :: homeBtn}"></a>
+    <div th:replace="~{fragments/body :: mainContent(${pixabayVideo})}"></div>
+    <footer th:replace="~{fragments/footer :: footer}"></footer>
+</body>
+</html>
