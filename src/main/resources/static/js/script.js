@@ -28,5 +28,5 @@ function changeVideoSize(size) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    changeVideoSize('medium');
+    changeVideoSize('small');
 });
