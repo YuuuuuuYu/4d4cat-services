@@ -2,7 +2,7 @@
 <body>
     <div th:fragment="mainContent(pixabayVideo)" class="video-container" th:if="${pixabayVideo != null}">
         <div id="videoWrapper" class="video-wrapper">
-            <video id="currentVideo" controls preload="metadata" autoplay muted
+            <video id="currentVideo" controls preload="metadata"
                    th:attr="data-tiny=${pixabayVideo.videos.tiny.url},
                                    data-small=${pixabayVideo.videos.small.url},
                                    data-medium=${pixabayVideo.videos.medium.url},
