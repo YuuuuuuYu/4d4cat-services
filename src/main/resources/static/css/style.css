@@ -10,14 +10,31 @@ body {
     flex-direction: column;
 }
 
+h1 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+    width: 100%;
+}
+
+.description {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    font-style: italic;
+    width: 100%;
+}
+
 .video-container {
-    width: 80%;
-    max-width: 1280px;
+    width: 1080px;
+    max-width: 100%;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     overflow: hidden;
     margin-bottom: 20px;
     position: relative;
+    margin-top: 0;
 }
 
 .video-wrapper {
@@ -96,6 +113,10 @@ video {
 }
 
 @media (max-width: 768px) {
+    h1, .description, .video-container {
+        width: 90%;
+    }
+
     .video-controls {
         flex-wrap: wrap;
     }
@@ -116,7 +137,6 @@ video {
 }
 
 .footer-content {
-    max-width: 1280px;
     margin: 0 auto;
     padding: 0 20px;
 }

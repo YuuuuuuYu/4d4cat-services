@@ -1,32 +1,34 @@
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<body>
-    <div th:fragment="mainContent(pixabayVideo)" class="video-container" th:if="${pixabayVideo != null}">
+<div th:fragment="mainContent(pixabayVideo)">
+    <h1>Random Video</h1>
+    <p class="description">It plays the video automatically, but there is no sound.</p>
+    <div class="video-container" th:if="${pixabayVideo != null}">
         <div id="videoWrapper" class="video-wrapper">
             <video id="currentVideo" controls preload="metadata" autoplay muted
                    th:attr="data-tiny=${pixabayVideo.videos.tiny.url},
                                    data-small=${pixabayVideo.videos.small.url},
                                    data-medium=${pixabayVideo.videos.medium.url},
                                    data-large=${pixabayVideo.videos.large.url}">
-                <source th:src="${pixabayVideo.videos.medium.url}" type="video/mp4" id="videoSource">
+                <source th:src="${pixabayVideo.videos.small.url}" type="video/mp4" id="videoSource">
             </video>
         </div>
         <div class="video-info">
             <h2 class="video-title">
                 <span class="tag-container" th:if="${pixabayVideo.tags != null}">
-                        <span class="tag" th:each="tag : ${#strings.arraySplit(pixabayVideo.tags, ',')}" th:text="${#strings.trim(tag)}"></span>
-                    </span>
+                    <span class="tag"
+                          th:each="tag, tagStat : ${#strings.arraySplit(pixabayVideo.tags, ',')}"
+                          th:if="${tagStat.index < 8}"
+                          th:text="${#strings.trim(tag)}"></span>
+                </span>
                 <span th:unless="${pixabayVideo.tags != null}">No Tags</span>
             </h2>
         </div>
         <div class="video-controls-container">
             <div class="video-controls">
                 <button id="tinyBtn" onclick="changeVideoSize('tiny')" th:text="|Tiny (${pixabayVideo.videos.tiny.width}x${pixabayVideo.videos.tiny.height})|"></button>
-                <button id="smallBtn" onclick="changeVideoSize('small')" th:text="|Small (${pixabayVideo.videos.small.width}x${pixabayVideo.videos.small.height})|"></button>
-                <button id="mediumBtn" class="active" onclick="changeVideoSize('medium')" th:text="|Medium (${pixabayVideo.videos.medium.width}x${pixabayVideo.videos.medium.height})|"></button>
+                <button id="smallBtn" class="active" onclick="changeVideoSize('small')" th:text="|Small (${pixabayVideo.videos.small.width}x${pixabayVideo.videos.small.height})|"></button>
+                <button id="mediumBtn" onclick="changeVideoSize('medium')" th:text="|Medium (${pixabayVideo.videos.medium.width}x${pixabayVideo.videos.medium.height})|"></button>
                 <button id="largeBtn" onclick="changeVideoSize('large')" th:text="|Large (${pixabayVideo.videos.large.width}x${pixabayVideo.videos.large.height})|"></button>
             </div>
         </div>
     </div>
-</body>
-<div th:replace="~{fragments/footer :: footer}"></div>
-</html>
+</div>
