@@ -1,11 +1,11 @@
 # Services
 여러 기능들을 제공하는 사이트를 만드려고 합니다.
 
-1. Random Sound
+1. Random Media
 
-## Random Sound
+## Random Media
 ### 주요 기능
-- 🎞 랜덤 영상 재생
+- 🎞 랜덤 영상 재생 (소리 x)
 - 💾 필요하면 다운로드 가능
 
 ### 서비스 특징
