@@ -15,9 +15,9 @@ public class MainController {
     @GetMapping("/")
     public String index(Model model) {
         List<PixabayVideo> videos = (List<PixabayVideo>) DataStorage.getData("pixabayVideos");
-        int target = RandomUtils.generateRandomInt(videos.size());
-
-        model.addAttribute("pixabayVideo", videos.get(target));
+        if (videos != null) {
+            model.addAttribute("pixabayVideo", videos.get(RandomUtils.generateRandomInt(videos.size())));
+        }
         return "index";
     }
 }
