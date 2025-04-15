@@ -6,6 +6,9 @@
     <h1>Random Media</h1>
     <a th:replace="~{fragments/home :: homeBtn}"></a>
     <div th:replace="~{fragments/body :: mainContent(${pixabayVideo})}"></div>
+    <div th:unless="${pixabayVideo != null}" style="text-align: center;">
+        <h2>Please try again in a moment.</h2>
+    </div>
     <footer th:replace="~{fragments/footer :: footer}"></footer>
 </body>
 </html>

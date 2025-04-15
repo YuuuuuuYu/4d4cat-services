@@ -2,7 +2,7 @@
 <body>
     <div th:fragment="mainContent(pixabayVideo)" class="video-container" th:if="${pixabayVideo != null}">
         <div id="videoWrapper" class="video-wrapper">
-            <video id="currentVideo" controls preload="metadata"
+            <video id="currentVideo" controls preload="metadata" autoplay muted
                    th:attr="data-tiny=${pixabayVideo.videos.tiny.url},
                                    data-small=${pixabayVideo.videos.small.url},
                                    data-medium=${pixabayVideo.videos.medium.url},
@@ -26,9 +26,6 @@
                 <button id="largeBtn" onclick="changeVideoSize('large')" th:text="|Large (${pixabayVideo.videos.large.width}x${pixabayVideo.videos.large.height})|"></button>
             </div>
         </div>
-    </div>
-    <div th:unless="${pixabayVideo != null}" style="text-align: center;">
-        <h2>비디오를 찾을 수 없습니다.</h2>
     </div>
 </body>
 <div th:replace="~{fragments/footer :: footer}"></div>
