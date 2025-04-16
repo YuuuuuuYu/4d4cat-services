@@ -1,6 +1,9 @@
 <div th:fragment="mainContent(pixabayVideo)">
     <h1>Random Video</h1>
-    <p class="description">It plays the video automatically, but there is no sound.</p>
+    <p class="description">
+        It plays the video automatically, but there is no sound. <br>
+        You can download it according to the resolution you want.
+    </p>
     <div class="video-container" th:if="${pixabayVideo != null}">
         <div id="videoWrapper" class="video-wrapper">
             <video id="currentVideo" controls preload="metadata" autoplay muted
