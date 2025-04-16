@@ -114,7 +114,7 @@ video {
 
 @media (max-width: 768px) {
     h1, .description, .video-container {
-        width: 90%;
+        width: 100%;
     }
 
     .video-controls {
