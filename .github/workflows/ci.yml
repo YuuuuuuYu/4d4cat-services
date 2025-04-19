@@ -40,6 +40,8 @@ jobs:
       run: chmod +x gradlew
 
     - name: Test with Gradle
+      env:
+        PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
       run: ./gradlew test
     
     - name: Publish Test Report
