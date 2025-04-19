@@ -54,7 +54,7 @@ jobs:
           host: ${{ secrets.GABIA_IP }}
           username: ${{ secrets.GABIA_USER }}
           key: ${{ secrets.GABIA_KEY }}
-          source: last-message.jar
+          source: services.jar
           target: /home/${{ secrets.GABIA_USER }}
       
       - name: (SSH) connect EC2
