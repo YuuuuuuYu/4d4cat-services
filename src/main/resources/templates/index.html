@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments/header :: staticHead}">
+    <meta http-equiv="refresh" content="0; url=/video" />
 </head>
 <body>
-    <a th:replace="~{fragments/home :: homeBtn}"></a>
-    <div th:replace="~{fragments/body :: mainContent(${pixabayVideo})}"></div>
-    <div th:unless="${pixabayVideo != null}" style="text-align: center;">
-        <h2>Please try again in a moment.</h2>
-    </div>
-    <footer th:replace="~{fragments/footer :: footer}"></footer>
+    <script>
+        window.location.href = '/video';
+    </script>
 </body>
 </html>

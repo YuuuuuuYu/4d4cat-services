@@ -1,36 +1,95 @@
-<div th:fragment="mainContent(pixabayVideo)">
-    <h1>Random Video</h1>
-    <p class="description">
-        It plays the video automatically, but there is no sound. <br>
-        You can download it according to the resolution you want.
-    </p>
-    <div class="video-container" th:if="${pixabayVideo != null}">
-        <div id="videoWrapper" class="video-wrapper">
-            <video id="currentVideo" controls preload="metadata" autoplay muted
-                   th:attr="data-tiny=${pixabayVideo.videos.tiny.url},
-                                   data-small=${pixabayVideo.videos.small.url},
-                                   data-medium=${pixabayVideo.videos.medium.url},
-                                   data-large=${pixabayVideo.videos.large.url}">
-                <source th:src="${pixabayVideo.videos.small.url}" type="video/mp4" id="videoSource">
-            </video>
+<div th:fragment="mainContent(media, type)">
+    <div th:if="${type == 'video'}" th:with="pixabayVideo=${media}">
+        <h1>Random Video</h1>
+        <p class="description">
+            It plays the video automatically, but there is no sound. <br>
+            You can download it according to the resolution you want.
+        </p>
+        <div class="video-container" th:if="${pixabayVideo != null}">
+            <div id="videoWrapper" class="video-wrapper">
+                <video id="currentVideo" controls preload="metadata" autoplay muted
+                    th:attr="data-tiny=${pixabayVideo.videos.tiny.url},
+                                    data-small=${pixabayVideo.videos.small.url},
+                                    data-medium=${pixabayVideo.videos.medium.url},
+                                    data-large=${pixabayVideo.videos.large.url}">
+                    <source th:src="${pixabayVideo.videos.small.url}" type="video/mp4" id="videoSource">
+                </video>
+            </div>
+            <div class="video-info">
+                <h2 class="video-title">
+                    <span class="tag-container" th:if="${pixabayVideo.tags != null}">
+                        <span class="tag"
+                            th:each="tag, tagStat : ${#strings.arraySplit(pixabayVideo.tags, ',')}"
+                            th:if="${tagStat.index < 8}"
+                            th:text="${#strings.trim(tag)}"></span>
+                    </span>
+                    <span th:unless="${pixabayVideo.tags != null}">No Tags</span>
+                </h2>
+            </div>
+            <div class="video-controls-container">
+                <div class="video-controls">
+                    <button id="tinyBtn" onclick="changeVideoSize('tiny')" th:text="|Tiny (${pixabayVideo.videos.tiny.width}x${pixabayVideo.videos.tiny.height})|"></button>
+                    <button id="smallBtn" class="active" onclick="changeVideoSize('small')" th:text="|Small (${pixabayVideo.videos.small.width}x${pixabayVideo.videos.small.height})|"></button>
+                    <button id="mediumBtn" onclick="changeVideoSize('medium')" th:text="|Medium (${pixabayVideo.videos.medium.width}x${pixabayVideo.videos.medium.height})|"></button>
+                    <button id="largeBtn" onclick="changeVideoSize('large')" th:text="|Large (${pixabayVideo.videos.large.width}x${pixabayVideo.videos.large.height})|"></button>
+                </div>
+            </div>
         </div>
-        <div class="video-info">
-            <h2 class="video-title">
-                <span class="tag-container" th:if="${pixabayVideo.tags != null}">
-                    <span class="tag"
-                          th:each="tag, tagStat : ${#strings.arraySplit(pixabayVideo.tags, ',')}"
-                          th:if="${tagStat.index < 8}"
-                          th:text="${#strings.trim(tag)}"></span>
-                </span>
-                <span th:unless="${pixabayVideo.tags != null}">No Tags</span>
-            </h2>
-        </div>
-        <div class="video-controls-container">
-            <div class="video-controls">
-                <button id="tinyBtn" onclick="changeVideoSize('tiny')" th:text="|Tiny (${pixabayVideo.videos.tiny.width}x${pixabayVideo.videos.tiny.height})|"></button>
-                <button id="smallBtn" class="active" onclick="changeVideoSize('small')" th:text="|Small (${pixabayVideo.videos.small.width}x${pixabayVideo.videos.small.height})|"></button>
-                <button id="mediumBtn" onclick="changeVideoSize('medium')" th:text="|Medium (${pixabayVideo.videos.medium.width}x${pixabayVideo.videos.medium.height})|"></button>
-                <button id="largeBtn" onclick="changeVideoSize('large')" th:text="|Large (${pixabayVideo.videos.large.width}x${pixabayVideo.videos.large.height})|"></button>
+    </div>
+    <div th:if="${type == 'music'}" th:with="pixabayMusic=${media}">
+        <h1>Random Music</h1>
+        <p class="description">
+            Listen to random music tracks. <br>
+            You can play, pause, and download the music.
+        </p>
+        <div class="music-container" th:if="${pixabayMusic != null}">
+            <div class="music-player">
+                <div class="music-player-content">
+                    <div class="music-thumbnail" th:if="${pixabayMusic.thumbnail_url != null}">
+                        <img th:src="${pixabayMusic.thumbnail_url}" alt="Music Thumbnail" width="200" height="200">
+                    </div>
+                    <div class="music-thumbnail default-thumbnail" th:unless="${pixabayMusic.thumbnail_url != null}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                        </svg>
+                    </div>
+                    
+                    <div class="music-details">
+                        <div class="music-info">
+                            <h2 class="music-title" th:text="${pixabayMusic.title}">Music Title</h2>
+                            <p class="music-author" th:text="${pixabayMusic.author}">Author</p>
+                        </div>
+                        
+                        <div class="audio-player">
+                            <audio id="musicPlayer" controls preload="metadata" th:attr="data-url=${pixabayMusic.download_url}">
+                                <source th:src="${pixabayMusic.download_url}" type="audio/mpeg" id="musicSource">
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                        
+                        <div class="music-tags">
+                            <span class="tag-container" th:if="${pixabayMusic.tags != null && !pixabayMusic.tags.isEmpty()}">
+                                <span class="tag"
+                                        th:each="tag : ${pixabayMusic.tags}"
+                                        th:text="${tag}"></span>
+                            </span>
+                            <span th:if="${pixabayMusic.tags == null || pixabayMusic.tags.isEmpty()}">No Tags</span>
+                        </div>
+                        
+                        <div class="music-controls">
+                            <a th:href="${pixabayMusic.download_url}" class="download-button" download>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                                Download
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
