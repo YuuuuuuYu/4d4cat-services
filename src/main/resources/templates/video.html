@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/header :: staticHead}">
+</head>
+<body>
+    <a th:replace="~{fragments/home :: homeBtn}"></a>
+    <div class="page-container">
+        <div th:replace="~{fragments/sidebar :: sidebar('video')}"></div>
+        <div class="main-content">
+            <div th:replace="~{fragments/body :: mainContent(${pixabayVideo}, 'video')}"></div>
+            <div th:unless="${pixabayVideo != null}" style="text-align: center;">
+                <h2>Please try again in a moment.</h2>
+            </div>
+            <footer th:replace="~{fragments/footer :: footer}"></footer>
+        </div>
+    </div>
+    <!-- 모바일용 오버레이 -->
+    <div class="sidebar-overlay"></div>
+</body>
+</html>

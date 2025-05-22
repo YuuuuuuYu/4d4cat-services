@@ -7,6 +7,7 @@ public record PixabayResponse<T>(
         String totalHits,
         List<T> hits
         ) {
+            
     public static <T> PixabayResponse<T> of(String total, String totalHits, List<T> hits) {
         return new PixabayResponse(total, totalHits, hits);
     }

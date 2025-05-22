@@ -1,10 +1,10 @@
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
     <style th:fragment="staticStyle">
         .home-button {
             position: absolute;
-            top: 16px;
-            left: 16px;
+            top: 20px;
+            right: 28px;
             width: 42px;
             height: 42px;
             border: 2px solid #666;
@@ -23,22 +23,18 @@
         }
 
         .home-button svg {
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             color: #666;
         }
 
         @media (max-width: 768px) {
             .home-button {
-                width: 36px;
-                height: 36px;
-                top: 12px;
-                left: 12px;
-            }
-
-            .home-button svg {
-                width: 20px;
-                height: 20px;
+                position: fixed;
+                width: 42px;
+                height: 42px;
+                top: 16px;
+                right: 16px;
             }
         }
     </style>
