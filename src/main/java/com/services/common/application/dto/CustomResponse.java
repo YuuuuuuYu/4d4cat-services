@@ -10,7 +10,7 @@ public record CustomResponse<T>(
         ) {
 
     public static <T> CustomResponse<T> of(String query, String page, String total, List<T> results) {
-        return new CustomResponse(query, page, total, results);
+        return new CustomResponse<T>(query, page, total, results);
     }
     
 }

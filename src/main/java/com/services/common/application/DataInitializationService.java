@@ -16,7 +16,7 @@ public abstract class DataInitializationService {
     protected final RestTemplate restTemplate;
 
     protected <T, P extends ParameterBuilder> T get(ParameterizedTypeReference<T> responseType, P params) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(getBaseUrl());
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(getBaseUrl());
         if (params != null) {
             params.appendToBuilder(builder);
         }
