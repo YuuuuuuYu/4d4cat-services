@@ -1,27 +1,26 @@
 package com.services.pixabay.application;
 
-import com.services.common.application.DataInitializationService;
-import com.services.common.domain.DataStorage;
-import com.services.pixabay.application.dto.PixabayResponse;
-import com.services.pixabay.application.dto.PixabayVideoParameter;
-import com.services.pixabay.domain.PixabayVideo;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.ArrayList;
 import java.util.List;
 
-@Service
-public class PixabayVideoService extends DataInitializationService {
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.stereotype.Service;
+import org.springframework.ui.Model;
+import org.springframework.web.client.RestTemplate;
 
-    private static final String PIXABAY_VIDEO_URL = "https://pixabay.com/api/videos";
-    private static final String[] PIXABAY_VIDEO_CATEGORIES =
-            {"backgrounds", "fashion", "nature", "science", "education", "feelings", "health", "people", "religion", "places",
-                    "animals", "industry", "computer", "food", "sports", "transportation", "travel", "buildings", "business", "music"};
+import com.services.common.application.DataInitializationService;
+import com.services.common.infrastructure.ApiMetadata;
+import com.services.common.infrastructure.DataStorage;
+import com.services.pixabay.application.dto.request.PixabayVideoRequest;
+import com.services.pixabay.application.dto.result.PixabayVideoResult;
+import com.services.pixabay.presentation.dto.PixabayResponse;
+
+@Service
+public class PixabayVideoService extends DataInitializationService<PixabayVideoResult, PixabayVideoRequest, PixabayResponse<PixabayVideoResult>> {
+
+    private static final List<String> PIXABAY_VIDEO_CATEGORIES = List.of(
+            "backgrounds", "fashion", "nature", "science", "education", "feelings", "health", "people", "religion", "places",
+                    "animals", "industry", "computer", "food", "sports", "transportation", "travel", "buildings", "business", "music");
 
     @Value("${pixabay.key}")
     protected String key;
@@ -32,27 +31,32 @@ public class PixabayVideoService extends DataInitializationService {
 
     @Override
     protected String getBaseUrl() {
-        return PIXABAY_VIDEO_URL;
+        return ApiMetadata.PIXABAY_VIDEOS.getUrl();
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void initializeVideoData() {
-        List<PixabayVideo> videoList = new ArrayList<>();
-        for (String category : PIXABAY_VIDEO_CATEGORIES) {
-            try {
-                PixabayVideoParameter params = PixabayVideoParameter.builder()
-                                                    .key(key)
-                                                    .category(category)
-                                                    .build();
-                PixabayResponse<PixabayVideo> response = get(new ParameterizedTypeReference<PixabayResponse>() {}, params);
-                if (response != null && response.hits() != null) {
-                    videoList.addAll(response.hits());
-                }
-            } catch (Exception e) {
-                System.err.println("Error fetching data from Pixabay: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-        DataStorage.setData("pixabayVideos", videoList);
+    @Override
+    protected String getStorageKey() {
+        return ApiMetadata.PIXABAY_VIDEOS.getKey();
+    }
+
+    @Override
+    protected List<String> getFilters() {
+        return PIXABAY_VIDEO_CATEGORIES;
+    }
+
+    @Override
+    protected PixabayVideoRequest createParameters(String category) {
+        return new PixabayVideoRequest(key, category);
+    }
+
+    @Override
+    protected ParameterizedTypeReference<PixabayResponse<PixabayVideoResult>> getResponseTypeReference() {
+        return new ParameterizedTypeReference<PixabayResponse<PixabayVideoResult>>() {};
+    }
+
+    @Override
+    public void addRandomElementToModel(Model model) {
+        DataStorage.getRandomElement(getStorageKey(), PixabayVideoResult.class)
+            .ifPresent(element -> model.addAttribute(ApiMetadata.PIXABAY_VIDEOS.getAttributeName(), element));
     }
 }
