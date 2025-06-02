@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (musicPlayer) {
     // 음악 로딩 시 이벤트
     musicPlayer.addEventListener("loadedmetadata", () => {
+      musicPlayer.volume = 0.5;
       console.log("Music loaded:", musicPlayer.duration)
     })
 
