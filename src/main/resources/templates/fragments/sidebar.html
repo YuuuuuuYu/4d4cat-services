@@ -1,6 +1,6 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="sidebar(activeTab)" class="sidebar">
+<div th:fragment="sidebar(activeTab)" class="sidebar" role="navigation">
     <div class="sidebar-tabs">
         <a th:href="@{/video}" class="sidebar-tab" th:classappend="${activeTab == 'video'} ? 'active' : ''">
             <div class="tab-icon">
