@@ -9,15 +9,14 @@ import lombok.RequiredArgsConstructor;
 public enum ErrorCode {
 
     // common errors
-    INVALID_REQUEST("CO1000", "잘못된 요청입니다."),
-    DATA_NOT_FOUND("CO1001", "데이터를 불러오지 못했습니다."),
-
+    INVALID_REQUEST("CO1000", "Invalid request"),
+    DATA_NOT_FOUND("CO1001", "Data not found"),
 
     // pixabay video
-    PIXABAY_VIDEO_NOT_FOUND("PV1000", "Pixabay 비디오를 찾을 수 없습니다."),
+    PIXABAY_VIDEO_NOT_FOUND("PV1000", "PixabayVideo data not found"),
 
     // pixabay music
-    PIXABAY_MUSIC_NOT_FOUND("PM1000", "Pixabay 음악을 찾을 수 없습니다."),
+    PIXABAY_MUSIC_NOT_FOUND("PM1000", "PixabayMusic data not found"),
     ;
 
     private final String code;
