@@ -28,31 +28,30 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
     protected final RestTemplate restTemplate;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void initializeData() {
-        List<T> dataList = getFilters().stream()
+    public void setDataStorage() {
+        List<T> dataList = getFetchDataList();
+        DataStorage.setData(getStorageKey(), dataList);
+    }
+
+    private List<T> getFetchDataList() {
+        return getFilters().stream()
                 .map(this::fetchDataForFilter)
                 .filter(Objects::nonNull)
                 .flatMap(response -> response.getItems().stream())
                 .toList();
-                
-        DataStorage.setData(getStorageKey(), dataList);
     }
 
-    protected R fetchDataForFilter(String filter) {
+    private R fetchDataForFilter(String filter) {
         try {
             P params = createParameters(filter);
-            return getApiResponse(getResponseTypeReference(), params);
+            return getApiResponseBody(getResponseTypeReference(), params);
         } catch (Exception e) {
             throw new BadRequestException(ErrorCode.INVALID_REQUEST);
         }
     }
 
-    protected R get(ParameterizedTypeReference<R> responseType, P params) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(getBaseUrl());
-        if (params != null) {
-            params.appendToBuilder(builder);
-        }
-        
+    private R getApiResponseBody(ParameterizedTypeReference<R> responseType, P params) {
+        UriComponentsBuilder builder = getUriBuilder(params);
         ResponseEntity<R> response = restTemplate.exchange(
                 builder.toUriString(),
                 HttpMethod.GET,
@@ -62,8 +61,12 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
         return response.getBody();
     }
 
-    protected R getApiResponse(ParameterizedTypeReference<R> responseType, P params) {
-        return get(responseType, params);
+    private UriComponentsBuilder getUriBuilder(P params) {
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(getBaseUrl());
+        if (params != null) {
+            params.appendToBuilder(builder);
+        }
+        return builder;
     }
 
     protected abstract String getBaseUrl();
