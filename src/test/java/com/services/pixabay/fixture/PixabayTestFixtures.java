@@ -7,12 +7,14 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
+import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
 import com.services.pixabay.presentation.dto.CustomPixabayMusicResponse;
@@ -87,5 +89,19 @@ public class PixabayTestFixtures {
             isNull(),
             any(ParameterizedTypeReference.class)
         )).thenReturn(ResponseEntity.ok(response));
+    }
+
+    public static void setDataStorageToReturnAllResult(int videoCount, int musicCount) {
+        String videoKey = "video-list";
+        String musicKey = "music-list";
+        List<PixabayVideoResult> videoList = IntStream.range(1, videoCount + 1)
+            .mapToObj(PixabayTestFixtures::createDefaultVideoResult)
+            .toList();
+        List<PixabayMusicResult> musicList = IntStream.range(1, musicCount + 1)
+            .mapToObj(PixabayTestFixtures::createDefaultMusicResult)
+            .toList();
+
+        DataStorage.setData(videoKey, videoList);
+        DataStorage.setData(musicKey, musicList);
     }
 }
