@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
+import com.services.pixabay.presentation.dto.CustomPixabayMusicResponse;
 import com.services.pixabay.presentation.dto.PixabayResponse;
 
 public class PixabayTestFixtures {
@@ -71,5 +72,20 @@ public class PixabayTestFixtures {
             .thumbnail_url("https://cdn.pixabay.com/audio/2025/06/03/09-20-08-320_200x200.png")
             .url("/music/genre-1111/")
             .build();
+    }
+
+    public static void setupRestTemplateToReturnSingleMusic(RestTemplate restTemplate, int id) {
+        String query = "genre";
+        String page = "1";
+        String total = "20";
+        PixabayMusicResult musicResult = createDefaultMusicResult(id);
+        CustomPixabayMusicResponse<PixabayMusicResult> response = new CustomPixabayMusicResponse<>(query, page, total, List.of(musicResult));
+
+        when(restTemplate.exchange(
+            anyString(),
+            eq(HttpMethod.GET),
+            isNull(),
+            any(ParameterizedTypeReference.class)
+        )).thenReturn(ResponseEntity.ok(response));
     }
 }
