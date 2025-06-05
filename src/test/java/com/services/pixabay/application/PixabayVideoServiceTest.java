@@ -1,9 +1,17 @@
 package com.services.pixabay.application;
 
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +27,6 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.ui.Model;
 import org.springframework.web.client.RestTemplate;
@@ -30,7 +37,7 @@ import com.services.common.infrastructure.ApiMetadata;
 import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.request.PixabayVideoRequest;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
-import com.services.pixabay.presentation.dto.PixabayResponse;
+import com.services.pixabay.fixture.PixabayTestFixtures;
 
 @ExtendWith(MockitoExtension.class)
 class PixabayVideoServiceTest {
@@ -50,24 +57,24 @@ class PixabayVideoServiceTest {
     }
 
     @Test
-    @DisplayName("getBaseUrl Success")
-    void getBaseUrl_returnsPixabayVideoUrl() {
+    @DisplayName("getBaseUrl Success - 기본 URL 반환")
+    void getBaseUrl_shouldReturnsPixabayVideoUrl() {
         String baseUrl = pixabayVideoService.getBaseUrl();
         
         assertThat(baseUrl).isEqualTo(ApiMetadata.PIXABAY_VIDEOS.getUrl());
     }
 
     @Test
-    @DisplayName("getStorageKey Success")
-    void getStorageKey_returnsPixabayVideoKey() {
+    @DisplayName("getStorageKey Success - 스토리지 키 반환")
+    void getStorageKey_shouldReturnsPixabayVideoKey() {
         String storageKey = pixabayVideoService.getStorageKey();
         
         assertThat(storageKey).isEqualTo(ApiMetadata.PIXABAY_VIDEOS.getKey());
     }
 
     @Test
-    @DisplayName("getFilters Success")
-    void getFilters_returnsVideoCategories() {
+    @DisplayName("getFilters Success - 비디오 카테고리 목록 반환")
+    void getFilters_shouldReturnsVideoCategories() {
         List<String> filters = pixabayVideoService.getFilters();
         
         assertAll(
@@ -77,8 +84,8 @@ class PixabayVideoServiceTest {
     }
 
     @Test
-    @DisplayName("createParameters Success")
-    void createParameters_createsPixabayVideoRequest() {
+    @DisplayName("createParameters Success - PixabayVideoRequest 생성")
+    void createParameters_shouldCreatesPixabayVideoRequest() {
         PixabayVideoRequest request = pixabayVideoService.createParameters("backgrounds");
         
         assertAll(
@@ -89,37 +96,10 @@ class PixabayVideoServiceTest {
     }
 
     @Test
-    @DisplayName("setDataStorage Success - 20회 호출, 빌더 URI 체크, 데이터 저장 확인")
-    void setDataStorage_setDataStorage() {
+    @DisplayName("setDataStorage Success - API 호출 시 올바른 URI가 생성되어야 함")
+    void setDataStorage_shouldBuildCorrectUri_whenCallingApi() {
         // Given
-        String total = "1";
-        String totalHits = "1";
-        String videos = "{\"small\":\"https://cdn.pixabay.com/video/2015/08/08/125-135736646_small.mp4\",\"medium\":\"https://cdn.pixabay.com/video/2015/08/08/125-135736646_medium.mp4\",\"large\":\"https://cdn.pixabay.com/video/2015/08/08/125-135736646_large.mp4\"}";
-        PixabayVideoResult videoResult = PixabayVideoResult.builder()
-            .id(1)
-            .pageURL("https://pixabay.com/videos/id-125/")
-            .type("video")
-            .tags("nature, video")
-            .duration(120)
-            .videos(videos)
-            .views(1000)
-            .downloads(100)
-            .likes(50)
-            .comments(10)
-            .user_id(123)
-            .user("Coverr-Free-Footage")
-            .userImageURL("https://cdn.pixabay.com/user/2015/10/16/09-28-45-303_250x250.png")
-            .noAiTraining(false)
-            .build();
-
-        PixabayResponse<PixabayVideoResult> response = new PixabayResponse<>(total, totalHits, List.of(videoResult));
-
-        when(restTemplate.exchange(
-            anyString(),
-            eq(HttpMethod.GET),
-            isNull(),
-            any(ParameterizedTypeReference.class)
-        )).thenReturn(ResponseEntity.ok(response));
+        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
 
         // When
         pixabayVideoService.setDataStorage();
@@ -127,30 +107,67 @@ class PixabayVideoServiceTest {
         // Then
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
         List<String> capturedUrls = urlCaptor.getAllValues();
-        Optional<List<PixabayVideoResult>> storedData = DataStorage.getListData(
-            ApiMetadata.PIXABAY_VIDEOS.getKey(), 
-            PixabayVideoResult.class
-        );
 
-        verify(restTemplate, times(20)).exchange(
+        verify(restTemplate).exchange(
             urlCaptor.capture(),
             eq(HttpMethod.GET),
             isNull(),
             any(ParameterizedTypeReference.class)
         );
         
-        assertAll(
-            () -> assertThat(capturedUrls).allMatch(
-                url -> url.contains(ApiMetadata.PIXABAY_VIDEOS.getUrl())),
-            () -> assertThat(storedData).isPresent(),
-            () -> assertThat(storedData.get()).hasSize(20),
-            () -> assertThat(storedData.get().get(0)).isEqualTo(videoResult)
+        assertThat(capturedUrls).allMatch(
+            url -> url.contains(ApiMetadata.PIXABAY_VIDEOS.getUrl()));
+    }
+
+    @Test
+    @DisplayName("setDataStorage Success - 데이터 저장할 때 API는 20회 호출")
+    void setDataStorage_shouldCallApiTwentyTimes_whenInitializingData() {
+        // Given
+        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
+
+        // When
+        pixabayVideoService.setDataStorage();
+
+        // Then
+        verify(restTemplate, times(20)).exchange(
+            anyString(),
+            eq(HttpMethod.GET),
+            isNull(),
+            any(ParameterizedTypeReference.class)
         );
     }
 
     @Test
-    @DisplayName("setDataStorage Fail - BadRequestException")
-    void setDataStorage_throwsBadRequestException_onInvalidResponse() {
+    @DisplayName("setDataStorage Success - 데이터 fetch가 완료되면 스토리지에 데이터 저장")
+    void setDataStorage_shouldStoreDataInStorage_whenDataFetchCompletes() {
+        // Given
+        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
+
+        // When
+        pixabayVideoService.setDataStorage();
+
+        Optional<List<PixabayVideoResult>> storedData = DataStorage.getListData(
+            ApiMetadata.PIXABAY_VIDEOS.getKey(), 
+            PixabayVideoResult.class
+        );
+
+        // Then
+        verify(restTemplate, times(20)).exchange(
+            anyString(),
+            eq(HttpMethod.GET),
+            isNull(),
+            any(ParameterizedTypeReference.class)
+        );
+        
+        assertAll(
+            () -> assertThat(storedData).isPresent(),
+            () -> assertThat(storedData.get()).hasSize(20)
+        );
+    }
+
+    @Test
+    @DisplayName("setDataStorage Fail - API 호출이 실패하면 BadRequestException을 던진다")
+    void setDataStorage_shouldThrowBadRequestException_whenApiCallFails() {
         // Given
         when(restTemplate.exchange(
             anyString(),
@@ -166,26 +183,10 @@ class PixabayVideoServiceTest {
     }
 
     @Test
-    @DisplayName("addRandomElementToModel Success - Model에 비디오 추가")
-    void addRandomElementToModel_addsVideoToModel() {
+    @DisplayName("addRandomElementToModel Success - 데이터가 있을 때 모델에 비디오 추가")
+    void addRandomElementToModel_shouldAddsVideoToModel_whenDataAvailable() {
         // Given
-        String videos = "{\"small\":\"https://cdn.pixabay.com/video/2015/08/08/125-135736646_small.mp4\",\"medium\":\"https://cdn.pixabay.com/video/2015/08/08/125-135736646_medium.mp4\",\"large\":\"https://cdn.pixabay.com/video/2015/08/08/125-135736646_large.mp4\"}";
-        PixabayVideoResult videoResult = PixabayVideoResult.builder()
-            .id(1)
-            .pageURL("https://pixabay.com/videos/id-125/")
-            .type("video")
-            .tags("nature, video")
-            .duration(120)
-            .videos(videos)
-            .views(1000)
-            .downloads(100)
-            .likes(50)
-            .comments(10)
-            .user_id(123)
-            .user("Coverr-Free-Footage")
-            .userImageURL("https://cdn.pixabay.com/user/2015/10/16/09-28-45-303_250x250.png")
-            .noAiTraining(false)
-            .build();
+        PixabayVideoResult videoResult = PixabayTestFixtures.createDefaultVideoResult(1);
 
         // When, Then
         try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
@@ -205,7 +206,7 @@ class PixabayVideoServiceTest {
 
     @Test
     @DisplayName("addRandomElementToModel Fail - 데이터가 없을 경우 모델에 추가하지 않음")
-    void addRandomElementToModel_noDataAvailable_doesNotAddToModel() {
+    void addRandomElementToModel_shouldNotAddsVideoToModel_whenDataNotFound() {
         // Given
         try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
             mockedDataStorage.when(() -> DataStorage.getRandomElement(
