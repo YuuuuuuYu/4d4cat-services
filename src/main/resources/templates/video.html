@@ -8,9 +8,6 @@
         <div th:replace="~{fragments/sidebar :: sidebar('video')}"></div>
         <div class="main-content">
             <div th:replace="~{fragments/body :: mainContent(${pixabayVideo}, 'video')}"></div>
-            <div th:unless="${pixabayVideo != null}" style="text-align: center;">
-                <h2>Please try again in a moment.</h2>
-            </div>
             <footer th:replace="~{fragments/footer :: footer}"></footer>
         </div>
     </div>

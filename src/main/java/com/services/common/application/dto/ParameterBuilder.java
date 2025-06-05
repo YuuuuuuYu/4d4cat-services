@@ -1,4 +1,4 @@
-package com.services.common.domain;
+package com.services.common.application.dto;
 
 import org.springframework.web.util.UriComponentsBuilder;
 

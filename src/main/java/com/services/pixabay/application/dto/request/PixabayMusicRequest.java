@@ -1,15 +1,19 @@
-package com.services.pixabay.application.dto;
+package com.services.pixabay.application.dto.request;
 
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.services.common.domain.ParameterBuilder;
+import com.services.common.application.dto.ParameterBuilder;
 
-import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-@AllArgsConstructor
+@Getter
 public class PixabayMusicRequest implements ParameterBuilder {
     
-    private final String genre;
+    private String genre;
+
+    public PixabayMusicRequest(String genre) {
+        this.genre = genre;
+    }
 
     @Override
     public UriComponentsBuilder appendToBuilder(UriComponentsBuilder builder) {
