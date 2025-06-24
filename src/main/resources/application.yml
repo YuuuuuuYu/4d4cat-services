@@ -5,7 +5,6 @@ spring:
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html
-    cache: false
 
 pixabay:
   key: ${PIXABAY_KEY}
