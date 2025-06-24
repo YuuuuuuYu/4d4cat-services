@@ -9,6 +9,9 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.client.ResponseErrorHandler;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class CustomResponseErrorHandler implements ResponseErrorHandler {
 
     @Override
@@ -19,6 +22,8 @@ public class CustomResponseErrorHandler implements ResponseErrorHandler {
     @Override
     public void handleError(URI url, HttpMethod method, ClientHttpResponse response) throws IOException {
         String errorBody = StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
-        throw new InternalServerException(ErrorCode.DATA_NOT_FOUND, errorBody);
+        log.error("Error occurred while calling URL: {}, Method: {}, Status Code: {}, Error Body: {}",
+                url, method, response.getStatusCode(), errorBody);
+        throw new InternalServerException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 }

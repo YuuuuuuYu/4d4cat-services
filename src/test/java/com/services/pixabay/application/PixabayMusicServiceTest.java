@@ -17,7 +17,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Optional;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,7 +27,6 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.ui.Model;
 import org.springframework.web.client.RestTemplate;
 
@@ -36,12 +34,12 @@ import com.services.common.exception.BadRequestException;
 import com.services.common.exception.ErrorCode;
 import com.services.common.infrastructure.ApiMetadata;
 import com.services.common.infrastructure.DataStorage;
-import com.services.pixabay.application.dto.request.PixabayVideoRequest;
-import com.services.pixabay.application.dto.result.PixabayVideoResult;
+import com.services.pixabay.application.dto.request.PixabayMusicRequest;
+import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.fixture.PixabayTestFixtures;
 
 @ExtendWith(MockitoExtension.class)
-class PixabayVideoServiceTest {
+class PixabayMusicServiceTest {
 
     @Mock
     private RestTemplate restTemplate;
@@ -50,62 +48,49 @@ class PixabayVideoServiceTest {
     private Model model;
 
     @InjectMocks
-    private PixabayVideoService pixabayVideoService;
-
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(pixabayVideoService, "key", "test-api-key");
-    }
+    private PixabayMusicService pixabayMusicService;
 
     @Test
     @DisplayName("getBaseUrl - 기본 URL 반환")
-    void getBaseUrl_shouldReturnsPixabayVideoUrl() {
-        String baseUrl = pixabayVideoService.getBaseUrl();
+    void getBaseUrl_shouldReturnsPixabayMusicUrl() {
+        String baseUrl = pixabayMusicService.getBaseUrl();
         
-        assertThat(baseUrl).isEqualTo(ApiMetadata.PIXABAY_VIDEOS.getUrl());
+        assertThat(baseUrl).isEqualTo(ApiMetadata.PIXABAY_MUSIC.getUrl());
     }
 
     @Test
-    @DisplayName("getStorageKey - 스토리지 키 반환")
-    void getStorageKey_shouldReturnsPixabayVideoKey() {
-        String storageKey = pixabayVideoService.getStorageKey();
-        
-        assertThat(storageKey).isEqualTo(ApiMetadata.PIXABAY_VIDEOS.getKey());
-    }
-
-    @Test
-    @DisplayName("getFilters - 비디오 카테고리 목록 반환")
-    void getFilters_shouldReturnsVideoCategories() {
-        int currentCategorySize = 20;
-        List<String> filters = pixabayVideoService.getFilters();
+    @DisplayName("getFilters - 음악 장르 목록 반환")
+    void getFilters_shouldReturnsMusicGenres() {
+        int currentGenreSize = 32;
+        List<String> filters = pixabayMusicService.getFilters();
         
         assertAll(
-            () -> assertThat(filters).contains("backgrounds", "fashion", "nature", "science", "education"),
-            () -> assertThat(filters).hasSize(currentCategorySize)
+            () -> assertThat(filters).contains("electronic", "upbeat", "beats"),
+            () -> assertThat(filters).hasSize(currentGenreSize)
         );
+        
     }
 
     @Test
-    @DisplayName("createParameters - PixabayVideoRequest 생성")
-    void createParameters_shouldCreatesPixabayVideoRequest() {
-        PixabayVideoRequest request = pixabayVideoService.createParameters("backgrounds");
+    @DisplayName("createParameters - PixabayMusicRequest 생성")
+    void createParameters_shouldCreatesPixabayMusicRequest() {
+        PixabayMusicRequest request = pixabayMusicService.createParameters("electronic");
         
         assertAll(
             () -> assertThat(request).isNotNull(),
-            () -> assertThat(request.getKey()).isEqualTo("test-api-key"),
-            () -> assertThat(request.getCategory()).isEqualTo("backgrounds")
+            () -> assertThat(request.getGenre()).isEqualTo("electronic")
         );
     }
 
     @Test
-    @DisplayName("setDataStorage - 데이터 저장할 때 API는 20회 호출")
+    @DisplayName("setDataStorage - 데이터 저장할 때 API는 32회 호출")
     void setDataStorage_shouldCallApiManyTimes_whenInitializingData() {
         // Given
-        int callApiCount = 20;
-        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
+        int callApiCount = 32;
+        PixabayTestFixtures.setupRestTemplateToReturnSingleMusic(restTemplate, 1);
 
         // When
-        pixabayVideoService.setDataStorage();
+        pixabayMusicService.setDataStorage();
 
         // Then
         verify(restTemplate, times(callApiCount)).exchange(
@@ -120,10 +105,10 @@ class PixabayVideoServiceTest {
     @DisplayName("setDataStorage - API 호출 시 올바른 URI가 생성되어야 함")
     void setDataStorage_shouldBuildCorrectUri_whenCallingApi() {
         // Given
-        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
+        PixabayTestFixtures.setupRestTemplateToReturnSingleMusic(restTemplate, 1);
 
         // When
-        pixabayVideoService.setDataStorage();
+        pixabayMusicService.setDataStorage();
 
         // Then
         ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
@@ -137,21 +122,21 @@ class PixabayVideoServiceTest {
         );
         
         assertThat(capturedUrls).allMatch(
-            url -> url.contains(ApiMetadata.PIXABAY_VIDEOS.getUrl()));
+            url -> url.contains(ApiMetadata.PIXABAY_MUSIC.getUrl()));
     }
 
     @Test
     @DisplayName("setDataStorage - 데이터 fetch가 완료되면 스토리지에 데이터 저장")
     void setDataStorage_shouldStoreDataInStorage_whenDataFetchCompletes() {
         // Given
-        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
+        PixabayTestFixtures.setupRestTemplateToReturnSingleMusic(restTemplate, 1);
 
         // When
-        pixabayVideoService.setDataStorage();
+        pixabayMusicService.setDataStorage();
 
-        Optional<List<PixabayVideoResult>> storedData = DataStorage.getListData(
-            ApiMetadata.PIXABAY_VIDEOS.getKey(), 
-            PixabayVideoResult.class
+        Optional<List<PixabayMusicResult>> storedData = DataStorage.getListData(
+            ApiMetadata.PIXABAY_MUSIC.getKey(), 
+            PixabayMusicResult.class
         );
 
         // Then
@@ -164,7 +149,7 @@ class PixabayVideoServiceTest {
         
         assertAll(
             () -> assertThat(storedData).isPresent(),
-            () -> assertThat(storedData.get()).hasSize(20)
+            () -> assertThat(storedData.get()).hasSize(32)
         );
     }
 
@@ -180,29 +165,29 @@ class PixabayVideoServiceTest {
         )).thenThrow(new BadRequestException(ErrorCode.INVALID_REQUEST));
 
         // When, Then
-        assertThatThrownBy(() -> pixabayVideoService.setDataStorage())
+        assertThatThrownBy(() -> pixabayMusicService.setDataStorage())
             .isInstanceOf(BadRequestException.class)
             .hasMessageContaining("Invalid request");
     }
 
     @Test
     @DisplayName("addRandomElementToModel - 데이터가 있을 때 모델에 비디오 추가")
-    void addRandomElementToModel_shouldAddsVideoToModel_whenDataAvailable() {
+    void addRandomElementToModel_shouldAddsMusicToModel_whenDataAvailable() {
         // Given
-        PixabayVideoResult videoResult = PixabayTestFixtures.createDefaultVideoResult(1);
+        PixabayMusicResult musicResult = PixabayTestFixtures.createDefaultMusicResult(1);
 
         // When, Then
         try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
             mockedDataStorage.when(() -> DataStorage.getRandomElement(
-                ApiMetadata.PIXABAY_VIDEOS.getKey(),
-                PixabayVideoResult.class
-            )).thenReturn(Optional.of(videoResult));
+                ApiMetadata.PIXABAY_MUSIC.getKey(),
+                PixabayMusicResult.class
+            )).thenReturn(Optional.of(musicResult));
             
-            pixabayVideoService.addRandomElementToModel(model);
+            pixabayMusicService.addRandomElementToModel(model);
 
             verify(model).addAttribute(
-                ApiMetadata.PIXABAY_VIDEOS.getAttributeName(),
-                videoResult
+                ApiMetadata.PIXABAY_MUSIC.getAttributeName(),
+                musicResult
             );
         }
     }
@@ -213,12 +198,12 @@ class PixabayVideoServiceTest {
         // Given
         try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
             mockedDataStorage.when(() -> DataStorage.getRandomElement(
-                ApiMetadata.PIXABAY_VIDEOS.getKey(),
-                PixabayVideoResult.class
+                ApiMetadata.PIXABAY_MUSIC.getKey(),
+                PixabayMusicResult.class
             )).thenReturn(Optional.empty());
             
             // When
-            pixabayVideoService.addRandomElementToModel(model);
+            pixabayMusicService.addRandomElementToModel(model);
 
             // Then
             verify(model, never()).addAttribute(anyString(), any());

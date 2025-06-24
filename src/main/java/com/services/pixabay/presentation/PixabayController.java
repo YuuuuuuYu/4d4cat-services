@@ -23,7 +23,7 @@ public class PixabayController {
     }
 
     @GetMapping("/music")
-    public String musicPage(Model model) {
+    public String music(Model model) {
         pixabayMusicService.addRandomElementToModel(model);
         return "music";
     }
