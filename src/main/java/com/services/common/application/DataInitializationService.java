@@ -14,8 +14,9 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.services.common.application.dto.ParameterBuilder;
-import com.services.common.exception.BadRequestException;
 import com.services.common.exception.ErrorCode;
+import com.services.common.exception.InternalServerException;
+import com.services.common.exception.NotFoundException;
 import com.services.common.infrastructure.DataStorage;
 import com.services.common.presentation.dto.ApiResponse;
 
@@ -45,8 +46,10 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
         try {
             P params = createParameters(filter);
             return getApiResponseBody(getResponseTypeReference(), params);
+        } catch (NotFoundException e) {
+            return null;
         } catch (Exception e) {
-            throw new BadRequestException(ErrorCode.INVALID_REQUEST);
+            throw new InternalServerException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 

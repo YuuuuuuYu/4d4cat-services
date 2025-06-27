@@ -22,6 +22,12 @@ public class CustomResponseErrorHandler implements ResponseErrorHandler {
     @Override
     public void handleError(URI url, HttpMethod method, ClientHttpResponse response) throws IOException {
         String errorBody = StreamUtils.copyToString(response.getBody(), StandardCharsets.UTF_8);
+        
+        if (response.getStatusCode().value() == 404) {
+            log.warn("404 Not Found for URL: {}, Method: {}, Error Body: {}", url, method, errorBody);
+            throw new NotFoundException(ErrorCode.DATA_NOT_FOUND);
+        }
+        
         log.error("Error occurred while calling URL: {}, Method: {}, Status Code: {}, Error Body: {}",
                 url, method, response.getStatusCode(), errorBody);
         throw new InternalServerException(ErrorCode.INTERNAL_SERVER_ERROR);
