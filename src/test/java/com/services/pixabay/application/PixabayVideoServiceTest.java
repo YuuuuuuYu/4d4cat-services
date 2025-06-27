@@ -34,6 +34,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.services.common.exception.BadRequestException;
 import com.services.common.exception.ErrorCode;
+import com.services.common.exception.NotFoundException;
 import com.services.common.infrastructure.ApiMetadata;
 import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.request.PixabayVideoRequest;
@@ -169,20 +170,29 @@ class PixabayVideoServiceTest {
     }
 
     @Test
-    @DisplayName("setDataStorage - API 호출이 실패하면 BadRequestException을 던진다")
-    void setDataStorage_shouldThrowBadRequestException_whenApiCallFails() {
+    @DisplayName("setDataStorage - NotFoundException(404) 발생시 해당 데이터를 스킵하고 빈 리스트 저장")
+    void setDataStorage_shouldSkipFailedRequests_whenNotFoundOccurs() {
         // Given
         when(restTemplate.exchange(
             anyString(),
             eq(HttpMethod.GET),
             isNull(),
             any(ParameterizedTypeReference.class)
-        )).thenThrow(new BadRequestException(ErrorCode.INVALID_REQUEST));
+        )).thenThrow(new NotFoundException(ErrorCode.DATA_NOT_FOUND));
 
-        // When, Then
-        assertThatThrownBy(() -> pixabayVideoService.setDataStorage())
-            .isInstanceOf(BadRequestException.class)
-            .hasMessageContaining("Invalid request");
+        // When
+        pixabayVideoService.setDataStorage();
+
+        // Then
+        Optional<List<PixabayVideoResult>> storedData = DataStorage.getListData(
+            ApiMetadata.PIXABAY_VIDEOS.getKey(), 
+            PixabayVideoResult.class
+        );
+        
+        assertAll(
+            () -> assertThat(storedData).isPresent(),
+            () -> assertThat(storedData.get()).isEmpty()
+        );
     }
 
     @Test

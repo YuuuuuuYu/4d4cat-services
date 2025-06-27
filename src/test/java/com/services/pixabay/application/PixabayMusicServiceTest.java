@@ -1,7 +1,6 @@
 package com.services.pixabay.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -30,8 +29,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.ui.Model;
 import org.springframework.web.client.RestTemplate;
 
-import com.services.common.exception.BadRequestException;
 import com.services.common.exception.ErrorCode;
+import com.services.common.exception.NotFoundException;
 import com.services.common.infrastructure.ApiMetadata;
 import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.request.PixabayMusicRequest;
@@ -61,7 +60,7 @@ class PixabayMusicServiceTest {
     @Test
     @DisplayName("getFilters - 음악 장르 목록 반환")
     void getFilters_shouldReturnsMusicGenres() {
-        int currentGenreSize = 32;
+        int currentGenreSize = 129;
         List<String> filters = pixabayMusicService.getFilters();
         
         assertAll(
@@ -83,10 +82,10 @@ class PixabayMusicServiceTest {
     }
 
     @Test
-    @DisplayName("setDataStorage - 데이터 저장할 때 API는 32회 호출")
+    @DisplayName("setDataStorage - 데이터 저장할 때 API는 129회 호출")
     void setDataStorage_shouldCallApiManyTimes_whenInitializingData() {
         // Given
-        int callApiCount = 32;
+        int callApiCount = 129;
         PixabayTestFixtures.setupRestTemplateToReturnSingleMusic(restTemplate, 1);
 
         // When
@@ -149,25 +148,34 @@ class PixabayMusicServiceTest {
         
         assertAll(
             () -> assertThat(storedData).isPresent(),
-            () -> assertThat(storedData.get()).hasSize(32)
+            () -> assertThat(storedData.get()).hasSize(129)
         );
     }
 
     @Test
-    @DisplayName("setDataStorage - API 호출이 실패하면 BadRequestException을 던진다")
-    void setDataStorage_shouldThrowBadRequestException_whenApiCallFails() {
+    @DisplayName("setDataStorage - NotFoundException(404) 발생시 해당 데이터를 스킵하고 빈 리스트 저장")
+    void setDataStorage_shouldSkipFailedRequests_whenNotFoundOccurs() {
         // Given
         when(restTemplate.exchange(
             anyString(),
             eq(HttpMethod.GET),
             isNull(),
             any(ParameterizedTypeReference.class)
-        )).thenThrow(new BadRequestException(ErrorCode.INVALID_REQUEST));
+        )).thenThrow(new NotFoundException(ErrorCode.DATA_NOT_FOUND));
 
-        // When, Then
-        assertThatThrownBy(() -> pixabayMusicService.setDataStorage())
-            .isInstanceOf(BadRequestException.class)
-            .hasMessageContaining("Invalid request");
+        // When
+        pixabayMusicService.setDataStorage();
+
+        // Then
+        Optional<List<PixabayMusicResult>> storedData = DataStorage.getListData(
+            ApiMetadata.PIXABAY_MUSIC.getKey(), 
+            PixabayMusicResult.class
+        );
+        
+        assertAll(
+            () -> assertThat(storedData).isPresent(),
+            () -> assertThat(storedData.get()).isEmpty()
+        );
     }
 
     @Test
