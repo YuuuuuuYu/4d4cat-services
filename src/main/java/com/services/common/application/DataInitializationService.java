@@ -1,32 +1,42 @@
 package com.services.common.application;
 
-import java.util.List;
-import java.util.Objects;
-
+import com.services.common.application.dto.ParameterBuilder;
+import com.services.common.application.exception.BadGatewayException;
+import com.services.common.application.exception.ErrorCode;
+import com.services.common.application.exception.InternalServerException;
+import com.services.common.application.exception.NotFoundException;
+import com.services.common.infrastructure.DataStorage;
+import com.services.common.presentation.dto.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.ui.Model;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import com.services.common.application.dto.ParameterBuilder;
-import com.services.common.exception.ErrorCode;
-import com.services.common.exception.InternalServerException;
-import com.services.common.exception.NotFoundException;
-import com.services.common.infrastructure.DataStorage;
-import com.services.common.presentation.dto.ApiResponse;
-
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public abstract class DataInitializationService<T, P extends ParameterBuilder, R extends ApiResponse<T>> {
 
+    private final Executor executor;
     protected final RestTemplate restTemplate;
+
+    public DataInitializationService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+        this.executor = Executors.newFixedThreadPool(10);
+    }
 
     @EventListener(ApplicationReadyEvent.class)
     public void setDataStorage() {
@@ -34,20 +44,37 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
         DataStorage.setData(getStorageKey(), dataList);
     }
 
-    private List<T> getFetchDataList() {
-        return getFilters().stream()
-                .map(this::fetchDataForFilter)
-                .filter(Objects::nonNull)
-                .flatMap(response -> response.getItems().stream())
+    public List<T> getFetchDataList() {
+        List<String> filters = getFilters();
+        
+        // 병렬로 API 호출 실행
+        List<CompletableFuture<Optional<R>>> futures = filters.stream()
+                .map(filter -> CompletableFuture
+                        .supplyAsync(() -> fetchDataForFilter(filter), executor)
+                        .exceptionally(throwable -> {
+                            log.warn("Failed to fetch data for filter '{}': {}", filter, throwable.getMessage());
+                            return Optional.empty();
+                        }))
                 .toList();
+        
+        // 모든 CompletableFuture 완료 대기 및 결과 수집
+        return futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .flatMap(response -> response.getItems().stream())
+                .collect(Collectors.toList());
     }
 
-    private R fetchDataForFilter(String filter) {
+    private Optional<R> fetchDataForFilter(String filter) {
         try {
             P params = createParameters(filter);
-            return getApiResponseBody(getResponseTypeReference(), params);
+            R result = getApiResponseBody(getResponseTypeReference(), params);
+            return Optional.ofNullable(result);
         } catch (NotFoundException e) {
-            return null;
+            return Optional.empty();
+        } catch (BadGatewayException e) {
+            return Optional.empty();
         } catch (Exception e) {
             throw new InternalServerException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
@@ -58,7 +85,7 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
         ResponseEntity<R> response = restTemplate.exchange(
                 builder.toUriString(),
                 HttpMethod.GET,
-                null,
+                HttpEntity.EMPTY,
                 responseType
         );
         return response.getBody();
@@ -66,7 +93,7 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
 
     private UriComponentsBuilder getUriBuilder(P params) {
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(getBaseUrl());
-        if (params != null) {
+        if (Objects.nonNull(params)) {
             params.appendToBuilder(builder);
         }
         return builder;
@@ -77,5 +104,5 @@ public abstract class DataInitializationService<T, P extends ParameterBuilder, R
     protected abstract List<String> getFilters();
     protected abstract P createParameters(String filter);
     protected abstract ParameterizedTypeReference<R> getResponseTypeReference();
-    public abstract void addRandomElementToModel(Model model);
+    protected abstract T getRandomElement();
 }
