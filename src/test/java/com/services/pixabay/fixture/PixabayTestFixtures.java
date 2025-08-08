@@ -104,4 +104,12 @@ public class PixabayTestFixtures {
         DataStorage.setData(videoKey, videoList);
         DataStorage.setData(musicKey, musicList);
     }
+
+    public static CustomPixabayMusicResponse createMusicResponse(List<PixabayMusicResult> musicResults) {
+        return new CustomPixabayMusicResponse("query", "1", String.valueOf(musicResults.size()), musicResults);
+    }
+
+    public static PixabayResponse createVideoResponse(List<PixabayVideoResult> videoResults) {
+        return new PixabayResponse(String.valueOf(videoResults.size()), String.valueOf(videoResults.size()), videoResults);
+    }
 }

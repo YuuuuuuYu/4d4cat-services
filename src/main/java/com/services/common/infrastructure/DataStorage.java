@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.services.common.application.exception.ErrorCode;
+import com.services.common.application.exception.NotFoundException;
 import com.services.common.util.RandomUtils;
 
 public class DataStorage {
@@ -31,6 +33,11 @@ public class DataStorage {
         return getListData(key, elementType)
                 .filter(list -> !list.isEmpty())
                 .map(list -> list.get(RandomUtils.generateRandomInt(list.size())));
+    }
+    
+    public static <T> T getRandomElement(String key, Class<T> elementType, ErrorCode errorCode) {
+        return getRandomElement(key, elementType)
+                .orElseThrow(() -> new NotFoundException(errorCode));
     }
 
     public static void clear() {

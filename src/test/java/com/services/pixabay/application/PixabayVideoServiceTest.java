@@ -6,10 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,28 +27,27 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.ui.Model;
 import org.springframework.web.client.RestTemplate;
 
-import com.services.common.exception.BadRequestException;
-import com.services.common.exception.ErrorCode;
-import com.services.common.exception.NotFoundException;
+import com.services.common.application.exception.BadGatewayException;
+import com.services.common.application.exception.ErrorCode;
+import com.services.common.application.exception.NotFoundException;
 import com.services.common.infrastructure.ApiMetadata;
 import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.request.PixabayVideoRequest;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
 import com.services.pixabay.fixture.PixabayTestFixtures;
+import com.services.pixabay.presentation.dto.PixabayResponse;
 
 @ExtendWith(MockitoExtension.class)
 class PixabayVideoServiceTest {
 
     @Mock
     private RestTemplate restTemplate;
-
-    @Mock
-    private Model model;
 
     @InjectMocks
     private PixabayVideoService pixabayVideoService;
@@ -112,7 +111,7 @@ class PixabayVideoServiceTest {
         verify(restTemplate, times(callApiCount)).exchange(
             anyString(),
             eq(HttpMethod.GET),
-            isNull(),
+            any(HttpEntity.class),
             any(ParameterizedTypeReference.class)
         );
     }
@@ -133,7 +132,7 @@ class PixabayVideoServiceTest {
         verify(restTemplate, atLeastOnce()).exchange(
             urlCaptor.capture(),
             eq(HttpMethod.GET),
-            isNull(),
+            any(HttpEntity.class),
             any(ParameterizedTypeReference.class)
         );
         
@@ -145,7 +144,16 @@ class PixabayVideoServiceTest {
     @DisplayName("setDataStorage - 데이터 fetch가 완료되면 스토리지에 데이터 저장")
     void setDataStorage_shouldStoreDataInStorage_whenDataFetchCompletes() {
         // Given
-        PixabayTestFixtures.setupRestTemplateToReturnSingleVideo(restTemplate, 1);
+        PixabayResponse mockResponse = PixabayTestFixtures.createVideoResponse(
+            List.of(PixabayTestFixtures.createDefaultVideoResult(1))
+        );
+        
+        when(restTemplate.exchange(
+            anyString(),
+            eq(HttpMethod.GET),
+            any(HttpEntity.class),
+            any(ParameterizedTypeReference.class)
+        )).thenReturn(ResponseEntity.ok(mockResponse));
 
         // When
         pixabayVideoService.setDataStorage();
@@ -159,79 +167,110 @@ class PixabayVideoServiceTest {
         verify(restTemplate, atLeastOnce()).exchange(
             anyString(),
             eq(HttpMethod.GET),
-            isNull(),
+            any(HttpEntity.class),
             any(ParameterizedTypeReference.class)
         );
         
         assertAll(
             () -> assertThat(storedData).isPresent(),
-            () -> assertThat(storedData.get()).hasSize(20)
+            () -> assertThat(storedData.get()).hasSize(20) // 20개 카테고리 각각에서 1개씩 총 20개
         );
     }
 
     @Test
-    @DisplayName("setDataStorage - NotFoundException(404) 발생시 해당 데이터를 스킵하고 빈 리스트 저장")
-    void setDataStorage_shouldSkipFailedRequests_whenNotFoundOccurs() {
+    @DisplayName("setDataStorage - NotFoundException(404) 발생시 해당 필터만 제외하고 계속 진행")
+    void setDataStorage_shouldContinueWithOtherFilters_whenNotFoundOccurs() {
         // Given
+        PixabayResponse successResponse = PixabayTestFixtures.createVideoResponse(
+            List.of(PixabayTestFixtures.createDefaultVideoResult(1))
+        );
+
         when(restTemplate.exchange(
-            anyString(),
+            contains("backgrounds"),
             eq(HttpMethod.GET),
-            isNull(),
+            any(HttpEntity.class),
+            any(ParameterizedTypeReference.class)
+        )).thenReturn(ResponseEntity.ok(successResponse));
+        
+        when(restTemplate.exchange(
+            contains("fashion"),
+            eq(HttpMethod.GET),
+            any(HttpEntity.class),
             any(ParameterizedTypeReference.class)
         )).thenThrow(new NotFoundException(ErrorCode.DATA_NOT_FOUND));
 
         // When
         pixabayVideoService.setDataStorage();
 
-        // Then
-        Optional<List<PixabayVideoResult>> storedData = DataStorage.getListData(
-            ApiMetadata.PIXABAY_VIDEOS.getKey(), 
-            PixabayVideoResult.class
-        );
-        
-        assertAll(
-            () -> assertThat(storedData).isPresent(),
-            () -> assertThat(storedData.get()).isEmpty()
-        );
+        // Then - exceptionally()로 인해 예외가 발생하지 않고 성공한 데이터만으로 초기화됨
+        verify(restTemplate, atLeast(2)).exchange(anyString(), eq(HttpMethod.GET), any(), any(ParameterizedTypeReference.class));
     }
 
     @Test
-    @DisplayName("addRandomElementToModel - 데이터가 있을 때 모델에 비디오 추가")
-    void addRandomElementToModel_shouldAddsVideoToModel_whenDataAvailable() {
+    @DisplayName("setDataStorage - BadGatewayException(502) 발생시 해당 필터만 제외하고 계속 진행")
+    void setDataStorage_shouldContinueWithOtherFilters_whenBadGatewayOccurs() {
+        // Given
+        PixabayResponse successResponse = PixabayTestFixtures.createVideoResponse(
+            List.of(PixabayTestFixtures.createDefaultVideoResult(1))
+        );
+
+        when(restTemplate.exchange(
+            contains("backgrounds"),
+            eq(HttpMethod.GET),
+            any(HttpEntity.class),
+            any(ParameterizedTypeReference.class)
+        )).thenReturn(ResponseEntity.ok(successResponse));
+        
+        when(restTemplate.exchange(
+            contains("fashion"),
+            eq(HttpMethod.GET),
+            any(HttpEntity.class),
+            any(ParameterizedTypeReference.class)
+        )).thenThrow(new BadGatewayException(ErrorCode.BAD_GATEWAY));
+
+        // When
+        pixabayVideoService.setDataStorage();
+
+        // Then - exceptionally()로 인해 예외가 발생하지 않고 성공한 데이터만으로 초기화됨
+        verify(restTemplate, atLeast(2)).exchange(anyString(), eq(HttpMethod.GET), any(), any(ParameterizedTypeReference.class));
+    }
+
+    @Test
+    @DisplayName("getRandomElement - 데이터가 있을 때 비디오 데이터 반환")
+    void getRandomElement_shouldReturnsVideoData_whenDataAvailable() {
         // Given
         PixabayVideoResult videoResult = PixabayTestFixtures.createDefaultVideoResult(1);
 
-        // When, Then
         try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
             mockedDataStorage.when(() -> DataStorage.getRandomElement(
                 ApiMetadata.PIXABAY_VIDEOS.getKey(),
-                PixabayVideoResult.class
-            )).thenReturn(Optional.of(videoResult));
+                PixabayVideoResult.class,
+                ErrorCode.PIXABAY_VIDEO_NOT_FOUND
+            )).thenReturn(videoResult);
             
-            pixabayVideoService.addRandomElementToModel(model);
+            // When
+            PixabayVideoResult result = pixabayVideoService.getRandomElement();
 
-            verify(model).addAttribute(
-                ApiMetadata.PIXABAY_VIDEOS.getAttributeName(),
-                videoResult
-            );
+            // Then
+            assertThat(result).isEqualTo(videoResult);
         }
     }
 
     @Test
-    @DisplayName("addRandomElementToModel - 데이터가 없을 경우 모델에 추가하지 않음")
-    void addRandomElementToModel_shouldNotAddsVideoToModel_whenDataNotFound() {
+    @DisplayName("getRandomElement - 데이터가 없을 때 NotFoundException 발생")
+    void getRandomElement_shouldThrowNotFoundException_whenDataNotFound() {
         // Given
         try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
             mockedDataStorage.when(() -> DataStorage.getRandomElement(
                 ApiMetadata.PIXABAY_VIDEOS.getKey(),
-                PixabayVideoResult.class
-            )).thenReturn(Optional.empty());
+                PixabayVideoResult.class,
+                ErrorCode.PIXABAY_VIDEO_NOT_FOUND
+            )).thenThrow(new NotFoundException(ErrorCode.PIXABAY_VIDEO_NOT_FOUND));
             
-            // When
-            pixabayVideoService.addRandomElementToModel(model);
-
-            // Then
-            verify(model, never()).addAttribute(anyString(), any());
+            // When & Then
+            assertThatThrownBy(() -> pixabayVideoService.getRandomElement())
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage(ErrorCode.PIXABAY_VIDEO_NOT_FOUND.getMessage());
         }
     }
 }

@@ -1,10 +1,10 @@
-package com.services.common.exception;
+package com.services.common.application.exception;
 
-public class NotFoundException extends RuntimeException {
+public class BadGatewayException extends RuntimeException{
 
     private final ErrorCode errorCode;
 
-    public NotFoundException(ErrorCode errorCode) {
+    public BadGatewayException(ErrorCode errorCode) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
@@ -12,5 +12,4 @@ public class NotFoundException extends RuntimeException {
     public ErrorCode getErrorCode() {
         return errorCode;
     }
-    
 }

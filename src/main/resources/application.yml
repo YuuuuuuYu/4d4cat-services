@@ -1,10 +1,15 @@
 server:
   port: 8080
 
-spring:
-  thymeleaf:
-    prefix: classpath:/templates/
-    suffix: .html
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /api-docs/swagger-ui.html
 
 pixabay:
   key: ${PIXABAY_KEY}
+
+logging:
+  level:
+    com.services: DEBUG

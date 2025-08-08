@@ -1,10 +1,10 @@
-package com.services.common.exception;
+package com.services.common.application.exception;
 
-public class BadRequestException extends RuntimeException {
+public class NotFoundException extends RuntimeException {
 
     private final ErrorCode errorCode;
 
-    public BadRequestException(ErrorCode errorCode) {
+    public NotFoundException(ErrorCode errorCode) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }
