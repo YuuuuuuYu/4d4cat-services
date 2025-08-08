@@ -10,6 +10,9 @@ springdoc:
 pixabay:
   key: ${PIXABAY_KEY}
 
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
 logging:
   level:
-    com.services: DEBUG
+    com.services: INFO
