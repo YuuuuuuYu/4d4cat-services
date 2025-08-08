@@ -1,4 +1,4 @@
-package com.services.common.exception;
+package com.services.common.application.exception;
 
 public class NotFoundException extends RuntimeException {
 
