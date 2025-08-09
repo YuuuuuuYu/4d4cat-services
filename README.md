@@ -116,7 +116,3 @@ Cross-cutting Concerns (AOP Aspects, Utilities)
 - OpenAPI 문서화 개선
 - API Key 관리 및 보안 강화
 - 실시간 데이터 업데이트
-
-## 📝 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
