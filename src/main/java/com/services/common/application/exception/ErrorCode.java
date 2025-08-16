@@ -19,6 +19,10 @@ public enum ErrorCode {
 
     // pixabay music
     PIXABAY_MUSIC_NOT_FOUND("PM1000", "PixabayMusic data not found"),
+
+    // message
+    MESSAGE_NO_CONTENT("MS0204", "No message content"),
+    MESSAGE_INVALID_REQUEST("MS0400", "Invalid message content"),
     ;
 
     private final String code;
