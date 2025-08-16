@@ -13,7 +13,11 @@
 - 🎼 32개 장르의 다양한 음악 (electronic, upbeat, beats, ambient, rock, folk 등)
 - 🖼️ 썸네일 이미지 지원
 
-### 2. Keyword
+### 2. Message
+- 💬 마지막 메시지 저장 및 조회 기능
+- 📝 메시지 유효성 검증 (빈 문자열, null 체크)
+
+### 3. Keyword
 #### 실시간 트렌드
 - 🔍 구글 트렌드를 이용한 실시간 검색어 제공
 
@@ -34,6 +38,8 @@
 | GET | `/` | 서비스 상태 확인 | `BaseResponse<String>` |
 | GET | `/video` | 랜덤 비디오 반환 | `BaseResponse<PixabayVideoResult>` |  
 | GET | `/music` | 랜덤 음악 반환 | `BaseResponse<PixabayMusicResult>` |
+| GET | `/message` | 저장된 마지막 메시지 조회 | `String` |
+| POST | `/message` | 새로운 메시지 저장 | `200 OK` |
 
 ### 응답 형식 예시
 
