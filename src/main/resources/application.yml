@@ -14,6 +14,10 @@ management:
     beans:
       cache:
         time-to-live: "10s"
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 springdoc:
   api-docs:
