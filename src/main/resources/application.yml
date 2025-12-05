@@ -1,6 +1,20 @@
 server:
   port: 8080
 
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus"
+      cors:
+        allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080}
+        allowed-methods: "GET,POST"
+    beans:
+      cache:
+        time-to-live: "10s"
+
 springdoc:
   api-docs:
     path: /v3/api-docs
