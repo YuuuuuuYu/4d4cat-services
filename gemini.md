@@ -2,15 +2,16 @@
 
 이 문서는 프로젝트의 파일 구조, 기술 스택, 개발 환경 및 도메인별 워크플로우에 대한 요약입니다.
 
-## 1. 기술 스택
+## 1. 기술 스택 및 환경
 
 -   **프로그래밍 언어:** Java 21
--   **프레임워크:** Spring Boot 3.4.4
+-   **프레임워크:** Spring Boot 3.4.12
 -   **빌드 도구:** Gradle
 -   **주요 라이브러리:**
     -   `Spring Web`: REST API 및 웹 기능 개발
     -   `Spring AOP`: 관점 지향 프로그래밍 (로깅 등 공통 기능)
-    -   `WebClient`: 비동기 HTTP 통신 (Discord 웹훅)
+    -   `Spring WebFlux (WebClient)`: 비동기 HTTP 통신 (Discord 웹훅)
+    -   `Apache Commons Lang`: `3.18.0`
     -   `SpringDoc OpenAPI`: API 문서 자동화 (Swagger UI)
     -   `Lombok`: 보일러플레이트 코드 감소
     -   `MessageSource`: 메시지 중앙 관리 (YAML 기반)
@@ -20,13 +21,13 @@
 
 ## 2. 개발 환경 (`build.gradle` 기반)
 
--   **Java 버전:** `21`
--   **프레임워크:** `Spring Boot 3.4.4`
 -   **의존성 관리:** `Gradle` 및 `io.spring.dependency-management` 플러그인
 -   **주요 의존성:**
     -   `spring-boot-starter-web`: RESTful API 개발을 위한 핵심 모듈
     -   `spring-boot-starter-aop`: AOP(관점 지향 프로그래밍) 지원
-    -   `springdoc-openapi-starter-webmvc-ui:2.8.9`: API 문서를 위한 Swagger UI 통합
+    -   `spring-boot-starter-webflux`: `WebClient` 사용을 위한 비동기 웹 스택
+    -   `springdoc-openapi-starter-webmvc-ui:2.8.14`: API 문서를 위한 Swagger UI 통합
+    -   `net.rakugakibox.util:yaml-resource-bundle:1.1`: YAML 기반 `MessageSource` 지원
     -   `lombok`: 어노테이션 기반으로 상용구 코드를 자동 생성
     -   `spring-boot-devtools`: 개발 시 코드 변경 사항 자동 재시작 지원
     -   `spring-boot-starter-test`: JUnit 5 기반의 테스트 환경 지원
@@ -59,8 +60,8 @@
 
 -   **목적:** 여러 도메인에서 공통으로 사용되는 기능을 제공합니다.
 -   **주요 기능:**
-    -   **`DataInitializationService`**: 애플리케이션 시작 시 `DataStorage`에 초기 데이터를 로드합니다. 이는 `DataInitializationAspect`에 의해 트리거됩니다. (`Message` 도메인과는 직접적인 관련은 없습니다.)
-    -   **`DataInitializationAspect`**: `DataInitializationService`의 실행 전후를 감싸, 실행 시간 측정 및 결과를 Discord 웹훅으로 알리는 AOP 로직을 담당합니다.
+    -   **`DataInitializationService`**: 애플리케이션 시작 시(`@EventListener(ApplicationReadyEvent.class)`) 외부 API로부터 데이터를 병렬로 가져와 `DataStorage`에 로드합니다. `CompletableFuture`와 `exceptionally`를 사용하여 개별 API 호출 실패가 전체 초기화 프로세스를 중단시키지 않도록 내결함성을 갖추었습니다.
+    -   **`DataInitializationAspect`**: `DataInitializationService`의 실행을 감싸, 실행 시간 측정 및 성공/실패 결과를 Discord 웹훅으로 알립니다. 특히 예외 발생 시, `MessageSource`를 통해 `ErrorCode`에 맞는 상세한 에러 내용을 포함하여 전송하며, 예측하지 못한 예외는 `INTERNAL_SERVER_ERROR`로 처리하여 알립니다.
     -   **`GlobalExceptionHandler`**: 애플리케이션 전역에서 발생하는 예외(e.g., `NotFoundException`, `BadRequestException`)를 처리합니다. `MessageSource`를 사용하여 에러 코드에 맞는 메시지를 조회하고, 일관된 형식의 에러 응답(`BaseResponse`)을 반환합니다.
     -   **`RestTemplateConfig`**: 외부 API 통신을 위한 `RestTemplate` 빈을 설정하고, 커스텀 에러 핸들러(`CustomResponseErrorHandler`)를 등록합니다.
     -   **`DiscordWebhookService`**: `WebClient`를 사용하여 Discord 웹훅으로 비동기 메시지를 전송하는 로직을 담당합니다.
