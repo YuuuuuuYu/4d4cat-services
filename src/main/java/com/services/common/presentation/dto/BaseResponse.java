@@ -1,6 +1,5 @@
 package com.services.common.presentation.dto;
 
-import com.services.common.application.exception.ErrorCode;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
@@ -34,8 +33,7 @@ public record BaseResponse<T>(
         return new BaseResponse<>(status.value(), data, null, LocalDateTime.now());
     }
 
-    public static <T> BaseResponse<T> of(HttpStatus status, ErrorCode errorCode) {
-        ErrorResponse errorResponse = new ErrorResponse(errorCode.getCode(), errorCode.getMessage());
-        return new BaseResponse<>(status.value(), null, errorResponse, LocalDateTime.now());
+    public static <T> BaseResponse<T> of(HttpStatus status, String code, String message) {
+        return new BaseResponse<>(status.value(), null, new ErrorResponse(code, message), LocalDateTime.now());
     }
 }
