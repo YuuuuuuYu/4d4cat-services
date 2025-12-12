@@ -28,7 +28,7 @@ Angular Commit Convention을 따릅니다.
 
 - **테스트 클래스명**: `[테스트 대상 클래스명]Test` (예: `PixabayControllerTest`)
 - **테스트 메소드명**: `[시나리오]_[예상 결과]` 형식의 스네이크 케이스를 사용합니다. (예: `getVideo_shouldReturnVideoData`)
-- **`@DisplayName`**: 각 테스트 메소드에 시나리오를 한글로 명확하게 설명합니다.
+- **`@DisplayName`**: 각 테스트 메소드에 시나리오를 한글로 명확하게 설명합니다. (예: `GET /video - 비디오 데이터 성공 응답`)
 - **Given-When-Then 구조**: `// Given`, `// When`, `// Then` 주석으로 테스트 단계를 명확히 구분합니다.
 
 ### 2.2. 계층별 테스트 전략

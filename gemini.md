@@ -10,10 +10,13 @@
 -   **주요 라이브러리:**
     -   `Spring Web`: REST API 및 웹 기능 개발
     -   `Spring AOP`: 관점 지향 프로그래밍 (로깅 등 공통 기능)
+    -   `WebClient`: 비동기 HTTP 통신 (Discord 웹훅)
     -   `SpringDoc OpenAPI`: API 문서 자동화 (Swagger UI)
     -   `Lombok`: 보일러플레이트 코드 감소
+    -   `MessageSource`: 메시지 중앙 관리 (YAML 기반)
 -   **외부 서비스:**
     -   **Pixabay API:** Pixabay와의 연동을 통해 비디오 및 음악 데이터를 가져옵니다. `PIXABAY_KEY` 환경 변수를 통해 API 키를 설정해야 합니다.
+    -   **Discord Webhook:** 애플리케이션의 주요 이벤트(데이터 초기화 성공/실패 등)를 실시간으로 알립니다. `DISCORD_WEBHOOK_URL` 환경 변수를 통해 웹훅 URL을 설정해야 합니다.
 
 ## 2. 개발 환경 (`build.gradle` 기반)
 
@@ -57,9 +60,12 @@
 -   **목적:** 여러 도메인에서 공통으로 사용되는 기능을 제공합니다.
 -   **주요 기능:**
     -   **`DataInitializationService`**: 애플리케이션 시작 시 `DataStorage`에 초기 데이터를 로드합니다. 이는 `DataInitializationAspect`에 의해 트리거됩니다. (`Message` 도메인과는 직접적인 관련은 없습니다.)
-    -   **`GlobalExceptionHandler`**: 애플리케이션 전역에서 발생하는 예외(e.g., `NotFoundException`, `BadRequestException`)를 처리하여 일관된 형식의 에러 응답(`ApiResponse`)을 반환합니다.
+    -   **`DataInitializationAspect`**: `DataInitializationService`의 실행 전후를 감싸, 실행 시간 측정 및 결과를 Discord 웹훅으로 알리는 AOP 로직을 담당합니다.
+    -   **`GlobalExceptionHandler`**: 애플리케이션 전역에서 발생하는 예외(e.g., `NotFoundException`, `BadRequestException`)를 처리합니다. `MessageSource`를 사용하여 에러 코드에 맞는 메시지를 조회하고, 일관된 형식의 에러 응답(`BaseResponse`)을 반환합니다.
     -   **`RestTemplateConfig`**: 외부 API 통신을 위한 `RestTemplate` 빈을 설정하고, 커스텀 에러 핸들러(`CustomResponseErrorHandler`)를 등록합니다.
+    -   **`DiscordWebhookService`**: `WebClient`를 사용하여 Discord 웹훅으로 비동기 메시지를 전송하는 로직을 담당합니다.
     -   **`DataStorage`**: API 응답 등에서 필요한 데이터를 임시로 저장하는 인메모리 저장소입니다.
+    -   **`MessageSourceConfig`**: `messages.yml` 파일을 읽어 `MessageSource` 빈을 설정합니다. 이를 통해 애플리케이션의 모든 메시지를 중앙에서 관리할 수 있습니다.
 
 ## 4. 빌드 및 배포 (CI/CD)
 
@@ -100,7 +106,7 @@
 -   **전략 (Strategy) 패턴**: `ParameterBuilder` 인터페이스가 'URI 파라미터를 추가하는 행위'를 추상화(전략)합니다. `PixabayVideoRequest`, `PixabayMusicRequest` 등 각기 다른 DTO가 이 인터페이스를 구현하여, API별로 다른 파라미터 생성 로직을 캡슐화하고 교체 가능하도록 만듭니다.
 -   **싱글턴 (Singleton) 패턴**: `DataStorage` 클래스는 애플리케이션 전역에서 사용되는 데이터 캐시를 단일 인스턴스로 관리하여 데이터 일관성을 보장하고 메모리 사용을 최적화합니다.
 -   **의존성 주입 (Dependency Injection)**: Spring의 `@RequiredArgsConstructor` 등을 통해 객체 간의 의존성을 외부(Spring 컨테이너)에서 주입받아 결합도를 낮춥니다.
--   **AOP (Aspect-Oriented Programming)**: `DataInitializationAspect`와 같이 로깅, 성능 측정 등 여러 모듈에 걸쳐 사용되는 공통 기능(Cross-cutting concerns)을 분리하여 관리합니다.
+-   **AOP (Aspect-Oriented Programming)**: `DataInitializationAspect`와 같이 로깅, 성능 측정, 이벤트 알림 등 여러 모듈에 걸쳐 사용되는 공통 기능(Cross-cutting concerns)을 분리하여 관리합니다.
 -   **DTO (Data Transfer Object)**: 계층 간 데이터 전송을 위해 `PixabayResponse`, `MessageRequest`와 같은 DTO를 사용하여 데이터 전송을 표준화하고 불필요한 정보 노출을 방지합니다.
 
 ### 5.3. 코드 스타일 규칙
