@@ -8,6 +8,6 @@ import lombok.Builder;
 @AllArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Footer {
-    private String text;
-    private String icon_url;
+  private String text;
+  private String icon_url;
 }

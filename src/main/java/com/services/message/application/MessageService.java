@@ -6,38 +6,37 @@ import com.services.message.presentation.dto.MessageRequest;
 import com.services.message.util.WebUtils;
 import com.services.message.validator.MessageValidator;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class MessageService {
 
-    private static final String LAST_MESSAGE = "lastMessage";
+  private static final String LAST_MESSAGE = "lastMessage";
 
-    private final Map<String, Message> messageStore = new ConcurrentHashMap<>();
+  private final Map<String, Message> messageStore = new ConcurrentHashMap<>();
 
-    public void saveMessage(MessageRequest body, HttpServletRequest request) {
-        if (MessageValidator.isValid(body.getContent())) {
-            createAndStoreMessage(body.getContent(), request);
-        } else {
-            throw new BadRequestException(ErrorCode.MESSAGE_INVALID_REQUEST);
-        }
+  public void saveMessage(MessageRequest body, HttpServletRequest request) {
+    if (MessageValidator.isValid(body.getContent())) {
+      createAndStoreMessage(body.getContent(), request);
+    } else {
+      throw new BadRequestException(ErrorCode.MESSAGE_INVALID_REQUEST);
     }
+  }
 
-    private void createAndStoreMessage(String content, HttpServletRequest request) {
-        String clientIp = WebUtils.getClientIp(request);
-        Message message = new Message(content, clientIp);
-        messageStore.put(LAST_MESSAGE, message);
-    }
+  private void createAndStoreMessage(String content, HttpServletRequest request) {
+    String clientIp = WebUtils.getClientIp(request);
+    Message message = new Message(content, clientIp);
+    messageStore.put(LAST_MESSAGE, message);
+  }
 
-    public String getMessage() {
-        return Optional.ofNullable(messageStore.get(LAST_MESSAGE))
-                .map(Message::getContent)
-                .orElseGet(String::new);
-    }
+  public String getMessage() {
+    return Optional.ofNullable(messageStore.get(LAST_MESSAGE))
+        .map(Message::getContent)
+        .orElseGet(String::new);
+  }
 }

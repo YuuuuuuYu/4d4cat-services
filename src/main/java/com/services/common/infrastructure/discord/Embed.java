@@ -10,14 +10,12 @@ import lombok.Getter;
 @JsonDeserialize(builder = Embed.EmbedBuilder.class)
 public class Embed {
 
-    private String title;
-    private String description;
-    private int color;
-    private String timestamp;
-    private Footer footer;
+  private String title;
+  private String description;
+  private int color;
+  private String timestamp;
+  private Footer footer;
 
-    @JsonPOJOBuilder(withPrefix = "")
-    public static class EmbedBuilder {
-
-    }
+  @JsonPOJOBuilder(withPrefix = "")
+  public static class EmbedBuilder {}
 }
