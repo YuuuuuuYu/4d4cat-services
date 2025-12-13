@@ -33,6 +33,8 @@ springdoc:
     path: /api-docs/swagger-ui.html
 
 spring:
+  main:
+    locale: ko_KR
   messages:
     basename: messages
 
