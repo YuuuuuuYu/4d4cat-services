@@ -1,26 +1,30 @@
 package com.services.pixabay.presentation;
 
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
 import com.services.common.application.exception.ErrorCode;
 import com.services.common.application.exception.NotFoundException;
+import com.services.common.config.MessageSourceConfig;
 import com.services.pixabay.application.PixabayMusicService;
 import com.services.pixabay.application.PixabayVideoService;
 import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
 import com.services.pixabay.fixture.PixabayTestFixtures;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PixabayController.class)
+@Import(MessageSourceConfig.class)
+@ActiveProfiles("test")
 class PixabayControllerTest {
 
     @Autowired

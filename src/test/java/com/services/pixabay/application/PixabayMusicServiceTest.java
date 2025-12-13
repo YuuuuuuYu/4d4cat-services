@@ -255,7 +255,7 @@ class PixabayMusicServiceTest {
             // When & Then
             assertThatThrownBy(() -> pixabayMusicService.getRandomElement())
                 .isInstanceOf(NotFoundException.class)
-                .hasMessage(ErrorCode.PIXABAY_MUSIC_NOT_FOUND.getMessage());
+                .hasMessage(ErrorCode.PIXABAY_MUSIC_NOT_FOUND.getMessageKey());
         }
     }
 }

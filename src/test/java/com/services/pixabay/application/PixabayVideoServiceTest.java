@@ -270,7 +270,7 @@ class PixabayVideoServiceTest {
             // When & Then
             assertThatThrownBy(() -> pixabayVideoService.getRandomElement())
                 .isInstanceOf(NotFoundException.class)
-                .hasMessage(ErrorCode.PIXABAY_VIDEO_NOT_FOUND.getMessage());
+                .hasMessage(ErrorCode.PIXABAY_VIDEO_NOT_FOUND.getMessageKey());
         }
     }
 }
