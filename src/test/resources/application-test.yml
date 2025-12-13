@@ -1,3 +1,7 @@
+spring:
+  main:
+    locale: ko_KR
+
 management:
   server:
     port:
