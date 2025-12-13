@@ -1,36 +1,19 @@
 package com.services;
 
+import com.services.common.config.CommonServiceMockConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import com.services.message.application.MessageService;
-import com.services.pixabay.application.PixabayMusicService;
-import com.services.pixabay.application.PixabayVideoService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class ActuatorEndpointTest {
+class ActuatorEndpointTest extends CommonServiceMockConfig {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @MockitoBean
-    private MessageService messageService;
-    @MockitoBean
-    private PixabayVideoService pixabayVideoService;
-    @MockitoBean
-    private PixabayMusicService pixabayMusicService;
 
     @Test
     @DisplayName("GET /actuator/health - 200 OK와 status UP 응답")
