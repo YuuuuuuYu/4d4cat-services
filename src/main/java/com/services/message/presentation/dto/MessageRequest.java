@@ -5,9 +5,9 @@ import lombok.Getter;
 @Getter
 public class MessageRequest {
 
-    private String content;
+  private String content;
 
-    public MessageRequest(String content) {
-        this.content = content;
-    }
+  public MessageRequest(String content) {
+    this.content = content;
+  }
 }

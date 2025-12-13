@@ -1,16 +1,16 @@
 package com.services.common.application.exception;
 
-public class NotFoundException extends RuntimeException {
+public class NotFoundException extends RuntimeException implements CustomException {
 
-    private final ErrorCode errorCode;
+  private final ErrorCode errorCode;
 
-    public NotFoundException(ErrorCode errorCode) {
-        super(errorCode.getMessage());
-        this.errorCode = errorCode;
-    }
+  public NotFoundException(ErrorCode errorCode) {
+    super(errorCode.getMessageKey());
+    this.errorCode = errorCode;
+  }
 
-    public ErrorCode getErrorCode() {
-        return errorCode;
-    }
-    
+  @Override
+  public ErrorCode getErrorCode() {
+    return errorCode;
+  }
 }

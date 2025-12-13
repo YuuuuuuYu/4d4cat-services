@@ -15,23 +15,23 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class PixabayController {
 
-    private final PixabayVideoService pixabayVideoService;
-    private final PixabayMusicService pixabayMusicService;
+  private final PixabayVideoService pixabayVideoService;
+  private final PixabayMusicService pixabayMusicService;
 
-    @GetMapping("")
-    public ResponseEntity<BaseResponse<String>> index() {
-        return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, "online"));
-    }
+  @GetMapping("")
+  public ResponseEntity<BaseResponse<String>> index() {
+    return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, "online"));
+  }
 
-    @GetMapping("/video")
-    public ResponseEntity<BaseResponse<PixabayVideoResult>> video() {
-        PixabayVideoResult data = pixabayVideoService.getRandomElement();
-        return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, data));
-    }
+  @GetMapping("/video")
+  public ResponseEntity<BaseResponse<PixabayVideoResult>> video() {
+    PixabayVideoResult data = pixabayVideoService.getRandomElement();
+    return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, data));
+  }
 
-    @GetMapping("/music")
-    public ResponseEntity<BaseResponse<PixabayMusicResult>> music() {
-        PixabayMusicResult data = pixabayMusicService.getRandomElement();
-        return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, data));
-    }
+  @GetMapping("/music")
+  public ResponseEntity<BaseResponse<PixabayMusicResult>> music() {
+    PixabayMusicResult data = pixabayMusicService.getRandomElement();
+    return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, data));
+  }
 }

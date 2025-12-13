@@ -1,3 +1,7 @@
+[![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://www.java.com)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.12-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **이런 기능이 있으면 어떨까?** 라는 생각으로 시작하여 여러 기능들을 제공하는 서비스입니다.
 
 ## 🚀 주요 기능
@@ -24,8 +28,8 @@
 ## 🏗️ 기술 스택
 
 - **Java 21** - 최신 자바 기능 활용
-- **Spring Boot 3.4.4** - 웹 애플리케이션 프레임워크
-- **Spring AOP** - 횡단 관심사 처리 (로깅, 모니터링)
+- **Spring Boot 3.4.12** - 웹 애플리케이션 프레임워크
+- **Spring AOP** - 횡단 관심사 처리 (성능 모니터링, 이벤트 알림)
 - **JUnit 5 + Mockito** - 테스트 프레임워크
 - **Gradle** - 빌드 도구
 - **SpringDoc OpenAPI** - API 문서 자동 생성
@@ -89,13 +93,14 @@ Cross-cutting Concerns (AOP Aspects, Utilities)
 - **Singleton**: 글로벌 데이터 캐시 관리
 - **Strategy**: API별 다른 매개변수 생성 전략
 - **Optional**: 안전한 null 처리
+- **AOP**: `DataInitializationAspect`를 통해 데이터 초기화 로직의 실행 시간을 측정하고, 그 결과를 Discord 웹훅으로 실시간 알림
 
 ### ⚡ 성능 최적화
 - **병렬 처리**: 10개 스레드 풀을 통한 동시 API 호출
 - **내결함성**: `exceptionally()` 메서드로 개별 API 실패가 전체 시스템에 영향 주지 않음
 - **계층화된 예외 처리**: `NotFoundException`, `BadGatewayException` 우아한 처리
 - **메모리 캐싱**: ConcurrentHashMap 기반 스레드 안전 캐싱
-- **AOP 모니터링**: 실행 시간 추적 및 성능 분석
+- **AOP 기반 모니터링 및 알림**: 데이터 초기화 등 주요 작업의 실행 시간을 추적하고, 성공 또는 실패 시 Discord를 통해 실시간으로 결과를 전송하여 신속한 대응이 가능
 
 ## 📊 데이터 플로우
 

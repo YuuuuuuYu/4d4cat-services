@@ -14,17 +14,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MessageController {
 
-    private final MessageService messageService;
+  private final MessageService messageService;
 
-    @GetMapping("/message")
-    public ResponseEntity<String> home() {
-        String message = messageService.getMessage();
-        return ResponseEntity.ok(message);
-    }
+  @GetMapping("/message")
+  public ResponseEntity<String> home() {
+    String message = messageService.getMessage();
+    return ResponseEntity.ok(message);
+  }
 
-    @PostMapping("/message")
-    public ResponseEntity<Void> saveMessage(@RequestBody MessageRequest body, HttpServletRequest request) {
-        messageService.saveMessage(body, request);
-        return ResponseEntity.ok().build();
-    }
+  @PostMapping("/message")
+  public ResponseEntity<Void> saveMessage(
+      @RequestBody MessageRequest body, HttpServletRequest request) {
+    messageService.saveMessage(body, request);
+    return ResponseEntity.ok().build();
+  }
 }
