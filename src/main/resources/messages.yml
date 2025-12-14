@@ -17,7 +17,7 @@ discord:
   init:
     success:
       title: "Success initialize data"
-      description: "✅ Finished service: %s, time: %s sec"
+      description: "✅ Finished service: {0}, time: {1} sec"
     failure:
       title: "Fail initialize data"
-      description: "❌ Failed service: %s, time: %s sec: %s"
+      description: "❌ Failed service: {0}, time: {1} sec: {2}"
