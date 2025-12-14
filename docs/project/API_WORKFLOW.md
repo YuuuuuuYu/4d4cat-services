@@ -68,15 +68,15 @@ graph TD
 
     subgraph PixabayVideoService
         D --> D1{카테고리 목록 정의};
-        D1 --> D2[각 카테고리별 API 병렬 호출<br>(ThreadPool 사용)];
-        D2 --> D3{Pixabay API<br>(pixabay.com/api/videos)};
+        D1 --> D2[각 카테고리별 API 병렬 호출, ThreadPool 사용];
+        D2 --> D3{Pixabay API, pixabay.com/api/videos};
         D3 --> D4[응답 데이터 가공];
     end
 
     subgraph PixabayMusicService
         E --> E1{장르 목록 정의};
-        E1 --> E2[각 장르별 API 병렬 호출<br>(ThreadPool 사용)];
-        E2 --> E3{외부 음악 API<br>(외부 API 엔드포인트)};
+        E1 --> E2[각 장르별 API 병렬 호출, ThreadPool 사용];
+        E2 --> E3{외부 음악 API, 외부 API 엔드포인트};
         E3 --> E4[응답 데이터 가공];
     end
 
