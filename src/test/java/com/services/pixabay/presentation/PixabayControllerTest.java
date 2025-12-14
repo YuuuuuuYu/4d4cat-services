@@ -7,16 +7,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.services.common.application.exception.ErrorCode;
 import com.services.common.application.exception.NotFoundException;
-import com.services.common.config.MessageSourceConfig;
+import com.services.common.infrastructure.config.MessageSourceConfig;
 import com.services.pixabay.application.PixabayMusicService;
 import com.services.pixabay.application.PixabayVideoService;
 import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
 import com.services.pixabay.fixture.PixabayTestFixtures;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -29,9 +31,15 @@ class PixabayControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
+  @Autowired private MessageSource messageSource;
+
   @MockitoBean private PixabayVideoService pixabayVideoService;
 
   @MockitoBean private PixabayMusicService pixabayMusicService;
+
+  private String getErrorMessage(ErrorCode errorCode) {
+    return messageSource.getMessage(errorCode.getMessageKey(), null, Locale.getDefault());
+  }
 
   @Test
   @DisplayName("GET /video - 비디오 데이터 성공 응답")
@@ -72,8 +80,9 @@ class PixabayControllerTest {
   @DisplayName("GET /video - 데이터 없을 때 404 에러 응답")
   void getVideo_shouldReturn404_whenDataNotFound() throws Exception {
     // Given
-    when(pixabayVideoService.getRandomElement())
-        .thenThrow(new NotFoundException(ErrorCode.PIXABAY_VIDEO_NOT_FOUND));
+    ErrorCode errorCode = ErrorCode.PIXABAY_VIDEO_NOT_FOUND;
+    when(pixabayVideoService.getRandomElement()).thenThrow(new NotFoundException(errorCode));
+    String expectedMessage = getErrorMessage(errorCode);
 
     // When & Then
     mockMvc
@@ -81,16 +90,17 @@ class PixabayControllerTest {
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.data").isEmpty())
-        .andExpect(jsonPath("$.error.code").value("PV1000"))
-        .andExpect(jsonPath("$.error.message").value("PixabayVideo data not found"));
+        .andExpect(jsonPath("$.error.code").value(errorCode.getCode()))
+        .andExpect(jsonPath("$.error.message").value(expectedMessage));
   }
 
   @Test
   @DisplayName("GET /music - 데이터 없을 때 404 에러 응답")
   void getMusic_shouldReturn404_whenDataNotFound() throws Exception {
     // Given
-    when(pixabayMusicService.getRandomElement())
-        .thenThrow(new NotFoundException(ErrorCode.PIXABAY_MUSIC_NOT_FOUND));
+    ErrorCode errorCode = ErrorCode.PIXABAY_MUSIC_NOT_FOUND;
+    when(pixabayMusicService.getRandomElement()).thenThrow(new NotFoundException(errorCode));
+    String expectedMessage = getErrorMessage(errorCode);
 
     // When & Then
     mockMvc
@@ -98,7 +108,7 @@ class PixabayControllerTest {
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404))
         .andExpect(jsonPath("$.data").isEmpty())
-        .andExpect(jsonPath("$.error.code").value("PM1000"))
-        .andExpect(jsonPath("$.error.message").value("PixabayMusic data not found"));
+        .andExpect(jsonPath("$.error.code").value(errorCode.getCode()))
+        .andExpect(jsonPath("$.error.message").value(expectedMessage));
   }
 }
