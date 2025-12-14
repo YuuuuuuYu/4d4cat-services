@@ -61,30 +61,29 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    A[애플리케이션 시작] --> B(ApplicationReadyEvent 발생)
-    B --> C{병렬 초기화}
-    C --> D[PixabayVideoService 초기화]
-    C --> E[PixabayMusicService 초기화]
+    A[애플리케이션 시작] --> B(ApplicationReadyEvent 발생);
+    B --> C{병렬 초기화};
+    C --> D[PixabayVideoService 초기화];
+    C --> E[PixabayMusicService 초기화];
 
     subgraph PixabayVideoService
-        D --> D1{카테고리 목록 정의}
-        D1 --> D2[각 카테고리별 API 병렬 호출<br/>(ThreadPool 사용)]
-        D2 --> D3{Pixabay API<br/>(pixabay.com/api/videos)}
-        D3 --> D4[응답 데이터 가공]
+        D --> D1{카테고리 목록 정의};
+        D1 --> D2[각 카테고리별 API 병렬 호출<br>(ThreadPool 사용)];
+        D2 --> D3{Pixabay API<br>(pixabay.com/api/videos)};
+        D3 --> D4[응답 데이터 가공];
     end
 
     subgraph PixabayMusicService
-        E --> E1{장르 목록 정의}
-        E1 --> E2[각 장르별 API 병렬 호출<br/>(ThreadPool 사용)]
-        E2 --> E3{외부 음악 API<br/>(외부 API 엔드포인트)}
-        E3 --> E4[응답 데이터 가공]
+        E --> E1{장르 목록 정의};
+        E1 --> E2[각 장르별 API 병렬 호출<br>(ThreadPool 사용)];
+        E2 --> E3{외부 음악 API<br>(외부 API 엔드포인트)};
+        E3 --> E4[응답 데이터 가공];
     end
 
-    D4 --> F(DataStorage에 비디오 데이터 저장)
-    E4 --> G(DataStorage에 음악 데이터 저장)
+    D4 --> F(DataStorage에 비디오 데이터 저장);
+    E4 --> G(DataStorage에 음악 데이터 저장);
     
-    F --> H(데이터 초기화 완료)
-    G --> H(데이터 초기화 완료)
+    F & G --> H(데이터 초기화 완료);
 ```
 
 -   **내결함성**: `CompletableFuture`의 `exceptionally` 블록을 사용하여, 특정 카테고리/장르의 API 호출이 실패하더라도 전체 초기화 프로세스가 중단되지 않습니다. 실패한 호출은 로그만 남기고 건너뜁니다.
