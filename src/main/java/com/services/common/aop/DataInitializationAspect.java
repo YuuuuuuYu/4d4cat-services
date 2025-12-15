@@ -5,10 +5,6 @@ import com.services.common.infrastructure.discord.DiscordWebhookPayload;
 import com.services.common.infrastructure.discord.Embed;
 import com.services.common.infrastructure.discord.Footer;
 import com.services.common.infrastructure.discord.application.DiscordWebhookService;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -16,6 +12,11 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Locale;
 
 @Aspect
 @Component
@@ -45,11 +46,7 @@ public class DataInitializationAspect {
             .build();
 
     DiscordWebhookPayload payload =
-        DiscordWebhookPayload.builder()
-            .username(BOT_USERNAME)
-            .content("❗ " + title)
-            .embeds(Arrays.asList(embed))
-            .build();
+        DiscordWebhookPayload.builder().username(BOT_USERNAME).embeds(Arrays.asList(embed)).build();
 
     discordWebhookService.sendMessage(payload).subscribe();
   }
