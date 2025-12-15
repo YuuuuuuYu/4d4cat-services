@@ -7,11 +7,13 @@ import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.request.PixabayVideoRequest;
 import com.services.pixabay.application.dto.result.PixabayVideoResult;
 import com.services.pixabay.presentation.dto.PixabayResponse;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
 
 @Service
 public class PixabayVideoService
@@ -44,13 +46,13 @@ public class PixabayVideoService
   @Value("${pixabay.key}")
   protected String key;
 
-  public PixabayVideoService(RestTemplate restTemplate) {
-    super(restTemplate);
+  public PixabayVideoService(RestTemplate restTemplate, Environment environment) {
+    super(restTemplate, environment);
   }
 
   @Override
-  protected String getBaseUrl() {
-    return ApiMetadata.PIXABAY_VIDEOS.getUrl();
+  protected String getBaseUrlKey() {
+    return ApiMetadata.PIXABAY_VIDEOS.getUrlPropertyKey();
   }
 
   @Override
