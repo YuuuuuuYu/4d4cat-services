@@ -1,13 +1,9 @@
 package com.services.common.infrastructure.discord.application;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.common.infrastructure.discord.DiscordWebhookPayload;
 import com.services.common.infrastructure.discord.Embed;
 import com.services.common.infrastructure.discord.exception.DiscordWebhookException;
-import java.io.IOException;
-import java.util.Collections;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -17,6 +13,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.test.StepVerifier;
+
+import java.io.IOException;
+import java.util.Collections;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class DiscordWebhookServiceTest {
 
@@ -49,7 +50,6 @@ class DiscordWebhookServiceTest {
     DiscordWebhookPayload payload =
         DiscordWebhookPayload.builder()
             .username("Test Bot")
-            .content("Test Content")
             .embeds(Collections.singletonList(embed))
             .build();
 
@@ -66,7 +66,6 @@ class DiscordWebhookServiceTest {
     assertThat(recordedRequest.getHeader("Content-Type")).isEqualTo("application/json");
 
     assertThat(requestedPayload.getUsername()).isEqualTo("Test Bot");
-    assertThat(requestedPayload.getContent()).isEqualTo("Test Content");
     assertThat(requestedPayload.getEmbeds()).hasSize(1);
     assertThat(requestedPayload.getEmbeds().get(0).getTitle()).isEqualTo("Test Title");
     assertThat(requestedPayload.getEmbeds().get(0).getDescription()).isEqualTo("Test Description");
@@ -84,7 +83,6 @@ class DiscordWebhookServiceTest {
     DiscordWebhookPayload payload =
         DiscordWebhookPayload.builder()
             .username("Error Bot")
-            .content("Error Content")
             .embeds(Collections.singletonList(embed))
             .build();
 
