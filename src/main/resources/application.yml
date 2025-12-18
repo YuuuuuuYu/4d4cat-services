@@ -40,6 +40,9 @@ spring:
 
 pixabay:
   key: ${PIXABAY_KEY}
+  url:
+    video: ${PIXABAY_VIDEO_URL}
+    music: ${PIXABAY_MUSIC_URL}
 
 discord:
   webhook:
