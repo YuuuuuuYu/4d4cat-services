@@ -1,5 +1,6 @@
 package com.services.common.application;
 
+import com.services.common.aop.NotifyDiscord;
 import com.services.common.application.dto.ParameterBuilder;
 import com.services.common.application.exception.BadGatewayException;
 import com.services.common.application.exception.ErrorCode;
@@ -42,6 +43,10 @@ public abstract class DataInitializationService<
   }
 
   @EventListener(ApplicationReadyEvent.class)
+  @NotifyDiscord(
+      taskName = "Data Initialization",
+      startLog = "🚀 Start data initialization",
+      errorLog = "❌ Failed to initialize data: %s")
   public void setDataStorage() {
     List<T> dataList = getFetchDataList();
     DataStorage.setData(getStorageKey(), dataList);
