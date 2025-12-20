@@ -22,8 +22,7 @@ public class MessageController {
   }
 
   @PostMapping("/message")
-  public ResponseEntity<Void> saveMessage(
-      @RequestBody MessageRequest body) {
+  public ResponseEntity<Void> saveMessage(@RequestBody MessageRequest body) {
     messageService.saveMessage(body);
     return ResponseEntity.ok().build();
   }
