@@ -6,6 +6,7 @@ import com.services.common.infrastructure.discord.DiscordWebhookPayload;
 import com.services.common.infrastructure.discord.Embed;
 import com.services.common.infrastructure.discord.Footer;
 import com.services.common.infrastructure.discord.application.DiscordWebhookService;
+import com.services.common.util.WebUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -52,7 +53,8 @@ public class DiscordNotifierAspect {
     discordWebhookService.sendMessage(payload).subscribe();
   }
 
-  private void sendErrorWebhook(String serviceName, String taskName, Exception exception) {
+  private void sendErrorWebhook(
+      String serviceName, String taskName, Exception exception, String clientIp) {
     ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
     if (exception instanceof CustomException customException) {
       errorCode = customException.getErrorCode();
@@ -63,7 +65,8 @@ public class DiscordNotifierAspect {
             "discord.init.failure.title", new Object[] {taskName}, DEFAULT_LOCALE);
     String finalDescription =
         String.format(
-            "ErrorCode: `%s`\nMessage: `%s`", errorCode.getCode(), exception.getMessage());
+            "ErrorCode: `%s`\nMessage: `%s`\nClient IP: `%s`",
+            errorCode.getCode(), exception.getMessage(), clientIp);
 
     sendWebhookNotification(serviceName, errorTitle, finalDescription, DISCORD_COLOR_ERROR);
   }
@@ -75,10 +78,12 @@ public class DiscordNotifierAspect {
     String taskName = notifyDiscord.taskName();
     Instant startTime = Instant.now();
 
+    String clientIp = WebUtils.getClientIp();
     String startLogMessage =
         StringUtils.isNotBlank(notifyDiscord.startLog())
             ? notifyDiscord.startLog()
-            : String.format("🚀 Starting task '%s' in %s", taskName, serviceName);
+            : String.format(
+                "🚀 Starting task '%s' in %s (IP: %s)", taskName, serviceName, clientIp);
     log.info(startLogMessage);
 
     try {
@@ -87,11 +92,12 @@ public class DiscordNotifierAspect {
       String successTitle =
           messageSource.getMessage(
               "discord.init.success.title", new Object[] {taskName}, DEFAULT_LOCALE);
-      String successDescription =
+      String baseDescription =
           messageSource.getMessage(
               "discord.init.success.description",
               new Object[] {taskName, duration.toSeconds()},
               DEFAULT_LOCALE);
+      String successDescription = baseDescription + "\nClient IP: `" + clientIp + "`";
 
       log.info(successDescription);
       sendWebhookNotification(serviceName, successTitle, successDescription, DISCORD_COLOR_SUCCESS);
@@ -105,7 +111,7 @@ public class DiscordNotifierAspect {
               : String.format("❌ Task '%s' in %s failed", taskName, serviceName);
       log.error(errorLogMessage, e);
 
-      sendErrorWebhook(serviceName, taskName, e);
+      sendErrorWebhook(serviceName, taskName, e, clientIp);
       throw e;
     }
   }
