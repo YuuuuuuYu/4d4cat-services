@@ -1,3 +1,6 @@
+cors:
+  allowed-origins: http://localhost:8080
+
 spring:
   main:
     locale: ko_KR
@@ -12,3 +15,11 @@ spring:
 management:
   server:
     port:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus"
+  prometheus:
+    metrics:
+      export:
+        enabled: true
