@@ -111,7 +111,7 @@
 ### 3.1. 공통 규칙
 -   **테스트 클래스명**: `[테스트 대상 클래스명]Test` (예: `PixabayControllerTest`)
 -   **테스트 메소드명**: `[시나리오]_[예상 결과]` 형식의 스네이크 케이스 (예: `getVideo_shouldReturnVideoData`)
--   **`@DisplayName`**: 각 테스트 메소드에 시나리오를 한글로 명확하게 설명 (예: `GET /video - 비디오 데이터 성공 응답`)
+-   **테스트 설명**: `@DisplayName` 각 테스트 메소드에 시나리오를 한글로 명확하게 설명 (예: `GET /video - 비디오 데이터 성공 응답`)
 -   **Given-When-Then 구조**: `// Given`, `// When`, `// Then` 주석으로 테스트 단계 명확히 구분.
 
 ### 3.2. 계층별 테스트 전략
