@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${OMNIWATCH_DB_URL}
+    username: ${OMNIWATCH_DB_USERNAME}
+    password: ${OMNIWATCH_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    show-sql: false
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus"
+      cors:
+        allowed-origins: ${CORS_ALLOWED_ORIGINS}
+        allowed-methods: "GET,POST"
+    beans:
+      cache:
+        time-to-live: "10s"
+  prometheus:
+    metrics:
+      export:
+        enabled: true

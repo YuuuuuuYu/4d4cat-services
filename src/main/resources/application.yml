@@ -2,29 +2,23 @@ server:
   port: 8080
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
-logging:
-  level:
-    com.services: DEBUG
-
-management:
-  server:
-    port: 8081
-  endpoints:
-    web:
-      exposure:
-        include: "health,info,prometheus"
-      cors:
-        allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080}
-        allowed-methods: "GET,POST"
-    beans:
-      cache:
-        time-to-live: "10s"
-  prometheus:
-    metrics:
-      export:
-        enabled: true
+spring:
+  main:
+    locale: ko_KR
+  messages:
+    basename: messages
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        show_sql: true
+    data:
+      web:
+        pageable:
+          default-page-size: 20
 
 springdoc:
   api-docs:
@@ -32,14 +26,11 @@ springdoc:
   swagger-ui:
     path: /api-docs/swagger-ui.html
 
-spring:
-  main:
-    locale: ko_KR
-  messages:
-    basename: messages
-
 pixabay:
   key: ${PIXABAY_KEY}
+  url:
+    video: ${PIXABAY_VIDEO_URL}
+    music: ${PIXABAY_MUSIC_URL}
 
 discord:
   webhook:

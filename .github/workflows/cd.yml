@@ -66,4 +66,4 @@ jobs:
           script_stop: true
           script: |
             sudo fuser -k -n tcp 8080 || true
-            nohup java -jar 4d4cat-api.jar > ./output.log 2>&1 &
+            nohup java -jar -Dspring.profiles.active=prod 4d4cat-api.jar > ./output.log 2>&1 &

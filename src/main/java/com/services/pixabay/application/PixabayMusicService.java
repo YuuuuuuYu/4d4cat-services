@@ -7,10 +7,12 @@ import com.services.common.infrastructure.DataStorage;
 import com.services.pixabay.application.dto.request.PixabayMusicRequest;
 import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.presentation.dto.CustomPixabayMusicResponse;
-import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
 
 @Service
 public class PixabayMusicService
@@ -55,13 +57,13 @@ public class PixabayMusicService
                                            "low%20drones","synth%20pop","old%20school%20hip%20hop","marching%20band","metal","modern%20country","lullabies","fantasy%20%26%20dreamy%20childrens","deep%20house","smooth%20jazz","chamber%20music","dramatic%20classical","drum%20n%20bass","sneaky","modern%20jazz","bloopers","island","afrobeat","religious%20theme","choir","acid%20jazz","dubstep","comedy","motown%20%26%20old%20school%20rnb","blues","modern%20blues","ireland","strange%20%26%20weird","scotland","wedding","post%20rock","amusement%20park",
                                            "scary%20childrens%20tunes","gospel","reggae","traditional%20country","bossa%20nova","china","low%20rhythmic%20drones","big%20band","urban%20latin","funerals","old%20school%20funk","vaudeville%20%26%20variety%20show","show%20dance","tragedy","high%20non%20rhythmic%20drones","low%20non%20rhythmic%20drones","ska","old%20school%20rnb","india","samba%20%28latin%29","fantasy%20%26%20dreamy%20childrens%27","military%20%26%20historical","punk","classical%20string%20quartet","cha%20cha%20%28latin%29","circus","usa","american%20roots%20rock","oompah%20band","tango","polka","france","greece"*/);
 
-  public PixabayMusicService(RestTemplate restTemplate) {
-    super(restTemplate);
+  public PixabayMusicService(RestTemplate restTemplate, Environment environment) {
+    super(restTemplate, environment);
   }
 
   @Override
-  protected String getBaseUrl() {
-    return ApiMetadata.PIXABAY_MUSIC.getUrl();
+  protected String getBaseUrlKey() {
+    return ApiMetadata.PIXABAY_MUSIC.getUrlPropertyKey();
   }
 
   @Override

@@ -2,7 +2,6 @@ package com.services.message.presentation;
 
 import com.services.message.application.MessageService;
 import com.services.message.presentation.dto.MessageRequest;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,9 +22,8 @@ public class MessageController {
   }
 
   @PostMapping("/message")
-  public ResponseEntity<Void> saveMessage(
-      @RequestBody MessageRequest body, HttpServletRequest request) {
-    messageService.saveMessage(body, request);
+  public ResponseEntity<Void> saveMessage(@RequestBody MessageRequest body) {
+    messageService.saveMessage(body);
     return ResponseEntity.ok().build();
   }
 }

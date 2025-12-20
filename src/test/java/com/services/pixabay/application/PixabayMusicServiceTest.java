@@ -3,16 +3,8 @@ package com.services.pixabay.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.services.common.application.exception.BadGatewayException;
 import com.services.common.application.exception.ErrorCode;
@@ -24,8 +16,9 @@ import com.services.pixabay.application.dto.result.PixabayMusicResult;
 import com.services.pixabay.fixture.PixabayTestFixtures;
 import com.services.pixabay.presentation.dto.CustomPixabayMusicResponse;
 import java.util.List;
-import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -34,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -44,14 +38,18 @@ class PixabayMusicServiceTest {
 
   @Mock private RestTemplate restTemplate;
 
+  @Mock private Environment environment;
+
   @InjectMocks private PixabayMusicService pixabayMusicService;
 
-  @Test
-  @DisplayName("getBaseUrl - 기본 URL 반환")
-  void getBaseUrl_shouldReturnsPixabayMusicUrl() {
-    String baseUrl = pixabayMusicService.getBaseUrl();
+  private final String TEST_MUSIC_URL = "https://test.music.api/search";
 
-    assertThat(baseUrl).isEqualTo(ApiMetadata.PIXABAY_MUSIC.getUrl());
+  @Test
+  @DisplayName("getBaseUrlKey - 기본 URL 키 반환")
+  void getBaseUrl_shouldReturnsPixabayMusicUrl() {
+    String key = pixabayMusicService.getBaseUrlKey();
+
+    assertThat(key).isEqualTo(ApiMetadata.PIXABAY_MUSIC.getUrlPropertyKey());
   }
 
   @Test
@@ -75,141 +73,116 @@ class PixabayMusicServiceTest {
         () -> assertThat(request.getGenre()).isEqualTo("electronic"));
   }
 
-  @Test
-  @DisplayName("setDataStorage - 데이터 저장할 때 API는 장르 수만큼 호출")
-  void setDataStorage_shouldCallApiManyTimes_whenInitializingData() {
-    // Given
-    int callApiCount = 32;
-    PixabayTestFixtures.setupRestTemplateToReturnSingleMusic(restTemplate, 32);
+  @Nested
+  @DisplayName("setDataStorage - ")
+  class Describe_setDataStorage {
 
-    // When
-    pixabayMusicService.setDataStorage();
+    private final int GENRE_COUNT = 32;
 
-    // Then
-    verify(restTemplate, times(callApiCount))
-        .exchange(
-            anyString(),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class));
-  }
+    @BeforeEach
+    void setUp() {
+      when(environment.getProperty(ApiMetadata.PIXABAY_MUSIC.getUrlPropertyKey()))
+          .thenReturn(TEST_MUSIC_URL);
 
-  @Test
-  @DisplayName("setDataStorage - API 호출 시 올바른 URI가 생성되어야 함")
-  void setDataStorage_shouldBuildCorrectUri_whenCallingApi() {
-    // Given
-    PixabayTestFixtures.setupRestTemplateToReturnSingleMusic(restTemplate, 32);
+      CustomPixabayMusicResponse mockResponse =
+          PixabayTestFixtures.createMusicResponse(
+              List.of(PixabayTestFixtures.createDefaultMusicResult(1)));
+      when(restTemplate.exchange(
+              anyString(),
+              eq(HttpMethod.GET),
+              any(HttpEntity.class),
+              any(ParameterizedTypeReference.class)))
+          .thenReturn(ResponseEntity.ok(mockResponse));
+    }
 
-    // When
-    pixabayMusicService.setDataStorage();
+    @Test
+    @DisplayName("데이터 저장 시 API를 장르 수만큼 호출한다")
+    void shouldCallApiAsManyTimesAsGenres() {
+      // When
+      pixabayMusicService.setDataStorage();
 
-    // Then
-    ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
-    List<String> capturedUrls = urlCaptor.getAllValues();
+      // Then
+      verify(restTemplate, times(GENRE_COUNT))
+          .exchange(
+              anyString(),
+              eq(HttpMethod.GET),
+              any(HttpEntity.class),
+              any(ParameterizedTypeReference.class));
+    }
 
-    verify(restTemplate, atLeastOnce())
-        .exchange(
-            urlCaptor.capture(),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class));
+    @Test
+    @DisplayName("API 호출 시 올바른 URI를 생성한다")
+    void shouldBuildCorrectUriWhenCallingApi() {
+      // When
+      pixabayMusicService.setDataStorage();
 
-    assertThat(capturedUrls).allMatch(url -> url.contains(ApiMetadata.PIXABAY_MUSIC.getUrl()));
-  }
+      // Then
+      ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
 
-  @Test
-  @DisplayName("setDataStorage - 데이터 fetch가 완료되면 스토리지에 데이터 저장")
-  void setDataStorage_shouldStoreDataInStorage_whenDataFetchCompletes() {
-    // Given
-    CustomPixabayMusicResponse mockResponse =
-        PixabayTestFixtures.createMusicResponse(
-            List.of(PixabayTestFixtures.createDefaultMusicResult(1)));
+      verify(restTemplate, atLeastOnce())
+          .exchange(
+              urlCaptor.capture(),
+              eq(HttpMethod.GET),
+              any(HttpEntity.class),
+              any(ParameterizedTypeReference.class));
+      List<String> capturedUrls = urlCaptor.getAllValues();
+      assertThat(capturedUrls).allMatch(url -> url.startsWith(TEST_MUSIC_URL));
+    }
 
-    when(restTemplate.exchange(
-            anyString(),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class)))
-        .thenReturn(ResponseEntity.ok(mockResponse));
+    @Test
+    @DisplayName("데이터 fetch가 완료되면 스토리지에 데이터를 저장한다")
+    void shouldStoreDataInStorageWhenDataFetchCompletes() {
+      try (MockedStatic<DataStorage> mockedDataStorage = mockStatic(DataStorage.class)) {
+        // When
+        pixabayMusicService.setDataStorage();
 
-    // When
-    pixabayMusicService.setDataStorage();
+        // Then
+        ArgumentCaptor<List<PixabayMusicResult>> listCaptor = ArgumentCaptor.forClass(List.class);
+        mockedDataStorage.verify(
+            () ->
+                DataStorage.setData(eq(ApiMetadata.PIXABAY_MUSIC.getKey()), listCaptor.capture()));
 
-    Optional<List<PixabayMusicResult>> storedData =
-        DataStorage.getListData(ApiMetadata.PIXABAY_MUSIC.getKey(), PixabayMusicResult.class);
+        assertThat(listCaptor.getValue()).hasSize(GENRE_COUNT);
+      }
+    }
 
-    // Then
-    verify(restTemplate, atLeastOnce())
-        .exchange(
-            anyString(),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class));
+    @Test
+    @DisplayName("NotFoundException(404) 발생 시 해당 필터만 제외하고 계속 진행한다")
+    void shouldContinueWithOtherFiltersWhenNotFoundOccurs() {
+      // Given
+      when(restTemplate.exchange(
+              contains("upbeat"),
+              eq(HttpMethod.GET),
+              any(HttpEntity.class),
+              any(ParameterizedTypeReference.class)))
+          .thenThrow(new NotFoundException(ErrorCode.DATA_NOT_FOUND));
 
-    assertAll(
-        () -> assertThat(storedData).isPresent(),
-        () -> assertThat(storedData.get()).hasSize(32) // 32개 장르 각각에서 1개씩 총 32개
-        );
-  }
+      // When
+      pixabayMusicService.setDataStorage();
 
-  @Test
-  @DisplayName("setDataStorage - NotFoundException(404) 발생시 해당 필터만 제외하고 계속 진행")
-  void setDataStorage_shouldContinueWithOtherFilters_whenNotFoundOccurs() {
-    // Given
-    CustomPixabayMusicResponse successResponse =
-        PixabayTestFixtures.createMusicResponse(
-            List.of(PixabayTestFixtures.createDefaultMusicResult(1)));
+      // Then - exceptionally()로 인해 예외가 발생하지 않고 성공한 데이터만으로 초기화됨
+      verify(restTemplate, atLeast(2))
+          .exchange(anyString(), eq(HttpMethod.GET), any(), any(ParameterizedTypeReference.class));
+    }
 
-    when(restTemplate.exchange(
-            contains("electronic"),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class)))
-        .thenReturn(ResponseEntity.ok(successResponse));
+    @Test
+    @DisplayName("BadGatewayException(502) 발생 시 해당 필터만 제외하고 계속 진행한다")
+    void shouldContinueWithOtherFiltersWhenBadGatewayOccurs() {
+      // Given
+      when(restTemplate.exchange(
+              contains("upbeat"),
+              eq(HttpMethod.GET),
+              any(HttpEntity.class),
+              any(ParameterizedTypeReference.class)))
+          .thenThrow(new BadGatewayException(ErrorCode.BAD_GATEWAY));
 
-    when(restTemplate.exchange(
-            contains("upbeat"),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class)))
-        .thenThrow(new NotFoundException(ErrorCode.DATA_NOT_FOUND));
+      // When
+      pixabayMusicService.setDataStorage();
 
-    // When
-    pixabayMusicService.setDataStorage();
-
-    // Then - exceptionally()로 인해 예외가 발생하지 않고 성공한 데이터만으로 초기화됨
-    verify(restTemplate, atLeast(2))
-        .exchange(anyString(), eq(HttpMethod.GET), any(), any(ParameterizedTypeReference.class));
-  }
-
-  @Test
-  @DisplayName("setDataStorage - BadGatewayException(502) 발생시 해당 필터만 제외하고 계속 진행")
-  void setDataStorage_shouldContinueWithOtherFilters_whenBadGatewayOccurs() {
-    // Given
-    CustomPixabayMusicResponse successResponse =
-        PixabayTestFixtures.createMusicResponse(
-            List.of(PixabayTestFixtures.createDefaultMusicResult(1)));
-
-    when(restTemplate.exchange(
-            contains("electronic"),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class)))
-        .thenReturn(ResponseEntity.ok(successResponse));
-
-    when(restTemplate.exchange(
-            contains("upbeat"),
-            eq(HttpMethod.GET),
-            any(HttpEntity.class),
-            any(ParameterizedTypeReference.class)))
-        .thenThrow(new BadGatewayException(ErrorCode.BAD_GATEWAY));
-
-    // When
-    pixabayMusicService.setDataStorage();
-
-    // Then - exceptionally()로 인해 예외가 발생하지 않고 성공한 데이터만으로 초기화됨
-    verify(restTemplate, atLeast(2))
-        .exchange(anyString(), eq(HttpMethod.GET), any(), any(ParameterizedTypeReference.class));
+      // Then - exceptionally()로 인해 예외가 발생하지 않고 성공한 데이터만으로 초기화됨
+      verify(restTemplate, atLeast(2))
+          .exchange(anyString(), eq(HttpMethod.GET), any(), any(ParameterizedTypeReference.class));
+    }
   }
 
   @Test

@@ -1,5 +1,6 @@
 package com.services.common.application;
 
+import com.services.common.aop.NotifyDiscord;
 import com.services.common.application.dto.ParameterBuilder;
 import com.services.common.application.exception.BadGatewayException;
 import com.services.common.application.exception.ErrorCode;
@@ -18,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -32,13 +34,19 @@ public abstract class DataInitializationService<
 
   private final Executor executor;
   protected final RestTemplate restTemplate;
+  private final Environment environment;
 
-  public DataInitializationService(RestTemplate restTemplate) {
+  public DataInitializationService(RestTemplate restTemplate, Environment environment) {
     this.restTemplate = restTemplate;
-    this.executor = Executors.newFixedThreadPool(10);
+    this.environment = environment;
+    this.executor = Executors.newFixedThreadPool(getFilters().size());
   }
 
   @EventListener(ApplicationReadyEvent.class)
+  @NotifyDiscord(
+      taskName = "Data Initialization",
+      startLog = "🚀 Start data initialization",
+      errorLog = "❌ Failed to initialize data: %s")
   public void setDataStorage() {
     List<T> dataList = getFetchDataList();
     DataStorage.setData(getStorageKey(), dataList);
@@ -95,14 +103,15 @@ public abstract class DataInitializationService<
   }
 
   private UriComponentsBuilder getUriBuilder(P params) {
-    UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(getBaseUrl());
+    String baseUrl = environment.getProperty(getBaseUrlKey());
+    UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl);
     if (Objects.nonNull(params)) {
       params.appendToBuilder(builder);
     }
     return builder;
   }
 
-  protected abstract String getBaseUrl();
+  protected abstract String getBaseUrlKey();
 
   protected abstract String getStorageKey();
 

@@ -1,11 +1,12 @@
 package com.services.common.infrastructure.discord;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Builder
 @Getter
@@ -15,7 +16,5 @@ import lombok.NoArgsConstructor;
 public class DiscordWebhookPayload {
 
   private String username;
-  private String avatar_url;
-  private String content;
   private List<Embed> embeds;
 }

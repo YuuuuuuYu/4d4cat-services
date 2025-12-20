@@ -1,16 +1,19 @@
 package com.services.common.aop;
 
+import com.services.common.application.exception.CustomException;
 import com.services.common.application.exception.ErrorCode;
 import com.services.common.infrastructure.discord.DiscordWebhookPayload;
 import com.services.common.infrastructure.discord.Embed;
 import com.services.common.infrastructure.discord.Footer;
 import com.services.common.infrastructure.discord.application.DiscordWebhookService;
+import com.services.common.util.WebUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -21,10 +24,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class DataInitializationAspect {
+public class DiscordNotifierAspect {
 
-  private static final int DISCORD_COLOR_SUCCESS = 3066993; // 초록색
-  private static final int DISCORD_COLOR_ERROR = 15158332; // 빨간색
+  private static final int DISCORD_COLOR_SUCCESS = 3066993; // Green
+  private static final int DISCORD_COLOR_ERROR = 15158332; // Red
   private static final String BOT_USERNAME = "Application Event Bot";
   private static final Locale DEFAULT_LOCALE = Locale.getDefault();
 
@@ -45,48 +48,56 @@ public class DataInitializationAspect {
             .build();
 
     DiscordWebhookPayload payload =
-        DiscordWebhookPayload.builder()
-            .username(BOT_USERNAME)
-            .content("❗ " + title)
-            .embeds(Arrays.asList(embed))
-            .build();
+        DiscordWebhookPayload.builder().username(BOT_USERNAME).embeds(Arrays.asList(embed)).build();
 
     discordWebhookService.sendMessage(payload).subscribe();
   }
 
-  private void sendErrorWebhook(String serviceName, ErrorCode errorCode, Exception exception) {
-    String errorDescriptionFromCode =
-        messageSource.getMessage(
-            errorCode.getMessageKey(), new Object[] {exception.getMessage()}, DEFAULT_LOCALE);
+  private void sendErrorWebhook(
+      String serviceName, String taskName, Exception exception, String clientIp) {
+    ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+    if (exception instanceof CustomException customException) {
+      errorCode = customException.getErrorCode();
+    }
 
     String errorTitle =
-        messageSource.getMessage("discord.init.failure.title", null, DEFAULT_LOCALE);
+        messageSource.getMessage(
+            "discord.init.failure.title", new Object[] {taskName}, DEFAULT_LOCALE);
     String finalDescription =
         String.format(
-            "❌ 에러 코드: %s\n❌ 상세 내용: %s\n\n[MessageSource]: %s",
-            errorCode.getCode(), exception.getMessage(), errorDescriptionFromCode);
+            "ErrorCode: `%s`\nMessage: `%s`\nClient IP: `%s`",
+            errorCode.getCode(), exception.getMessage(), clientIp);
 
     sendWebhookNotification(serviceName, errorTitle, finalDescription, DISCORD_COLOR_ERROR);
   }
 
-  @Around(
-      "execution(* com.services.common.application.DataInitializationService.setDataStorage(..))")
-  public Object logDataInitialization(ProceedingJoinPoint joinPoint) throws Throwable {
+  @Around("@annotation(notifyDiscord)")
+  public Object notifyEvent(ProceedingJoinPoint joinPoint, NotifyDiscord notifyDiscord)
+      throws Throwable {
     String serviceName = joinPoint.getTarget().getClass().getSimpleName();
+    String taskName = notifyDiscord.taskName();
     Instant startTime = Instant.now();
 
-    log.info("🚀 Starting data initialization for {}", serviceName);
+    String clientIp = WebUtils.getClientIp();
+    String startLogMessage =
+        StringUtils.isNotBlank(notifyDiscord.startLog())
+            ? notifyDiscord.startLog()
+            : String.format(
+                "🚀 Starting task '%s' in %s (IP: %s)", taskName, serviceName, clientIp);
+    log.info(startLogMessage);
 
     try {
       Object result = joinPoint.proceed();
       Duration duration = Duration.between(startTime, Instant.now());
       String successTitle =
-          messageSource.getMessage("discord.init.success.title", null, DEFAULT_LOCALE);
-      String successDescription =
+          messageSource.getMessage(
+              "discord.init.success.title", new Object[] {taskName}, DEFAULT_LOCALE);
+      String baseDescription =
           messageSource.getMessage(
               "discord.init.success.description",
-              new Object[] {serviceName, duration.toSeconds()},
+              new Object[] {taskName, duration.toSeconds()},
               DEFAULT_LOCALE);
+      String successDescription = baseDescription + "\nClient IP: `" + clientIp + "`";
 
       log.info(successDescription);
       sendWebhookNotification(serviceName, successTitle, successDescription, DISCORD_COLOR_SUCCESS);
@@ -94,8 +105,13 @@ public class DataInitializationAspect {
       return result;
 
     } catch (Exception e) {
-      log.error("❌ Data Initialization Unexpected Error: {}", e.getMessage(), e);
-      sendErrorWebhook(serviceName, ErrorCode.INTERNAL_SERVER_ERROR, e);
+      String errorLogMessage =
+          StringUtils.isNotBlank(notifyDiscord.errorLog())
+              ? String.format(notifyDiscord.errorLog(), e.getMessage())
+              : String.format("❌ Task '%s' in %s failed", taskName, serviceName);
+      log.error(errorLogMessage, e);
+
+      sendErrorWebhook(serviceName, taskName, e, clientIp);
       throw e;
     }
   }
