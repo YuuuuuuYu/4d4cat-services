@@ -27,3 +27,9 @@ management:
     metrics:
       export:
         enabled: true
+  metrics:
+    export:
+      cloudwatch:
+        namespace: ${AWS_CLOUDWATCH_NAMESPACE}
+        step: 1m
+        enabled: true

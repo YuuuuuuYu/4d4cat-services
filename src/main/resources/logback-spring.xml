@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
+
+    <appender name="PROD_CLOUD_WATCH" class="ca.pjer.logback.AwsLogsAppender">
+        <logGroupName>/4d4cat/production-logs</logGroupName>
+        <logStreamUuidPrefix>api-server-</logStreamUuidPrefix>
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS, Asia/Seoul} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </layout>
+        <maxBatchLogEvents>50</maxBatchLogEvents>
+        <maxFlushTimeMillis>5000</maxFlushTimeMillis>
+    </appender>
+
+    <appender name="ASYNC_PROD_CLOUD_WATCH" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="PROD_CLOUD_WATCH" />
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="ASYNC_PROD_CLOUD_WATCH" />
+        </root>
+    </springProfile>
+
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+        </root>
+    </springProfile>
+</configuration>

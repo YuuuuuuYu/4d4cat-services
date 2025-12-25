@@ -13,6 +13,14 @@ spring:
       ddl-auto: update
     database-platform: org.hibernate.dialect.H2Dialect
 
+management:
+  metrics:
+    export:
+      cloudwatch:
+        namespace: my-application-metrics
+        step: 1m
+        enabled: true
+
 logging:
   level:
     com.services: DEBUG
