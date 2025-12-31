@@ -42,3 +42,11 @@ cloud:
       static: ${AWS_REGION}
     stack:
       auto: false
+
+cloudflare:
+  r2:
+    token:
+    access-key:
+    secret-key:
+    endpoint:
+    bucket-name:
