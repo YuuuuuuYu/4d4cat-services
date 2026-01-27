@@ -38,3 +38,9 @@ out/
 
 ### DS Store ###
 .DS_Store
+
+# Build artifacts
+app.jar
+
+# Environment variables
+.env
