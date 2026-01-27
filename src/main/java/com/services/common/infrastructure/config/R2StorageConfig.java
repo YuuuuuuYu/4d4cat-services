@@ -9,7 +9,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.net.URI;
 
-@Configuration
+//@Configuration
 public class R2StorageConfig {
 
   @Value("${cloudflare.r2.access-key}")
