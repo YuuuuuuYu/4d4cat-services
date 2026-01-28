@@ -73,15 +73,12 @@ jobs:
             sudo docker stop 4d4cat-api || true
             sudo docker rm 4d4cat-api || true
             
-            # Run the new container with all required environment variables
-            # IMPORTANT: Add DISCORD_WEBHOOK_URL to your GitHub repository secrets
+            # Run the new container with environment variables from server
             sudo docker run -d \
               --name 4d4cat-api \
               -p 8080:8080 \
-              -e SPRING_PROFILES_ACTIVE=prod \
-              -e PIXABAY_KEY='${{ secrets.PIXABAY_KEY }}' \
-              -e DISCORD_WEBHOOK_URL='${{ secrets.DISCORD_WEBHOOK_URL }}' \
-              -v /home/ubuntu/logs:/app/logs \
+              --env-file /home/opc/.env \
+              -v /home/opc/logs:/app/logs \
               ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
             
             # Re-tag the newly deployed image as 'latest' on the host

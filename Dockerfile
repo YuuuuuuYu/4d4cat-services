@@ -13,6 +13,6 @@ COPY app.jar app.jar
 EXPOSE 8080
 
 # Set the entrypoint to run the application
-# Java options can be added here for performance tuning
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# JAVA_OPTS can be passed via environment variable for JVM tuning
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
 
