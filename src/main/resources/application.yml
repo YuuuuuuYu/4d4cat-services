@@ -35,3 +35,18 @@ pixabay:
 discord:
   webhook:
     url: ${DISCORD_WEBHOOK_URL}
+
+cloud:
+  aws:
+    region:
+      static: ${AWS_REGION}
+    stack:
+      auto: false
+
+cloudflare:
+  r2:
+    token:
+    access-key:
+    secret-key:
+    endpoint:
+    bucket-name:

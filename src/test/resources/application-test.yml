@@ -23,3 +23,7 @@ management:
     metrics:
       export:
         enabled: true
+  metrics:
+    export:
+      cloudwatch:
+        enabled: false

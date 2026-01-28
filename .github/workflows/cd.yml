@@ -1,9 +1,10 @@
 name: cd
 
 on:
-  pull_request:
-    branches: [ "main" ]
-    types: [closed]
+  workflow_dispatch:
+  #pull_request:
+  #  branches: [ "main" ]
+  #  types: [closed]
 
 jobs:
   deploy:
@@ -66,4 +67,4 @@ jobs:
           script_stop: true
           script: |
             sudo fuser -k -n tcp 8080 || true
-            nohup java -jar -Dspring.profiles.active=prod 4d4cat-api.jar > ./output.log 2>&1 &
+            nohup java -jar -Xms256m -Xmx512m -Dspring.profiles.active=prod 4d4cat-api.jar > ./output.log 2>&1 &

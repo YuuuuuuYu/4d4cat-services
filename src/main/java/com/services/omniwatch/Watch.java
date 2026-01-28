@@ -4,13 +4,14 @@ import com.services.common.application.dto.BaseEntity;
 import com.services.omniwatch.attribute.WatchType;
 import com.services.omniwatch.brand.Brand;
 import jakarta.persistence.*;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -43,6 +44,12 @@ public class Watch extends BaseEntity {
   @JoinColumn(name = "brand_id")
   private Brand brand;
 
+  @Column(length = 1000)
+  private String referenceUrl;
+
+  @OneToOne(mappedBy = "watch", cascade = CascadeType.ALL, orphanRemoval = true)
+  private WatchImage watchImage;
+
   @OneToMany(mappedBy = "watch", cascade = CascadeType.ALL)
   private List<WatchTag> watchTags = new ArrayList<>();
 
@@ -60,7 +67,8 @@ public class Watch extends BaseEntity {
       WatchType watchType,
       LocalDate originalDate,
       String description,
-      Brand brand) {
+      Brand brand,
+      String referenceUrl) {
     this.koreanName = koreanName;
     this.englishName = englishName;
     this.slug = slug;
@@ -68,6 +76,7 @@ public class Watch extends BaseEntity {
     this.originalDate = originalDate;
     this.description = description;
     this.brand = brand;
+    this.referenceUrl = referenceUrl;
   }
 
   public void updateBasicInfo(String koreanName, String description) {
