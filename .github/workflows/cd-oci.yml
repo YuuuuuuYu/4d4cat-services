@@ -48,19 +48,22 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           tags: |
             ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
             ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:latest
 
       - name: (SSH) Deploy to Oracle Instances
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ORACLE_MAIN_IP }},${{ secrets.ORACLE_SUB_IP }}
           username: ${{ secrets.ORACLE_USER }}
@@ -68,11 +71,11 @@ jobs:
           script: |
             # Pull the specific version of the image using the commit SHA
             sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
-            
+
             # Stop and remove the old container
             sudo docker stop 4d4cat-api || true
             sudo docker rm 4d4cat-api || true
-            
+
             # Run the new container with environment variables from server
             sudo docker run -d \
               --name 4d4cat-api \
@@ -80,9 +83,16 @@ jobs:
               --env-file /home/opc/.env \
               -v /home/opc/logs:/app/logs \
               ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
-            
-            # Re-tag the newly deployed image as 'latest' on the host
-            sudo docker tag ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }} ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:latest
-            
+
+            # Health check - wait for container to be healthy
+            echo "Waiting for container to start..."
+            sleep 10
+            if ! sudo docker ps | grep -q 4d4cat-api; then
+              echo "Container failed to start!"
+              sudo docker logs 4d4cat-api
+              exit 1
+            fi
+            echo "Container is running."
+
             # Clean up unused images to save disk space
             sudo docker image prune -f
