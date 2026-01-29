@@ -1,0 +1,4 @@
+logging:
+  level:
+    com.services: DEBUG
+    org.springframework.test: INFO

@@ -1,18 +1,16 @@
-package com.services.pixabay.presentation;
+package com.services.api.pixabay;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.services.common.application.exception.ErrorCode;
-import com.services.common.application.exception.NotFoundException;
-import com.services.common.infrastructure.config.MessageSourceConfig;
-import com.services.pixabay.application.PixabayMusicService;
-import com.services.pixabay.application.PixabayVideoService;
-import com.services.pixabay.application.dto.result.PixabayMusicResult;
-import com.services.pixabay.application.dto.result.PixabayVideoResult;
-import com.services.pixabay.fixture.PixabayTestFixtures;
+import com.services.api.config.MessageSourceConfig;
+import com.services.api.fixture.PixabayTestFixtures;
+import com.services.core.pixabay.dto.PixabayMusicResult;
+import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.exception.ErrorCode;
+import com.services.core.exception.NotFoundException;
 import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,9 +31,7 @@ class PixabayControllerTest {
 
   @Autowired private MessageSource messageSource;
 
-  @MockitoBean private PixabayVideoService pixabayVideoService;
-
-  @MockitoBean private PixabayMusicService pixabayMusicService;
+  @MockitoBean private PixabayService pixabayService;
 
   private String getErrorMessage(ErrorCode errorCode) {
     return messageSource.getMessage(errorCode.getMessageKey(), null, Locale.getDefault());
@@ -46,7 +42,7 @@ class PixabayControllerTest {
   void getVideo_shouldReturnVideoData() throws Exception {
     // Given
     PixabayVideoResult videoResult = PixabayTestFixtures.createDefaultVideoResult(1);
-    when(pixabayVideoService.getRandomElement()).thenReturn(videoResult);
+    when(pixabayService.getRandomVideo()).thenReturn(videoResult);
 
     // When & Then
     mockMvc
@@ -63,7 +59,7 @@ class PixabayControllerTest {
   void getMusic_shouldReturnMusicData() throws Exception {
     // Given
     PixabayMusicResult musicResult = PixabayTestFixtures.createDefaultMusicResult(1);
-    when(pixabayMusicService.getRandomElement()).thenReturn(musicResult);
+    when(pixabayService.getRandomMusic()).thenReturn(musicResult);
 
     // When & Then
     mockMvc
@@ -81,7 +77,7 @@ class PixabayControllerTest {
   void getVideo_shouldReturn404_whenDataNotFound() throws Exception {
     // Given
     ErrorCode errorCode = ErrorCode.PIXABAY_VIDEO_NOT_FOUND;
-    when(pixabayVideoService.getRandomElement()).thenThrow(new NotFoundException(errorCode));
+    when(pixabayService.getRandomVideo()).thenThrow(new NotFoundException(errorCode));
     String expectedMessage = getErrorMessage(errorCode);
 
     // When & Then
@@ -99,7 +95,7 @@ class PixabayControllerTest {
   void getMusic_shouldReturn404_whenDataNotFound() throws Exception {
     // Given
     ErrorCode errorCode = ErrorCode.PIXABAY_MUSIC_NOT_FOUND;
-    when(pixabayMusicService.getRandomElement()).thenThrow(new NotFoundException(errorCode));
+    when(pixabayService.getRandomMusic()).thenThrow(new NotFoundException(errorCode));
     String expectedMessage = getErrorMessage(errorCode);
 
     // When & Then
