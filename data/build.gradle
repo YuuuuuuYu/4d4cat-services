@@ -1,0 +1,17 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+dependencies {
+    implementation project(':core')
+
+    // Web
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Infra
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+}
+
+bootJar {
+    archiveFileName = 'data.jar'
+}
