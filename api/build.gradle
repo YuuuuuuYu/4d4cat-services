@@ -1,0 +1,39 @@
+plugins {
+    id 'org.springframework.boot'
+    id 'org.springdoc.openapi-gradle-plugin'
+}
+
+dependencies {
+    implementation project(':core')
+
+    // Web
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Data
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'com.h2database:h2'
+
+    // API Documentation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14'
+
+    // Message Source
+    implementation 'net.rakugakibox.util:yaml-resource-bundle:1.1'
+
+    // AWS
+    implementation 'software.amazon.awssdk:s3:2.40.13'
+    implementation 'software.amazon.awssdk:lambda:2.40.13'
+
+    // Infra
+    implementation 'ca.pjer:logback-awslogs-appender:1.6.0'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-registry-cloudwatch2'
+
+    // Test
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
+}
+
+bootJar {
+    archiveFileName = 'api.jar'
+}

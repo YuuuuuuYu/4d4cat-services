@@ -1,0 +1,23 @@
+error:
+  common:
+    CO1000: "Invalid request"
+    CO1001: "Data not found"
+    CO1002: "Internal server error"
+    CO1003: "External service temporarily unavailable"
+  pixabay:
+    PV1000: "PixabayVideo data not found"
+    PM1000: "PixabayMusic data not found"
+  message:
+    MS0204: "No message content"
+    MS0400: "Invalid message content"
+  discord:
+    DC1000: "Discord webhook sending failed (code: {0})"
+
+discord:
+  init:
+    success:
+      title: "Success initialize data"
+      description: "Finished service: {0}, time: {1} sec"
+    failure:
+      title: "Fail initialize data"
+      description: "Failed service: {0}, time: {1} sec: {2}"

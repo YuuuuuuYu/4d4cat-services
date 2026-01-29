@@ -1,0 +1,18 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    // Spring Core
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Redis
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Utils
+    api 'org.apache.commons:commons-lang3:3.18.0'
+
+    // Jackson for JSON serialization
+    api 'com.fasterxml.jackson.core:jackson-databind'
+}

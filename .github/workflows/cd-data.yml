@@ -1,9 +1,13 @@
-name: cd-oci
+name: cd-data
 
 on:
   pull_request:
     branches: [ "main" ]
     types: [closed]
+    paths:
+      - 'core/**'
+      - 'data/**'
+      - '.github/workflows/cd-data.yml'
 
 jobs:
   deploy:
@@ -31,13 +35,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build api with Gradle
+      - name: Build data with Gradle
         env:
           PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
-        run: ./gradlew :api:bootJar
+        run: ./gradlew :data:bootJar
 
       - name: Prepare Jar for Docker
-        run: mv ./api/build/libs/api.jar ./api/build/libs/app.jar
+        run: mv ./data/build/libs/data.jar ./data/build/libs/app.jar
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -54,42 +58,54 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./api
-          file: ./api/Dockerfile
+          context: ./data
+          file: ./data/Dockerfile
           push: true
           platforms: linux/arm64
           tags: |
-            ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
-            ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:latest
+            ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:latest
 
-      - name: (SSH) Deploy to Oracle Instances
+      - name: (SSH) Deploy to Data Server
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.ORACLE_MAIN_IP }},${{ secrets.ORACLE_SUB_IP }}
-          username: ${{ secrets.ORACLE_USER }}
+          host: ${{ secrets.DATA_SERVER_IP }}
+          username: ${{ secrets.DATA_SERVER_USER }}
           key: ${{ secrets.ORACLE_KEY }}
           script: |
             # Pull the specific version of the image using the commit SHA
-            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
+            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
 
             # Stop and remove the old container
-            sudo docker stop 4d4cat-api || true
-            sudo docker rm 4d4cat-api || true
+            sudo docker stop 4d4cat-data || true
+            sudo docker rm 4d4cat-data || true
+
+            # Ensure Redis is running
+            if ! sudo docker ps | grep -q 4d4cat-redis; then
+              echo "Starting Redis..."
+              sudo docker run -d \
+                --name 4d4cat-redis \
+                -p 6379:6379 \
+                -v redis-data:/data \
+                redis:7-alpine redis-server --appendonly yes
+            fi
 
             # Run the new container with environment variables from server
             sudo docker run -d \
-              --name 4d4cat-api \
-              -p 8080:8080 \
+              --name 4d4cat-data \
+              -p 8081:8081 \
               --env-file /home/opc/.env \
+              -e REDIS_HOST=host.docker.internal \
+              --add-host=host.docker.internal:host-gateway \
               -v /home/opc/logs:/app/logs \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
+              ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
 
             # Health check - wait for container to be healthy
             echo "Waiting for container to start..."
             sleep 10
-            if ! sudo docker ps | grep -q 4d4cat-api; then
+            if ! sudo docker ps | grep -q 4d4cat-data; then
               echo "Container failed to start!"
-              sudo docker logs 4d4cat-api
+              sudo docker logs 4d4cat-data
               exit 1
             fi
             echo "Container is running."
