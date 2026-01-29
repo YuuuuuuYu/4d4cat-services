@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class RedisMessageStorage {
 
-  private static final String MESSAGE_KEY = "message:last";
+  private static final String MESSAGE_KEY = "lastMessage";
 
   private final RedisTemplate<String, Object> redisTemplate;
 
