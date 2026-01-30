@@ -18,6 +18,10 @@ pixabay:
     video: ${PIXABAY_VIDEO_URL}
     music: ${PIXABAY_MUSIC_URL}
 
+discord:
+  webhook:
+    url: ${DISCORD_WEBHOOK_URL}
+
 management:
   endpoints:
     web:
