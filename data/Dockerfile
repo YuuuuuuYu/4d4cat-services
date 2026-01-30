@@ -4,7 +4,7 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-COPY data/build/libs/data.jar app.jar
+COPY build/libs/data.jar app.jar
 
 EXPOSE 8081
 
