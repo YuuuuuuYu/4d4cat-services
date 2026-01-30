@@ -1,6 +1,6 @@
 package com.services.api.message;
 
-import com.services.api.aop.NotifyDiscord;
+import com.services.core.aop.NotifyDiscord;
 import com.services.core.exception.BadRequestException;
 import com.services.core.exception.ErrorCode;
 import com.services.core.infrastructure.RedisMessageStorage;

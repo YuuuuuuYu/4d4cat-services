@@ -6,6 +6,7 @@ dependencies {
     implementation project(':core')
 
     // Web
+    implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
     // Infra
