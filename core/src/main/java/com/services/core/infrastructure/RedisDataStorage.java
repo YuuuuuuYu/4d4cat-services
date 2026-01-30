@@ -35,13 +35,15 @@ public class RedisDataStorage {
     return rawList.stream().map(item -> (T) item).toList();
   }
 
+  @SuppressWarnings("unchecked")
   public <T> Optional<T> getRandomElement(String key, Class<T> elementType) {
-    List<T> list = getListData(key, elementType);
-    if (list.isEmpty()) {
+    Long size = redisTemplate.opsForList().size(key);
+    if (size == null || size == 0) {
       return Optional.empty();
     }
-    int randomIndex = RandomUtils.generateRandomInt(list.size());
-    return Optional.of(list.get(randomIndex));
+    int randomIndex = RandomUtils.generateRandomInt(size.intValue());
+    Object element = redisTemplate.opsForList().index(key, randomIndex);
+    return element == null ? Optional.empty() : Optional.of((T) element);
   }
 
   public <T> T getRandomElement(String key, Class<T> elementType, ErrorCode errorCode) {
