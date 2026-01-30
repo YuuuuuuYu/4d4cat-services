@@ -1,7 +1,9 @@
 package com.services.data.pixabay;
 
+import com.services.core.aop.NotifyDiscord;
 import com.services.core.infrastructure.ApiMetadata;
 import com.services.core.infrastructure.RedisDataStorage;
+import com.services.core.notification.DataCollectionResult;
 import com.services.core.pixabay.dto.CustomPixabayMusicResponse;
 import com.services.core.pixabay.dto.PixabayMusicResult;
 import java.util.List;
@@ -57,6 +59,12 @@ public class PixabayMusicCollector
   }
 
   @Override
+  @NotifyDiscord(taskName = "Pixabay 음악 수집")
+  public DataCollectionResult collectAndStore() {
+    return super.collectAndStore();
+  }
+
+  @Override
   protected String getBaseUrlKey() {
     return ApiMetadata.PIXABAY_MUSIC.getUrlPropertyKey();
   }
@@ -79,6 +87,11 @@ public class PixabayMusicCollector
   @Override
   protected ParameterizedTypeReference<CustomPixabayMusicResponse<PixabayMusicResult>>
       getResponseTypeReference() {
-    return new ParameterizedTypeReference<CustomPixabayMusicResponse<PixabayMusicResult>>() {};
+    return new ParameterizedTypeReference<>() {};
+  }
+
+  @Override
+  protected String getDataType() {
+    return "Music";
   }
 }

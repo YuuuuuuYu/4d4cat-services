@@ -1,4 +1,4 @@
-package com.services.api.aop;
+package com.services.core.aop;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

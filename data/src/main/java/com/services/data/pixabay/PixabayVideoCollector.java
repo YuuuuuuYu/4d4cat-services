@@ -1,7 +1,9 @@
 package com.services.data.pixabay;
 
+import com.services.core.aop.NotifyDiscord;
 import com.services.core.infrastructure.ApiMetadata;
 import com.services.core.infrastructure.RedisDataStorage;
+import com.services.core.notification.DataCollectionResult;
 import com.services.core.pixabay.dto.PixabayResponse;
 import com.services.core.pixabay.dto.PixabayVideoResult;
 import java.util.List;
@@ -48,6 +50,12 @@ public class PixabayVideoCollector
   }
 
   @Override
+  @NotifyDiscord(taskName = "Pixabay 비디오 수집")
+  public DataCollectionResult collectAndStore() {
+    return super.collectAndStore();
+  }
+
+  @Override
   protected String getBaseUrlKey() {
     return ApiMetadata.PIXABAY_VIDEOS.getUrlPropertyKey();
   }
@@ -71,6 +79,11 @@ public class PixabayVideoCollector
   @Override
   protected ParameterizedTypeReference<PixabayResponse<PixabayVideoResult>>
       getResponseTypeReference() {
-    return new ParameterizedTypeReference<PixabayResponse<PixabayVideoResult>>() {};
+    return new ParameterizedTypeReference<>() {};
+  }
+
+  @Override
+  protected String getDataType() {
+    return "Video";
   }
 }

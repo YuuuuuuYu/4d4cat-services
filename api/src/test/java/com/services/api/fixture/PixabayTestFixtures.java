@@ -1,19 +1,8 @@
 package com.services.api.fixture;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.when;
-
 import com.services.core.pixabay.dto.PixabayMusicResult;
 import com.services.core.pixabay.dto.PixabayVideoResult;
 import java.util.List;
-import java.util.stream.IntStream;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
 
 public class PixabayTestFixtures {
 

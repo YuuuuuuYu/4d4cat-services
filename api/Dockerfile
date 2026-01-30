@@ -4,7 +4,7 @@ FROM eclipse-temurin:21-jre-jammy
 
 WORKDIR /app
 
-COPY build/libs/app.jar app.jar
+COPY api/build/libs/api.jar app.jar
 
 EXPOSE 8080
 

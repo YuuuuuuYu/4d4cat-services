@@ -1,4 +1,4 @@
-package com.services.api.discord;
+package com.services.core.notification.discord;
 
 import com.services.core.exception.BadGatewayException;
 import com.services.core.exception.ErrorCode;

@@ -7,10 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.services.api.config.MessageSourceConfig;
 import com.services.api.fixture.PixabayTestFixtures;
-import com.services.core.pixabay.dto.PixabayMusicResult;
-import com.services.core.pixabay.dto.PixabayVideoResult;
 import com.services.core.exception.ErrorCode;
 import com.services.core.exception.NotFoundException;
+import com.services.core.pixabay.dto.PixabayMusicResult;
+import com.services.core.pixabay.dto.PixabayVideoResult;
 import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
