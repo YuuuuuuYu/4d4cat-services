@@ -36,9 +36,6 @@ jobs:
           PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
         run: ./gradlew :api:bootJar
 
-      - name: Prepare Jar for Docker
-        run: mv ./api/build/libs/api.jar ./api/build/libs/app.jar
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
