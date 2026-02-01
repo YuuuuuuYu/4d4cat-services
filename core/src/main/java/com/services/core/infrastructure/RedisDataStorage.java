@@ -19,10 +19,21 @@ public class RedisDataStorage {
   private final RedisTemplate<String, Object> redisTemplate;
 
   public <T> void setListData(String key, List<T> data) {
-    redisTemplate.delete(key);
-    if (data != null && !data.isEmpty()) {
-      redisTemplate.opsForList().rightPushAll(key, data.toArray());
-      log.info("Stored {} items to Redis key: {}", data.size(), key);
+    if (data == null || data.isEmpty()) {
+      log.warn("No data to store for key: {}", key);
+      return;
+    }
+
+    String tempKey = key + ":temp";
+    try {
+      redisTemplate.delete(tempKey);
+      redisTemplate.opsForList().rightPushAll(tempKey, data.toArray());
+      redisTemplate.rename(tempKey, key);
+      log.info("Stored {} items to Redis key: {} (atomic operation)", data.size(), key);
+    } catch (Exception e) {
+      log.error("Failed to store data to Redis key: {}", key, e);
+      redisTemplate.delete(tempKey);
+      throw e;
     }
   }
 
