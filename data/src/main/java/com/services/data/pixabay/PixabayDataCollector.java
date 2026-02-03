@@ -68,7 +68,7 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
             CompletableFuture.supplyAsync(
                 () -> {
                   log.info("Processing filter '{}'", filter);
-                  return fetchDataForFilterWithRetry(filter);
+                  return fetchDataForFilter(filter);
                 },
                 executor);
         futures.add(future);
@@ -107,7 +107,7 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
     }
   }
 
-  protected Optional<R> fetchDataForFilterWithRetry(String filter) {
+  protected Optional<R> fetchDataForFilter(String filter) {
     try {
       log.debug("Fetching data for filter '{}'", filter);
       String uri = buildUri(filter).toUriString();
