@@ -9,6 +9,7 @@ dependencies {
 
     // Data
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.apache.commons:commons-pool2' // Redis connection pooling
 
     // Utils
     api 'org.apache.commons:commons-lang3:3.18.0'

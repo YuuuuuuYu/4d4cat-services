@@ -3,7 +3,6 @@ package com.services.core.infrastructure;
 import com.services.core.exception.ErrorCode;
 import com.services.core.exception.NotFoundException;
 import com.services.core.util.RandomUtils;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -38,15 +37,6 @@ public class RedisDataStorage {
   }
 
   @SuppressWarnings("unchecked")
-  public <T> List<T> getListData(String key, Class<T> elementType) {
-    List<Object> rawList = redisTemplate.opsForList().range(key, 0, -1);
-    if (rawList == null || rawList.isEmpty()) {
-      return Collections.emptyList();
-    }
-    return rawList.stream().map(item -> (T) item).toList();
-  }
-
-  @SuppressWarnings("unchecked")
   public <T> Optional<T> getRandomElement(String key, Class<T> elementType) {
     Long size = redisTemplate.opsForList().size(key);
     if (size == null || size == 0) {
@@ -59,9 +49,5 @@ public class RedisDataStorage {
 
   public <T> T getRandomElement(String key, Class<T> elementType, ErrorCode errorCode) {
     return getRandomElement(key, elementType).orElseThrow(() -> new NotFoundException(errorCode));
-  }
-
-  public Long getListSize(String key) {
-    return redisTemplate.opsForList().size(key);
   }
 }
