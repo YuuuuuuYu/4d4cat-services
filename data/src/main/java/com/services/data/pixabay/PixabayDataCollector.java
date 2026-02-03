@@ -13,9 +13,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.env.Environment;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 @Slf4j
@@ -26,8 +24,6 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
   protected final RedisDataStorage redisDataStorage;
 
   // Rate limiting configuration
-  private static final int MAX_RETRY_ATTEMPTS = 3;
-  private static final long INITIAL_BACKOFF_MS = 5000; // 5 seconds
   private static final long STAGGER_DELAY_MS = 1000; // 1 second between submissions
 
   private record FetchStatistics<T>(List<T> results, long successCount, long failureCount) {}
@@ -72,7 +68,7 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
             CompletableFuture.supplyAsync(
                 () -> {
                   log.info("Processing filter '{}'", filter);
-                  return fetchDataForFilterWithRetry(filter);
+                  return fetchDataForFilter(filter);
                 },
                 executor);
         futures.add(future);
@@ -111,70 +107,16 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
     }
   }
 
-  protected Optional<R> fetchDataForFilterWithRetry(String filter) {
-    int attempt = 0;
-    long backoffMs = INITIAL_BACKOFF_MS;
-
-    while (attempt < MAX_RETRY_ATTEMPTS) {
-      try {
-        log.debug(
-            "Fetching data for filter '{}' (attempt {}/{})",
-            filter,
-            attempt + 1,
-            MAX_RETRY_ATTEMPTS);
-        String uri = buildUri(filter).toUriString();
-        R result = restClient.get().uri(uri).retrieve().body(getResponseTypeReference());
-        log.debug("Successfully fetched data for filter '{}'", filter);
-        return Optional.ofNullable(result);
-      } catch (HttpClientErrorException.TooManyRequests e) {
-        attempt++;
-        if (attempt >= MAX_RETRY_ATTEMPTS) {
-          log.error(
-              "Max retry attempts reached for filter '{}' due to rate limiting. Giving up.",
-              filter,
-              e);
-          return Optional.empty();
-        }
-        log.warn(
-            "Rate limit hit for filter '{}' (attempt {}/{}). Retrying after {}ms",
-            filter,
-            attempt,
-            MAX_RETRY_ATTEMPTS,
-            backoffMs);
-        sleepFor(backoffMs);
-        backoffMs *= 2; // Exponential backoff
-      } catch (RestClientException e) {
-        attempt++;
-        if (attempt >= MAX_RETRY_ATTEMPTS) {
-          log.error(
-              "Max retry attempts reached for filter '{}' due to client/server errors. Giving up.",
-              filter,
-              e);
-          return Optional.empty();
-        }
-        log.warn(
-            "Transient error for filter '{}' (attempt {}/{}). Retrying after {}ms. Error: {}",
-            filter,
-            attempt,
-            MAX_RETRY_ATTEMPTS,
-            backoffMs,
-            e.getMessage());
-        sleepFor(backoffMs);
-        backoffMs *= 2;
-      } catch (Exception e) {
-        log.error("Failed to fetch data for filter '{}' with a non-retriable error.", filter, e);
-        return Optional.empty(); // Give up for non-transient errors
-      }
-    }
-    return Optional.empty();
-  }
-
-  private void sleepFor(long milliseconds) {
+  protected Optional<R> fetchDataForFilter(String filter) {
     try {
-      TimeUnit.MILLISECONDS.sleep(milliseconds);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      log.error("Retry sleep was interrupted.", e);
+      log.debug("Fetching data for filter '{}'", filter);
+      String uri = buildUri(filter).toUriString();
+      R result = restClient.get().uri(uri).retrieve().body(getResponseTypeReference());
+      log.debug("Successfully fetched data for filter '{}'", filter);
+      return Optional.ofNullable(result);
+    } catch (Exception e) {
+      log.error("Failed to fetch data for filter '{}'", filter, e);
+      return Optional.empty();
     }
   }
 
