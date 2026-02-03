@@ -30,15 +30,6 @@ public class PixabayDataScheduler {
     log.info("=== Scheduled daily data collection completed ===");
   }
 
-  @Scheduled(
-      fixedRate = 21600000, // 6 hours in milliseconds
-      initialDelay = 21600000) // Start 6 hours after server startup
-  public void scheduledPeriodicCollection() {
-    log.info("=== Starting periodic data collection (every 6 hours) ===");
-    collectAllData();
-    log.info("=== Periodic data collection completed ===");
-  }
-
   private void collectAllData() {
     try {
       videoCollector.collectAndStore();
