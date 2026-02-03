@@ -84,7 +84,13 @@ jobs:
                 --name 4d4cat-redis \
                 -p 6379:6379 \
                 -v redis-data:/data \
-                redis:7-alpine redis-server --appendonly yes
+                redis:7-alpine redis-server \
+                  --appendonly yes \
+                  --activedefrag yes \
+                  --active-defrag-threshold-lower 10 \
+                  --active-defrag-threshold-upper 20 \
+                  --active-defrag-cycle-min 5 \
+                  --active-defrag-cycle-max 75
             fi
 
             # Run the new container with environment variables from server
