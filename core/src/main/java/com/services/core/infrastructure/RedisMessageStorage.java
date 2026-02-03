@@ -22,9 +22,6 @@ public class RedisMessageStorage {
 
   public Optional<String> getMessage() {
     Object value = redisTemplate.opsForValue().get(MESSAGE_KEY);
-    if (value != null) {
-      return Optional.of(value.toString());
-    }
-    return Optional.empty();
+    return Optional.ofNullable(value).map(Object::toString);
   }
 }
