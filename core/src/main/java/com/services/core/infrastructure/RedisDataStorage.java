@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -23,17 +25,32 @@ public class RedisDataStorage {
       return;
     }
 
-    String tempKey = key + ":temp";
     try {
-      redisTemplate.delete(tempKey);
-      redisTemplate.opsForList().rightPushAll(tempKey, data.toArray());
-      redisTemplate.rename(tempKey, key);
-      log.info("Stored {} items to Redis key: {} (atomic operation)", data.size(), key);
+      redisTemplate.executePipelined(createPipelineCallback(key, data));
+      log.info("Stored {} items to Redis key: {} (pipeline)", data.size(), key);
     } catch (Exception e) {
       log.error("Failed to store data to Redis key: {}", key, e);
-      redisTemplate.delete(tempKey);
       throw e;
     }
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private <T> RedisCallback<Object> createPipelineCallback(String key, List<T> data) {
+    return connection -> {
+      RedisSerializer<String> keySerializer = redisTemplate.getStringSerializer();
+      RedisSerializer valueSerializer = redisTemplate.getValueSerializer();
+
+      byte[] keyBytes = keySerializer.serialize(key);
+
+      connection.del(keyBytes);
+
+      for (T item : data) {
+        byte[] valueBytes = valueSerializer.serialize(item);
+        connection.rPush(keyBytes, valueBytes);
+      }
+
+      return null;
+    };
   }
 
   @SuppressWarnings("unchecked")
