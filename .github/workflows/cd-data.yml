@@ -70,48 +70,97 @@ jobs:
           username: ${{ secrets.DATA_SERVER_USER }}
           key: ${{ secrets.ORACLE_KEY }}
           script: |
-            # Pull the specific version of the image using the commit SHA
+            # Create docker-compose.yml if it doesn't exist
+            cat > /home/opc/docker-compose.data.yml << 'EOF'
+            version: '3.8'
+
+            services:
+              redis:
+                image: redis:7-alpine
+                container_name: 4d4cat-redis
+                ports:
+                  - "6379:6379"
+                volumes:
+                  - redis-data:/data
+                environment:
+                  - TZ=Asia/Seoul
+                command: >
+                  redis-server
+                  --appendonly yes
+                  --activedefrag yes
+                  --active-defrag-threshold-lower 10
+                  --active-defrag-threshold-upper 20
+                  --active-defrag-cycle-min 5
+                  --active-defrag-cycle-max 75
+                restart: unless-stopped
+                networks:
+                  - app-network
+                healthcheck:
+                  test: ["CMD", "redis-cli", "ping"]
+                  interval: 10s
+                  timeout: 3s
+                  retries: 3
+
+              data:
+                image: ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
+                container_name: 4d4cat-data
+                ports:
+                  - "8081:8081"
+                environment:
+                  - TZ=Asia/Seoul
+                  - REDIS_HOST=redis
+                  - REDIS_PORT=6379
+                env_file:
+                  - /home/opc/.env
+                volumes:
+                  - /home/opc/logs:/app/logs
+                depends_on:
+                  redis:
+                    condition: service_healthy
+                restart: unless-stopped
+                networks:
+                  - app-network
+                healthcheck:
+                  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+                  interval: 10s
+                  timeout: 3s
+                  retries: 3
+
+            networks:
+              app-network:
+                driver: bridge
+
+            volumes:
+              redis-data:
+                name: redis-data
+            EOF
+
+            # Pull the latest image
             sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
 
-            # Stop and remove the old container
-            sudo docker stop 4d4cat-data || true
-            sudo docker rm 4d4cat-data || true
+            # Deploy using docker-compose
+            cd /home/opc
+            sudo docker-compose -f docker-compose.data.yml down
+            sudo docker-compose -f docker-compose.data.yml up -d
 
-            # Ensure Redis is running
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 15
+
+            # Check if services are running
             if ! sudo docker ps | grep -q 4d4cat-redis; then
-              echo "Starting Redis..."
-              sudo docker run -d \
-                --name 4d4cat-redis \
-                -p 6379:6379 \
-                -v redis-data:/data \
-                redis:7-alpine redis-server \
-                  --appendonly yes \
-                  --activedefrag yes \
-                  --active-defrag-threshold-lower 10 \
-                  --active-defrag-threshold-upper 20 \
-                  --active-defrag-cycle-min 5 \
-                  --active-defrag-cycle-max 75
+              echo "Redis failed to start!"
+              sudo docker logs 4d4cat-redis
+              exit 1
             fi
 
-            # Run the new container with environment variables from server
-            sudo docker run -d \
-              --name 4d4cat-data \
-              -p 8081:8081 \
-              --env-file /home/opc/.env \
-              -e REDIS_HOST=host.docker.internal \
-              --add-host=host.docker.internal:host-gateway \
-              -v /home/opc/logs:/app/logs \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
-
-            # Health check - wait for container to be healthy
-            echo "Waiting for container to start..."
-            sleep 10
             if ! sudo docker ps | grep -q 4d4cat-data; then
-              echo "Container failed to start!"
+              echo "Data service failed to start!"
               sudo docker logs 4d4cat-data
               exit 1
             fi
-            echo "Container is running."
 
-            # Clean up unused images to save disk space
+            echo "Services are running successfully."
+
+            # Clean up unused images
             sudo docker image prune -f
