@@ -78,6 +78,7 @@ jobs:
               --name 4d4cat-api \
               -p 8080:8080 \
               --env-file /home/opc/.env \
+              -e TZ=Asia/Seoul \
               -v /home/opc/logs:/app/logs \
               ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
 
