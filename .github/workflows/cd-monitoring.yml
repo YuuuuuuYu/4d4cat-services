@@ -130,9 +130,11 @@ jobs:
                 driver: bridge
             EOF
 
-            # Create prometheus.yml file on the server
+            # Create prometheus directory
             mkdir -p /home/opc/prometheus
-            cat > /home/opc/prometheus/prometheus.yml << 'EOF_PROM'
+
+            # Create prometheus.yml template on the server using a heredoc
+            cat > /home/opc/prometheus/prometheus-prod.yml.tpl << 'EOTPL'
             global:
               scrape_interval: 15s
 
@@ -144,12 +146,24 @@ jobs:
               - job_name: 'api-service'
                 metrics_path: '/actuator/prometheus'
                 static_configs:
-                  - targets: ['${{ secrets.ORACLE_MAIN_IP }}:8080', '${{ secrets.ORACLE_SUB_IP }}:8080'] # Use both main and sub API server IPs
-              - job_name: 'data-service' # Added data-service scrape config
+                  - targets: ['${ORACLE_MAIN_IP}:8080', '${ORACLE_SUB_IP}:8080']
+              - job_name: 'data-service'
                 metrics_path: '/actuator/prometheus'
                 static_configs:
-                  - targets: ['${{ secrets.DATA_SERVER_IP }}:8081'] # Use actual Data server IP
-            EOF_PROM
+                  - targets: ['${DATA_SERVER_IP}:8081']
+EOTPL
+
+            # Install gettext-base for envsubst if not already installed
+            sudo apt-get update && sudo apt-get install -y gettext-base
+
+            # Use envsubst to populate the template with actual values
+            ORACLE_MAIN_IP="${{ secrets.ORACLE_MAIN_IP }}" \
+            ORACLE_SUB_IP="${{ secrets.ORACLE_SUB_IP }}" \
+            DATA_SERVER_IP="${{ secrets.DATA_SERVER_IP }}" \
+            envsubst < /home/opc/prometheus/prometheus-prod.yml.tpl > /home/opc/prometheus/prometheus.yml
+
+            # Clean up the template file
+            rm /home/opc/prometheus/prometheus-prod.yml.tpl
 
             # Pull the latest image for monitoring
             sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:${{ github.sha }}
