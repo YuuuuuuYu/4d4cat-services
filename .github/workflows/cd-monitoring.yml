@@ -1,0 +1,173 @@
+name: cd-monitoring
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [closed]
+    paths:
+      - 'core/**'
+      - 'monitoring/**'
+      - '.github/workflows/cd-monitoring.yml'
+
+jobs:
+  deploy:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+          submodules: true
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build monitoring with Gradle
+        run: ./gradlew :monitoring:bootJar
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./monitoring
+          file: ./monitoring/Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:${{ github.sha }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:latest
+
+      - name: (SSH) Deploy to Monitoring Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.MONITORING_SERVER_IP }}
+          username: ${{ secrets.MONITORING_SERVER_USER }}
+          key: ${{ secrets.ORACLE_KEY }}
+          script: |
+            # Create docker-compose.monitoring.yml if it doesn't exist
+            cat > /home/opc/docker-compose.monitoring.yml << 'EOF'
+            version: '3.8'
+
+            services:
+              monitoring:
+                image: ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:${{ github.sha }}
+                container_name: 4d4cat-monitoring
+                ports:
+                  - "8082:8080" # Map host port 8082 to container port 8080
+                environment:
+                  - TZ=Asia/Seoul
+                networks:
+                  - monitor-net
+                restart: unless-stopped
+                healthcheck:
+                  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+                  interval: 10s
+                  timeout: 3s
+                  retries: 3
+
+              prometheus:
+                image: prom/prometheus:latest
+                container_name: 4d4cat-prometheus
+                ports:
+                  - "9090:9090"
+                volumes:
+                  - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+                command:
+                  - '--config.file=/etc/prometheus/prometheus.yml'
+                  - '--storage.tsdb.path=/prometheus'
+                networks:
+                  - monitor-net
+                restart: unless-stopped
+                depends_on:
+                  - monitoring
+
+              grafana:
+                image: grafana/grafana:latest
+                container_name: 4d4cat-grafana
+                ports:
+                  - "3000:3000"
+                networks:
+                  - monitor-net
+                restart: unless-stopped
+                depends_on:
+                  - prometheus
+
+            networks:
+              monitor-net:
+                driver: bridge
+            EOF
+
+            # Create prometheus.yml file on the server
+            mkdir -p /home/opc/prometheus
+            cat > /home/opc/prometheus/prometheus.yml << 'EOF_PROM'
+            global:
+              scrape_interval: 15s
+
+            scrape_configs:
+              - job_name: 'monitoring-service'
+                metrics_path: '/actuator/prometheus'
+                static_configs:
+                  - targets: ['monitoring:8080']
+              - job_name: 'api-service'
+                metrics_path: '/actuator/prometheus'
+                static_configs:
+                  - targets: ['YOUR_API_SERVICE_IP:8080'] # IMPORTANT: Replace with actual API service IP/hostname
+            EOF_PROM
+
+            # Pull the latest image for monitoring
+            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:${{ github.sha }}
+
+            # Deploy using docker-compose
+            cd /home/opc
+            sudo docker compose -f docker-compose.monitoring.yml down
+            sudo docker compose -f docker-compose.monitoring.yml up -d
+
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 30 # Increased sleep time for multiple services
+
+            # Check if services are running
+            if ! sudo docker ps | grep -q 4d4cat-monitoring; then
+              echo "Monitoring service failed to start!"
+              sudo docker logs 4d4cat-monitoring
+              exit 1
+            fi
+            if ! sudo docker ps | grep -q 4d4cat-prometheus; then
+              echo "Prometheus failed to start!"
+              sudo docker logs 4d4cat-prometheus
+              exit 1
+            fi
+            if ! sudo docker ps | grep -q 4d4cat-grafana; then
+              echo "Grafana failed to start!"
+              sudo docker logs 4d4cat-grafana
+              exit 1
+            fi
+
+            echo "Monitoring services are running successfully."
+
+            # Clean up unused images
+            sudo docker image prune -f
