@@ -11,6 +11,7 @@
 - **빌드 도구:** Gradle (Multi-Module)
 - **컨테이너:** Docker, Docker Compose
 - **HTTP 클라이언트:** RestClient (Spring 6.1+)
+- **모니터링:** Prometheus, Grafana
 
 ## 모듈 구조
 
@@ -18,7 +19,8 @@
 4d4cat-services/
 ├── core/           # 공통 라이브러리 모듈
 ├── data/           # 데이터 수집 서버 (port: 8081)
-└── api/            # API 서버 (port: 8080)
+├── api/            # API 서버 (port: 8080)
+└── monitoring/     # 모니터링 서버 (port: 8082)
 ```
 
 ### core 모듈
@@ -40,6 +42,12 @@
 - 서비스 (`PixabayService`, `MessageService`)
 - JPA 엔티티 (`omniwatch` 패키지)
 - `@NotifyDiscord` 어노테이션을 통한 메시지 저장 알림
+- Prometheus 메트릭 노출 (`/actuator/prometheus`)
+
+### monitoring 모듈
+- Spring Boot 기반 애플리케이션
+- Prometheus가 메트릭을 수집할 수 있도록 `/actuator/prometheus` 엔드포인트 노출
+- Grafana와 연동하여 대시보드 시각화 환경 제공
 
 ## 주요 라이브러리
 
@@ -77,6 +85,14 @@
 - **설정:** 환경 변수 `DISCORD_WEBHOOK_URL` 필요
 - **구현 위치:** core 모듈 (공통 AOP)
 - **사용 위치:** data-server (데이터 수집), api-server (메시지 저장)
+
+### Prometheus
+- **목적:** 애플리케이션 메트릭 수집 및 저장
+- **설정:** `prometheus/prometheus.yml` 파일을 통해 `api` 및 `monitoring` 서비스의 `/actuator/prometheus` 엔드포인트 스크랩
+
+### Grafana
+- **목적:** Prometheus를 통해 수집된 메트릭 시각화
+- **설정:** Docker Compose를 통해 실행되며, Prometheus를 데이터 소스로 연결하여 대시보드 제공
 
 ## 필수 환경 변수
 

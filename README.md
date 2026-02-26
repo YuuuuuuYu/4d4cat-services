@@ -110,23 +110,25 @@ services/
 ├── core/                  # 공통 라이브러리 (DTO, 예외, Redis, AOP, 알림)
 ├── api/                   # API 서버 (REST API, JPA)
 ├── data/                  # 데이터 수집 서버 (스케줄러, Pixabay API 호출)
+└── monitoring/            # 모니터링 서버 (Actuator, Prometheus)
 ```
 
 **모듈별 역할:**
 - **core**: 공통 예외, Redis 저장소, Pixabay DTO, AOP (Discord 알림), 유틸리티
 - **api**: REST API 제공, 사용자 요청 처리
 - **data**: 외부 API 데이터 수집, Redis 저장, 스케줄링
+- **monitoring**: 서비스 메트릭 수집 및 Prometheus 엔드포인트 제공
 
 ### 서비스 아키텍처
 
 **로컬 개발 환경:**
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Docker Compose                         │
-├─────────────┬─────────────┬─────────────┬───────────────────┤
-│     api     │    data     │    Redis    │     Prometheus    │
-│   :8080     │    :8081    │    :6379    │       :9090       │
-└─────────────┴─────────────┴─────────────┴───────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             Docker Compose                                  │
+├─────────────┬─────────────┬─────────────┬──────────────┬────────────────────┤
+│     api     │    data     │    Redis    │  monitoring  │     Prometheus     │
+│   :8080     │    :8081    │    :6379    │    :8082     │       :9090        │
+└─────────────┴─────────────┴─────────────┴──────────────┴────────────────────┘
 ```
 
 **프로덕션 환경:**
@@ -177,6 +179,12 @@ core/
 ├── notification/         # 알림 관련 (Discord 웹훅, DataCollectionResult)
 ├── infrastructure/       # Redis 설정 및 저장소
 └── util/                 # 공통 유틸리티
+```
+
+**monitoring 모듈:**
+```
+monitoring/
+└── src/main/java/com/services/monitoring/MonitoringApplication.java
 ```
 
 **설계 철학:**
@@ -265,10 +273,12 @@ docker-compose down
 ./gradlew :core:build
 ./gradlew :api:bootJar
 ./gradlew :data:bootJar
+./gradlew :monitoring:bootJar
 
 # 개별 실행
 ./gradlew :api:bootRun
 ./gradlew :data:bootRun
+./gradlew :monitoring:bootRun
 ```
 
 ### 테스트
@@ -279,6 +289,7 @@ docker-compose down
 # 특정 모듈 테스트
 ./gradlew :api:test
 ./gradlew :data:test
+./gradlew :monitoring:test
 
 # 코드 포맷팅
 ./gradlew spotlessApply
@@ -289,9 +300,11 @@ docker-compose down
 |--------|-----|------|
 | API Server | http://localhost:8080 | REST API 엔드포인트 |
 | Data Server | http://localhost:8081 | 데이터 수집 서버 |
+| Monitoring Server | http://localhost:8082 | 모니터링 서버 |
 | Swagger UI | http://localhost:8080/api-docs/swagger-ui.html | API 문서 |
 | API Health | http://localhost:8080/actuator/health | API 헬스체크 |
 | Data Health | http://localhost:8081/actuator/health | Data 헬스체크 |
+| Monitoring Health | http://localhost:8082/actuator/health | Monitoring 헬스체크 |
 | Prometheus | http://localhost:9090 | 메트릭 수집 |
 | Grafana | http://localhost:3000 | 모니터링 대시보드 |
 | Redis | localhost:6379 | 캐시 스토어 |
@@ -333,6 +346,11 @@ curl -X POST http://localhost:8080/message \
 **CD - Data Server:**
 - `core/`, `data/` 변경 감지 시 자동 배포
 - Redis 컨테이너 자동 확인/실행
+- 배포 후 헬스체크
+
+**CD - Monitoring Server:**
+- `core/`, `monitoring/` 변경 감지 시 자동 배포
+- Monitoring, Prometheus, Grafana 컨테이너 자동 배포
 - 배포 후 헬스체크
 
 ### 배포 전략

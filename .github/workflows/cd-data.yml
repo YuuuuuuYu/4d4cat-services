@@ -140,8 +140,8 @@ jobs:
 
             # Deploy using docker-compose
             cd /home/opc
-            sudo docker-compose -f docker-compose.data.yml down
-            sudo docker-compose -f docker-compose.data.yml up -d
+            sudo docker compose -f docker-compose.data.yml down
+            sudo docker compose -f docker-compose.data.yml up -d
 
             # Wait for services to be healthy
             echo "Waiting for services to be healthy..."

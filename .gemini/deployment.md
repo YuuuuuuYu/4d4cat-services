@@ -29,6 +29,10 @@
 # API Server JAR 생성
 ./gradlew :api:bootJar
 # 결과: api/build/libs/api.jar
+
+# Monitoring Server JAR 생성
+./gradlew :monitoring:bootJar
+# 결과: monitoring/build/libs/monitoring.jar
 ```
 
 ### 로컬 실행
@@ -50,7 +54,9 @@ docker-compose up -d
 ├── docker-compose.data.yml   # Data Server 배포용
 ├── data/
 │   └── Dockerfile
-└── api/
+├── api/
+│   └── Dockerfile
+└── monitoring/
     └── Dockerfile
 ```
 
@@ -106,6 +112,16 @@ GET message:last
 4. SSH로 Data Server에 배포
 5. Redis 컨테이너 확인/실행
 
+### CD - Monitoring Server (`cd-monitoring.yml`)
+**트리거:** main 병합 시 (core/, monitoring/ 변경 시)
+**대상:** Monitoring Server 1대
+
+1. Java 21 환경 설정
+2. `./gradlew :monitoring:bootJar` 빌드
+3. Docker 이미지 빌드 및 푸시
+4. SSH로 Monitoring Server에 배포
+5. Prometheus 및 Grafana 컨테이너 확인/실행
+
 ## 환경 변수
 
 ### Data Server (.env)
@@ -142,7 +158,10 @@ OMNIWATCH_DB_PASSWORD=password
 | `DATA_SERVER_USER` | Data Server SSH 사용자명 |
 | `DATA_SERVER_KEY` | Data Server SSH Private Key |
 | `PIXABAY_KEY` | Pixabay API 키 |
-| `SUBMODULE_TOKEN` | 서브모듈 접근용 토큰 |
+| `SUBMODULE_TOKEN`      | 서브모듈 접근용 토큰     |
+| `MONITORING_SERVER_IP` | Monitoring Server IP |
+| `MONITORING_SERVER_USER` | Monitoring Server SSH 사용자명 |
+
 
 ## 서버 구성
 
@@ -156,6 +175,13 @@ OMNIWATCH_DB_PASSWORD=password
 - Port: 8080
 - REDIS_HOST로 Data Server IP 설정
 
+### Monitoring Server (1대)
+- monitoring-server 컨테이너
+- prometheus 컨테이너
+- grafana 컨테이너
+- Port: 8082 (Monitoring), 9090 (Prometheus), 3000 (Grafana)
+- API_SERVER_IP로 API Server IP 설정 (prometheus.yml 설정에 필요)
+
 ## 배포 전 체크리스트
 
 - [ ] 모든 테스트가 통과하는가?
@@ -163,6 +189,7 @@ OMNIWATCH_DB_PASSWORD=password
 - [ ] 코드 리뷰가 완료되었는가?
 - [ ] Redis 연결이 정상인가?
 - [ ] Data Server가 정상 동작하는가?
+- [ ] 모니터링 스택(Prometheus, Grafana) 설정이 올바른가?
 - [ ] 롤백 계획이 수립되었는가?
 
 ## 롤백

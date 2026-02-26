@@ -11,13 +11,20 @@
                     ┌─────────────┐            │
                     │ API Server  │◀───────────┘
                     │ (N대)       │  조회/저장
-                    └─────────────┘
+                    └──────┬──────┘
+                           │ 메트릭 수집
+                           ▼
+              ┌───────────────────────────┐
+              │ Monitoring Stack          │
+              │ (Prometheus + Grafana)    │
+              └───────────────────────────┘
 ```
 
 ### 모듈 의존성
 ```
 api-server ──▶ core
 data-server ──▶ core
+monitoring-server ──▶ (metrics from api-server)
 ```
 
 ## 모듈별 계층 구조
@@ -66,6 +73,17 @@ com.services.api/
 ├── presentation/    # GlobalExceptionHandler
 └── util/            # WebUtils
 ```
+
+### monitoring 모듈 (모니터링 대시보드 및 수집기)
+```
+com.services.monitoring/
+└── ...              # Prometheus metric 수집 및 Grafana 대시보드
+```
+`monitoring` 모듈은 애플리케이션의 메트릭을 수집하고 시각화하는 역할을 담당합니다. Prometheus와 Grafana를 활용하여 시스템 전반의 상태를 모니터링합니다.
+
+**Prometheus/Grafana 통합:**
+`api-server` 모듈은 `spring-boot-starter-actuator`와 `micrometer-registry-prometheus`를 통해 `/actuator/prometheus` 엔드포인트에 메트릭을 노출합니다. Prometheus는 이 엔드포인트를 주기적으로 스크랩하여 메트릭을 수집하고, Grafana는 Prometheus에 저장된 메트릭을 사용하여 시각화된 대시보드를 제공합니다.
+
 
 ## 주요 디자인 패턴
 

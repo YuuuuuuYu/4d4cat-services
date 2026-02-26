@@ -93,6 +93,8 @@ graph TD
 
 클라이언트가 비디오 또는 음악 데이터를 요청하면, 컨트롤러는 서비스 계층을 통해 `DataStorage`에 캐시된 데이터를 조회하여 무작위로 하나를 반환합니다.
 
+API 서버는 또한 `/actuator/prometheus` 엔드포인트를 통해 Prometheus 메트릭을 노출하며, 이는 모니터링 시스템에서 애플리케이션 성능 및 상태를 수집하는 데 사용됩니다.
+
 ```mermaid
 sequenceDiagram
     participant Client
