@@ -47,6 +47,18 @@
 
 ---
 
+### 3. 모니터링 관련
+
+#### [Prometheus 및 Grafana 진단 가이드]
+**상태**: 📖 참고 문서
+**목적**: 애플리케이션 및 시스템 모니터링 문제 진단 및 확인 방법 제공
+
+**핵심 내용**:
+- **Prometheus UI 확인**: `http://localhost:9090` 접속하여 `Status -> Targets` 메뉴에서 `api-service` 및 `monitoring` 서비스의 상태 확인. `UP` 상태여야 메트릭이 정상적으로 수집되고 있음을 의미합니다.
+- **Grafana 대시보드 확인**: `http://localhost:3000` 접속 후 Prometheus 데이터 소스가 올바르게 연결되어 있는지 확인하고, 관련 대시보드에서 메트릭 시각화 확인.
+
+---
+
 ## 이슈 분류
 
 ### 🔴 Critical (서비스 중단)
