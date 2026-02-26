@@ -53,7 +53,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./monitoring
+          context: .
           file: ./monitoring/Dockerfile
           push: true
           platforms: linux/arm64
@@ -90,12 +90,12 @@ jobs:
                   retries: 3
 
               prometheus:
-                image: prom/prometheus:latest
+                image: prom/prometheus:2.49.1 # Pinned to a specific version
                 container_name: 4d4cat-prometheus
                 ports:
                   - "9090:9090"
                 volumes:
-                  - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+                  - /home/opc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml # Corrected volume mount path
                 command:
                   - '--config.file=/etc/prometheus/prometheus.yml'
                   - '--storage.tsdb.path=/prometheus'
@@ -106,7 +106,7 @@ jobs:
                   - monitoring
 
               grafana:
-                image: grafana/grafana:latest
+                image: grafana/grafana:10.3.3 # Pinned to a specific version
                 container_name: 4d4cat-grafana
                 ports:
                   - "3000:3000"
@@ -115,15 +115,26 @@ jobs:
                 restart: unless-stopped
                 depends_on:
                   - prometheus
+                environment:
+                  - TZ=Asia/Seoul
+                  - GF_SECURITY_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+                  - GF_SECURITY_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+                  # IMPORTANT: Create GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD GitHub Secrets with strong, unique values.
+
+            networks:
+              monitor-net:
+                driver: bridge
 
             networks:
               monitor-net:
                 driver: bridge
             EOF
 
-            # Create prometheus.yml file on the server
+            # Create prometheus directory
             mkdir -p /home/opc/prometheus
-            cat > /home/opc/prometheus/prometheus.yml << 'EOF_PROM'
+
+            # Create prometheus.yml template on the server using a heredoc
+            cat > /home/opc/prometheus/prometheus-prod.yml.tpl << 'EOTPL'
             global:
               scrape_interval: 15s
 
@@ -135,8 +146,24 @@ jobs:
               - job_name: 'api-service'
                 metrics_path: '/actuator/prometheus'
                 static_configs:
-                  - targets: ['YOUR_API_SERVICE_IP:8080'] # IMPORTANT: Replace with actual API service IP/hostname
-            EOF_PROM
+                  - targets: ['${ORACLE_MAIN_IP}:8080', '${ORACLE_SUB_IP}:8080']
+              - job_name: 'data-service'
+                metrics_path: '/actuator/prometheus'
+                static_configs:
+                  - targets: ['${DATA_SERVER_IP}:8081']
+EOTPL
+
+            # Install gettext-base for envsubst if not already installed
+            sudo apt-get update && sudo apt-get install -y gettext-base
+
+            # Use envsubst to populate the template with actual values
+            ORACLE_MAIN_IP="${{ secrets.ORACLE_MAIN_IP }}" \
+            ORACLE_SUB_IP="${{ secrets.ORACLE_SUB_IP }}" \
+            DATA_SERVER_IP="${{ secrets.DATA_SERVER_IP }}" \
+            envsubst < /home/opc/prometheus/prometheus-prod.yml.tpl > /home/opc/prometheus/prometheus.yml
+
+            # Clean up the template file
+            rm /home/opc/prometheus/prometheus-prod.yml.tpl
 
             # Pull the latest image for monitoring
             sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:${{ github.sha }}
