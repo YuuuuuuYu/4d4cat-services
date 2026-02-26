@@ -53,7 +53,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./monitoring
+          context: .
           file: ./monitoring/Dockerfile
           push: true
           platforms: linux/arm64
