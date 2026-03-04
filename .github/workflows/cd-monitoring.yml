@@ -77,7 +77,7 @@ jobs:
                 image: ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-monitoring:${{ github.sha }}
                 container_name: 4d4cat-monitoring
                 ports:
-                  - "8082:8080" # Map host port 8082 to container port 8080
+                  - "127.0.0.1:8082:8080" # Restricted to local host (SSH Tunnel only)
                 environment:
                   - TZ=Asia/Seoul
                 networks:
@@ -90,12 +90,13 @@ jobs:
                   retries: 3
 
               prometheus:
-                image: prom/prometheus:2.49.1 # Pinned to a specific version
+                image: prom/prometheus:v2.49.1
                 container_name: 4d4cat-prometheus
                 ports:
-                  - "9090:9090"
+                  - "127.0.0.1:9090:9090" # Restricted to local host (SSH Tunnel only)
                 volumes:
-                  - /home/opc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml # Corrected volume mount path
+                  - /home/opc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+                  - prometheus-data:/prometheus
                 command:
                   - '--config.file=/etc/prometheus/prometheus.yml'
                   - '--storage.tsdb.path=/prometheus'
@@ -106,10 +107,12 @@ jobs:
                   - monitoring
 
               grafana:
-                image: grafana/grafana:10.3.3 # Pinned to a specific version
+                image: grafana/grafana:10.3.3
                 container_name: 4d4cat-grafana
                 ports:
-                  - "3000:3000"
+                  - "127.0.0.1:3000:3000" # Restricted to local host (SSH Tunnel only)
+                volumes:
+                  - grafana-data:/var/lib/grafana
                 networks:
                   - monitor-net
                 restart: unless-stopped
@@ -117,21 +120,22 @@ jobs:
                   - prometheus
                 environment:
                   - TZ=Asia/Seoul
-                  - GF_SECURITY_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
-                  - GF_SECURITY_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+                  - GF_SECURITY_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+                  - GF_SECURITY_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
                   # IMPORTANT: Create GRAFANA_ADMIN_USER and GRAFANA_ADMIN_PASSWORD GitHub Secrets with strong, unique values.
 
             networks:
               monitor-net:
                 driver: bridge
 
-            networks:
-              monitor-net:
-                driver: bridge
+            volumes:
+              prometheus-data:
+              grafana-data:
             EOF
 
-            # Create prometheus directory
+            # Create prometheus directory and ensure prometheus.yml is not a directory
             mkdir -p /home/opc/prometheus
+            sudo rm -rf /home/opc/prometheus/prometheus.yml
 
             # Create prometheus.yml template on the server using a heredoc
             cat > /home/opc/prometheus/prometheus-prod.yml.tpl << 'EOTPL'
@@ -151,14 +155,23 @@ jobs:
                 metrics_path: '/actuator/prometheus'
                 static_configs:
                   - targets: ['${DATA_SERVER_IP}:8081']
+            EOTPL
 
-            # Install gettext-base for envsubst if not already installed
-            sudo apt-get update && sudo apt-get install -y gettext-base
+            # Install gettext for envsubst if not already installed
+            if ! command -v envsubst &> /dev/null; then
+              if command -v apt-get &> /dev/null; then
+                sudo apt-get update && sudo apt-get install -y gettext-base
+              elif command -v dnf &> /dev/null; then
+                sudo dnf install -y gettext
+              elif command -v yum &> /dev/null; then
+                sudo yum install -y gettext
+              fi
+            fi
 
-            # Use envsubst to populate the template with actual values
-            ORACLE_MAIN_IP="${{ secrets.ORACLE_MAIN_IP }}" \
-            ORACLE_SUB_IP="${{ secrets.ORACLE_SUB_IP }}" \
-            DATA_SERVER_IP="${{ secrets.DATA_SERVER_IP }}" \
+            # Use envsubst to populate the template with actual private values for internal communication
+            ORACLE_MAIN_IP="${{ secrets.ORACLE_MAIN_PRIVATE_IP }}" \
+            ORACLE_SUB_IP="${{ secrets.ORACLE_SUB_PRIVATE_IP }}" \
+            DATA_SERVER_IP="${{ secrets.DATA_SERVER_PRIVATE_IP }}" \
             envsubst < /home/opc/prometheus/prometheus-prod.yml.tpl > /home/opc/prometheus/prometheus.yml
 
             # Clean up the template file
