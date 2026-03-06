@@ -27,14 +27,15 @@
 - 공통 예외 클래스 (`ErrorCode`, `CustomException` 등)
 - 공통 DTO (`BaseResponse`, `ApiResponse`, `DataCollectionResult`)
 - Redis 설정 및 저장소 (`RedisConfig`, `RedisDataStorage`, `RedisMessageStorage`)
+  - `RedisDataStorage`: Redis Set 자료구조를 활용한 랜덤 요소 조회 최적화 (O(1))
 - Pixabay DTO (`PixabayVideoResult`, `PixabayMusicResult`)
 - AOP 및 알림 (`@NotifyDiscord`, `DiscordNotifierAspect`, `DiscordWebhookService`)
-- 유틸리티 (`RandomUtils`)
+- 유틸리티 (`RandomUtils`: `ThreadLocalRandom` 기반 고품질 난수 생성)
 
 ### data 모듈
 - Pixabay API 데이터 수집기 (`PixabayDataCollector`, `PixabayVideoCollector`, `PixabayMusicCollector`)
 - 스케줄러 (`PixabayDataScheduler`)
-- 서버 시작 시 데이터 초기화, 주기적 갱신
+- 서버 시작 완료 시(`ApplicationReadyEvent`) 비동기적으로 데이터 초기화, 주기적 갱신
 - `@NotifyDiscord` 어노테이션을 통한 데이터 수집 알림
 
 ### api 모듈
