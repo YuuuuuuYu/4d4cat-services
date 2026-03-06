@@ -1,3 +1,7 @@
+spring:
+  messages:
+    basename: messages
+
 logging:
   level:
     com.services: DEBUG
