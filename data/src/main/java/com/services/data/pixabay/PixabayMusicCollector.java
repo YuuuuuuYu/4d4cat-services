@@ -6,6 +6,7 @@ import com.services.core.infrastructure.RedisDataStorage;
 import com.services.core.notification.DataCollectionResult;
 import com.services.core.pixabay.dto.CustomPixabayMusicResponse;
 import com.services.core.pixabay.dto.PixabayMusicResult;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.env.Environment;
@@ -54,8 +55,11 @@ public class PixabayMusicCollector
           "solo%20classical%20instruments");
 
   public PixabayMusicCollector(
-      RestClient restClient, Environment environment, RedisDataStorage redisDataStorage) {
-    super(restClient, environment, redisDataStorage);
+      RestClient restClient,
+      Environment environment,
+      RedisDataStorage redisDataStorage,
+      MeterRegistry registry) {
+    super(restClient, environment, redisDataStorage, registry);
   }
 
   @Override

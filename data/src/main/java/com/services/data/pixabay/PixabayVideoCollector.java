@@ -6,6 +6,7 @@ import com.services.core.infrastructure.RedisDataStorage;
 import com.services.core.notification.DataCollectionResult;
 import com.services.core.pixabay.dto.PixabayResponse;
 import com.services.core.pixabay.dto.PixabayVideoResult;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -45,8 +46,11 @@ public class PixabayVideoCollector
   private String apiKey;
 
   public PixabayVideoCollector(
-      RestClient restClient, Environment environment, RedisDataStorage redisDataStorage) {
-    super(restClient, environment, redisDataStorage);
+      RestClient restClient,
+      Environment environment,
+      RedisDataStorage redisDataStorage,
+      MeterRegistry registry) {
+    super(restClient, environment, redisDataStorage, registry);
   }
 
   @Override
