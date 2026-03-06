@@ -14,6 +14,9 @@ dependencies {
     // Utils
     api 'org.apache.commons:commons-lang3:3.18.0'
 
+    // Metrics
+    implementation 'io.micrometer:micrometer-core'
+
     // Jackson for JSON serialization
     api 'com.fasterxml.jackson.core:jackson-databind'
 }

@@ -6,6 +6,8 @@ import com.services.core.notification.DataCollectionResult;
 import com.services.core.notification.discord.DiscordWebhookPayload;
 import com.services.core.notification.discord.DiscordWebhookService;
 import com.services.core.notification.discord.Embed;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -31,28 +33,53 @@ public class DiscordNotifierAspect {
   private static final String BOT_USERNAME = "Application Event Bot";
 
   private final DiscordWebhookService discordWebhookService;
-  private final Optional<MessageSource> messageSource; // Optional dependency
+  private final Optional<MessageSource> messageSource;
+  private final MeterRegistry registry;
 
   @Around("@annotation(notifyDiscord)")
   public Object notifyEvent(ProceedingJoinPoint joinPoint, NotifyDiscord notifyDiscord)
       throws Throwable {
     String serviceName = joinPoint.getSignature().getDeclaringType().getSimpleName();
     String taskName = notifyDiscord.taskName();
-    Instant startTime = Instant.now();
 
     log.info("Starting task: '{}' in {}", taskName, serviceName);
 
+    Timer.Sample sample = Timer.start(registry);
     try {
       Object result = joinPoint.proceed();
-      Duration duration = Duration.between(startTime, Instant.now());
-      log.info("Task '{}' completed successfully in {} seconds.", taskName, duration.toSeconds());
+      long durationNanos =
+          sample.stop(
+              Timer.builder("task.execution.duration")
+                  .tag("service", serviceName)
+                  .tag("task", taskName)
+                  .publishPercentileHistogram()
+                  .register(registry));
+
+      Duration duration = Duration.ofNanos(durationNanos);
+      log.info(
+          "Task '{}' completed successfully in {} seconds.", taskName, duration.toSeconds());
+
+      registry
+          .counter("task.execution.total", "task", taskName, "status", "success")
+          .increment();
 
       sendSuccessWebhook(serviceName, taskName, duration, result);
 
       return result;
 
     } catch (Throwable e) {
+      sample.stop(
+          Timer.builder("task.execution.duration")
+              .tag("service", serviceName)
+              .tag("task", taskName)
+              .publishPercentileHistogram()
+              .register(registry));
+
       log.error("Task '{}' in {} failed.", taskName, serviceName, e);
+      registry
+          .counter("task.execution.total", "task", taskName, "status", "failure")
+          .increment();
+
       sendErrorWebhook(serviceName, taskName, e);
       throw e;
     }

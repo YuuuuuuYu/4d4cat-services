@@ -2,6 +2,7 @@ package com.services.core.notification.discord;
 
 import com.services.core.exception.BadGatewayException;
 import com.services.core.exception.ErrorCode;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
@@ -14,9 +15,13 @@ import org.springframework.web.client.RestClient;
 public class DiscordWebhookService {
 
   private final RestClient restClient;
+  private final MeterRegistry registry;
 
   public DiscordWebhookService(
-      RestClient.Builder restClientBuilder, @Value("${discord.webhook.url}") String webhookUrl) {
+      RestClient.Builder restClientBuilder,
+      @Value("${discord.webhook.url}") String webhookUrl,
+      MeterRegistry registry) {
+    this.registry = registry;
     this.restClient =
         restClientBuilder
             .baseUrl(webhookUrl)
@@ -30,12 +35,18 @@ public class DiscordWebhookService {
   }
 
   public void sendMessage(DiscordWebhookPayload payload) {
-    restClient
-        .post()
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(payload)
-        .retrieve()
-        .toBodilessEntity();
+    try {
+      restClient
+          .post()
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(payload)
+          .retrieve()
+          .toBodilessEntity();
+      registry.counter("discord.webhook.sent", "status", "success").increment();
+    } catch (Exception e) {
+      registry.counter("discord.webhook.sent", "status", "failure").increment();
+      throw e;
+    }
   }
 
   public void sendMessageAsync(DiscordWebhookPayload payload) {

@@ -3,6 +3,7 @@ package com.services.data.pixabay;
 import com.services.core.dto.ApiResponse;
 import com.services.core.infrastructure.RedisDataStorage;
 import com.services.core.notification.DataCollectionResult;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +23,7 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
   protected final RestClient restClient;
   protected final Environment environment;
   protected final RedisDataStorage redisDataStorage;
+  protected final MeterRegistry registry;
 
   // Rate limiting configuration
   private static final long STAGGER_DELAY_MS = 1000; // 1 second between submissions
@@ -29,10 +31,14 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
   private record FetchStatistics<T>(List<T> results, long successCount, long failureCount) {}
 
   public PixabayDataCollector(
-      RestClient restClient, Environment environment, RedisDataStorage redisDataStorage) {
+      RestClient restClient,
+      Environment environment,
+      RedisDataStorage redisDataStorage,
+      MeterRegistry registry) {
     this.restClient = restClient;
     this.environment = environment;
     this.redisDataStorage = redisDataStorage;
+    this.registry = registry;
   }
 
   public DataCollectionResult collectAndStore() {
@@ -40,9 +46,14 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
     log.info("Starting data collection for: {}", getStorageKey());
 
     FetchStatistics stats = fetchAllData();
-    redisDataStorage.setListData(getStorageKey(), stats.results());
+    redisDataStorage.setData(getStorageKey(), stats.results());
 
     double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
+
+    registry.counter("pixabay.collection.items", "type", getDataType()).increment(stats.results().size());
+    registry.counter("pixabay.collection.filters", "type", getDataType(), "status", "success").increment(stats.successCount());
+    registry.counter("pixabay.collection.filters", "type", getDataType(), "status", "failure").increment(stats.failureCount());
+
     log.info(
         "Completed data collection for: {} - {} items stored",
         getStorageKey(),

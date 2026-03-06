@@ -2,9 +2,10 @@ package com.services.data.scheduler;
 
 import com.services.data.pixabay.PixabayMusicCollector;
 import com.services.data.pixabay.PixabayVideoCollector;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -16,11 +17,14 @@ public class PixabayDataScheduler {
   private final PixabayVideoCollector videoCollector;
   private final PixabayMusicCollector musicCollector;
 
-  @PostConstruct
+  @EventListener(ApplicationReadyEvent.class)
   public void initializeData() {
-    log.info("=== Starting initial data collection ===");
-    collectAllData();
-    log.info("=== Initial data collection completed ===");
+    Thread.startVirtualThread(
+        () -> {
+          log.info("=== Starting initial data collection in virtual thread ===");
+          collectAllData();
+          log.info("=== Initial data collection completed ===");
+        });
   }
 
   @Scheduled(cron = "0 0 3 * * *")

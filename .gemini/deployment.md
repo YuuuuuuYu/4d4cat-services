@@ -81,7 +81,7 @@ docker exec -it 4d4cat-redis redis-cli
 KEYS *
 
 # 데이터 확인
-LRANGE pixabayVideos 0 10
+SMEMBERS pixabayVideos
 GET message:last
 ```
 

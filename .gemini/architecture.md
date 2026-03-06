@@ -101,7 +101,7 @@ public class PixabayController {
 public abstract class PixabayDataCollector<T, R> {
     public void collectAndStore() {
         List<T> dataList = fetchAllData();
-        redisDataStorage.setListData(getStorageKey(), dataList);
+        redisDataStorage.setData(getStorageKey(), dataList);
     }
 
     protected abstract String getStorageKey();
@@ -135,10 +135,10 @@ public class PixabayVideoCollector extends PixabayDataCollector<...> {
 // Redis 저장소 추상화
 @Component
 public class RedisDataStorage {
-    public <T> void setListData(String key, List<T> data) { ... }
+    public <T> void setData(String key, Collection<T> data) { ... } // Set 자료구조 사용 (O(1))
     public <T> T getRandomElement(String key, Class<T> type, ErrorCode errorCode) { ... }
 }
-
+```
 @Component
 public class RedisMessageStorage {
     public void saveMessage(String content) { ... }

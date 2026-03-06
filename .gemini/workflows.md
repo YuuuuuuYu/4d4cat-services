@@ -4,7 +4,7 @@
 
 ### Pixabay 데이터 수집 (PixabayDataScheduler)
 ```
-[Server Startup] → @PostConstruct
+[Server Startup] → ApplicationReadyEvent (Async)
                         ↓
               PixabayDataScheduler.initializeData()
                         ↓
@@ -24,7 +24,7 @@ CompletableFuture 병렬 처리    CompletableFuture 병렬 처리
    Pixabay API                     Pixabay API
         │                               │
         ▼                               ▼
-RedisDataStorage.setListData()  RedisDataStorage.setListData()
+   RedisDataStorage.setData()      RedisDataStorage.setData()
         │                               │
         ▼                               ▼
 DataCollectionResult 반환      DataCollectionResult 반환
@@ -39,7 +39,7 @@ Discord 성공 알림 전송         Discord 성공 알림 전송
 ```
 
 ### 스케줄링 전략
-- `@PostConstruct`: 서버 시작 시 즉시 수집
+- `ApplicationReadyEvent`: 서버 구동 완료 시 비동기(Virtual Thread)로 즉시 수집 시작 (부팅 지연 방지)
 - `@Scheduled(cron = "0 0 3 * * *")`: 매일 새벽 3시
 - `@Scheduled(fixedRate = 21600000)`: 6시간마다 갱신
 
@@ -51,7 +51,7 @@ Discord 성공 알림 전송         Discord 성공 알림 전송
    - 실패 시 retry 없이 즉시 Optional.empty() 반환
    - 개별 실패가 전체 수집에 영향 주지 않음
 4. 응답 데이터를 DTO로 변환
-5. `RedisDataStorage`를 통해 Redis에 저장
+5. `RedisDataStorage`를 통해 Redis Set 자료구조에 저장 (O(1) 랜덤 액세스 보장)
 6. **AOP After**: `DataCollectionResult` 반환값 기반으로 Discord 알림 전송
    - 총 아이템 수, 성공/실패 필터 수, 소요 시간 포함
    - Virtual Thread로 비동기 전송 (메인 워크플로우 지연 없음)

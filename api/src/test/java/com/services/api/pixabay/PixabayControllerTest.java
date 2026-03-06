@@ -1,5 +1,8 @@
 package com.services.api.pixabay;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,7 +14,10 @@ import com.services.core.exception.ErrorCode;
 import com.services.core.exception.NotFoundException;
 import com.services.core.pixabay.dto.PixabayMusicResult;
 import com.services.core.pixabay.dto.PixabayVideoResult;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Locale;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +37,14 @@ class PixabayControllerTest {
 
   @Autowired private MessageSource messageSource;
 
+  @MockitoBean private MeterRegistry meterRegistry;
+
   @MockitoBean private PixabayService pixabayService;
+
+  @BeforeEach
+  void setUp() {
+    when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(mock(Counter.class));
+  }
 
   private String getErrorMessage(ErrorCode errorCode) {
     return messageSource.getMessage(errorCode.getMessageKey(), null, Locale.getDefault());
