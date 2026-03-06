@@ -6,6 +6,7 @@ import com.services.core.exception.BadRequestException;
 import com.services.core.exception.CustomException;
 import com.services.core.exception.InternalServerException;
 import com.services.core.exception.NotFoundException;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,9 +22,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
   private final MessageSource messageSource;
+  private final MeterRegistry registry;
 
   private ResponseEntity<BaseResponse<Void>> createErrorResponse(
       CustomException e, HttpStatus status) {
+
+    registry
+        .counter("api.errors.total", "code", e.getErrorCode().getCode(), "status", status.name())
+        .increment();
+
     String message =
         messageSource.getMessage(e.getErrorCode().getMessageKey(), null, Locale.getDefault());
     BaseResponse<Void> response = BaseResponse.of(status, e.getErrorCode().getCode(), message);
