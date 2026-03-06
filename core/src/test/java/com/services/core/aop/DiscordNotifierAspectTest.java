@@ -1,25 +1,37 @@
 package com.services.core.aop;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.services.core.notification.discord.DiscordWebhookService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @SpringBootTest(
-    classes = {DiscordNotifierAspectTest.TestComponent.class, DiscordNotifierAspect.class})
+    classes = {
+      DiscordNotifierAspectTest.TestComponent.class,
+      DiscordNotifierAspect.class,
+      DiscordNotifierAspectTest.TestConfig.class
+    })
 @EnableAspectJAutoProxy
-@ExtendWith(MockitoExtension.class)
 class DiscordNotifierAspectTest {
+
+  @Configuration
+  static class TestConfig {
+    @Bean
+    public MeterRegistry meterRegistry() {
+      return new SimpleMeterRegistry();
+    }
+  }
 
   @Component
   static class TestComponent {
@@ -33,14 +45,15 @@ class DiscordNotifierAspectTest {
 
   @MockitoBean private DiscordWebhookService discordWebhookService;
 
+  @Autowired private MeterRegistry meterRegistry;
+
   @Test
-  @DisplayName("@NotifyDiscord 어노테이션이 붙은 메서드가 호출되면 Aspect가 동작하여 Discord 알림을 보낸다")
-  void aspectShouldTriggerForAnnotatedMethod() {
+  @DisplayName("어노테이션 메서드 호출 시 Discord 알림 전송 - 성공")
+  void annotatedMethod_shouldTriggerDiscordNotification() {
     // Given & When
     testComponent.annotatedMethod();
 
     // Then
-    // Verify that the async message sending method was called exactly once.
-    verify(discordWebhookService, times(1)).sendMessageAsync(any());
+    verify(discordWebhookService).sendMessageAsync(any());
   }
 }
