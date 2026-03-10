@@ -2,192 +2,162 @@
 
 ## 1. 개요
 
-이 문서는 `4d4cat-services` 프로젝트의 전체 워크플로우를 설명합니다. 이 프로젝트는 크게 두 가지 주요 도메인으로 구성됩니다.
+`4d4cat-services` 프로젝트는 마이크로서비스 지향의 멀티 모듈 아키텍처로 구성되어 있으며, 외부 데이터 수집, 가공, 저장 및 제공을 위한 효율적인 파이프라인을 구축하고 있습니다.
 
--   **Pixabay 도메인**: 외부 Pixabay API와 연동하여 비디오 및 음악 데이터를 조회하는 기능을 제공합니다.
--   **Message 도메인**: 사용자의 메시지를 임시로 저장하고 조회하는 간단한 내부 API 기능을 제공합니다.
+### 주요 모듈 구성
+- **`core`**: 공통 도메인 엔티티, DTO, 예외 처리, Redis/Discord 인프라 설정 및 AOP 기능을 포함하는 핵심 라이브러리입니다.
+- **`data`**: Pixabay 등 외부 API로부터 데이터를 수집하고 Redis에 동기화하는 스케줄러 및 수집기 역할을 수행합니다. (Producer)
+- **`api`**: Redis 및 RDB(MySQL/H2)에 저장된 데이터를 클라이언트에게 REST API로 제공합니다. (Consumer)
 
-프로젝트는 `common`, `pixabay`, `message` 세 개의 주요 패키지로 구조화되어 있으며, 각 도메인은 독립적인 역할을 수행하면서 `common` 패키지의 공통 기능을 공유합니다.
+---
 
-## 2. 공통 아키텍처 (Common Architecture)
+## 2. 핵심 아키텍처 및 기술 스택
 
-`com.services.common` 패키지는 프로젝트 전반에 걸쳐 사용되는 핵심 아키텍처와 공통 기능을 정의합니다.
+### 2.1. 데이터 저장소 전략
+- **Redis (In-memory)**: Pixabay 비디오/음악 데이터와 같이 빠른 무작위 액세스가 필요한 데이터를 `Set` 구조로 저장하여 높은 성능을 보장합니다.
+- **RDB (MySQL/H2)**: OmniWatch 도메인의 브랜드, 소재, 태그 등 정형화된 메타데이터를 저장하며 JPA/Hibernate를 통해 관리합니다.
 
-### 2.1. 계층형 아키텍처
+### 2.2. 성능 최적화: 가상 스레드 (Virtual Threads)
+- Java 21의 가상 스레드를 적극 활용하여 I/O 차단(Blocking) 구간에서의 처리량을 극대화합니다.
+- `data` 모듈의 데이터 수집 시 병렬 HTTP 호출 및 `api` 모듈의 비동기 Discord 알림 전송에 적용되어 있습니다.
 
--   **Presentation Layer (`presentation`):** 클라이언트의 HTTP 요청을 수신하고 응답을 반환합니다. `Controller`, `GlobalExceptionHandler`, `DTO` 등이 여기에 속합니다.
--   **Application Layer (`application`):** 핵심 비즈니스 로직을 처리합니다. `Service`, 비즈니스 예외(`CustomException`) 등이 포함됩니다.
--   **Infrastructure Layer (`infrastructure`):** 외부 시스템 연동, 데이터 저장, 설정 등 기술적인 부분을 담당합니다. `RestTemplate` 설정, 외부 API 클라이언트, 인메모리 `DataStorage` 등이 여기에 해당합니다.
+### 2.3. 전역 관심사 (Cross-cutting Concerns)
+- **`@NotifyDiscord` (AOP)**: 주요 작업(데이터 수집, 메시지 저장 등)의 성공/실패 여부를 Discord 웹훅으로 실시간 전송합니다.
+- **모니터링**: Micrometer를 통해 Prometheus 메트릭을 노출하며, 에러 발생 빈도와 작업 소요 시간을 추적합니다.
+- **로그**: CloudWatch Logs Appender를 통해 운영 환경의 로그를 중앙 집중화합니다.
 
-### 2.2. 전역 예외 처리 (`GlobalExceptionHandler`)
-
--   애플리케이션 전역에서 발생하는 예외를 한 곳에서 처리합니다.
--   `CustomException`의 하위 클래스들(`NotFoundException`, `BadRequestException` 등)을 감지하여, `ErrorCode`에 정의된 메시지와 상태 코드를 기반으로 일관된 형식의 에러 응답(`BaseResponse`)을 생성합니다.
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller
-    participant Service
-    participant Handler as GlobalExceptionHandler
-
-    Client->>Controller: API 요청
-    Controller->>Service: 비즈니스 로직 호출
-    Service-->>Handler: CustomException 발생 (예: NotFoundException)
-    Handler-->>Handler: ErrorCode 기반으로 BaseResponse 생성
-    Handler-->>Client: HTTP 상태코드와 함께 JSON 에러 응답
-```
-
-### 2.3. AOP를 통한 횡단 관심사 분리 (`DataInitializationAspect`)
-
--   `@Around` 어노테이션을 사용하여 `DataInitializationService`의 데이터 초기화 과정 전후에 로직을 추가합니다.
--   **주요 기능**:
-    -   데이터 초기화 시작/종료 로그 기록
-    -   총 실행 시간 측정
-    -   성공/실패 여부를 Discord 웹훅을 통해 비동기적으로 알림
-
-### 2.4. 인메모리 데이터 저장소 (`DataStorage`)
-
--   `ConcurrentHashMap`을 사용하여 멀티스레드 환경에서 안전하게 데이터를 저장하고 조회하는 인메모리 캐시 역할을 합니다.
--   애플리케이션 시작 시 Pixabay 데이터를 미리 로드하여 저장해두고, 클라이언트 요청 시 메모리에서 빠르게 데이터를 조회하여 제공합니다.
+---
 
 ## 3. 도메인별 워크플로우
 
-### 3.1. Pixabay 도메인
+### 3.1. Pixabay 데이터 수집 및 제공 (Data Domain)
 
-#### 3.1.1. 애플리케이션 시작 시 데이터 초기화
+#### 3.1.1. 데이터 수집 프로세스 (data 모듈)
+`data` 서버는 시작 시 또는 매일 새벽 3시에 데이터를 수집하여 Redis를 최신 상태로 유지합니다.
 
-애플리케이션이 시작되면, `PixabayVideoService`와 `PixabayMusicService`는 각각 필요한 데이터를 외부 API로부터 병렬로 가져와 `DataStorage`에 저장합니다.
-
-```mermaid
-graph TD
-    A[애플리케이션 시작] --> B(ApplicationReadyEvent 발생);
-    B --> C{병렬 초기화};
-    C --> D[PixabayVideoService 초기화];
-    C --> E[PixabayMusicService 초기화];
-
-    subgraph PixabayVideoService
-        D --> D1{카테고리 목록 정의};
-        D1 --> D2[각 카테고리별 API 병렬 호출, ThreadPool 사용];
-        D2 --> D3{Pixabay API, pixabay.com/api/videos};
-        D3 --> D4[응답 데이터 가공];
-    end
-
-    subgraph PixabayMusicService
-        E --> E1{장르 목록 정의};
-        E1 --> E2[각 장르별 API 병렬 호출, ThreadPool 사용];
-        E2 --> E3{외부 음악 API, 외부 API 엔드포인트};
-        E3 --> E4[응답 데이터 가공];
-    end
-
-    D4 --> F(DataStorage에 비디오 데이터 저장);
-    E4 --> G(DataStorage에 음악 데이터 저장);
-    
-    F & G --> H(데이터 초기화 완료);
+```text
+[ 스케줄러 / 시작 이벤트 ]
+          |
+          v
+[ 가상 스레드(Virtual Thread) 실행 ]
+          |
+          v
+[ PixabayDataCollector: 필터 정의 ]
+          |
+          v
+[ Staggered Parallel Fetch (1초 간격) ]
+          |
+          v
+[ Pixabay API 호출 (외부 서비스) ]
+          |
+          v
+[ 데이터 결합 및 가공 ]
+          |
+          v
+[ Redis Pipelined sAdd (벌크 저장) ]
+          |
+          v
+[ @NotifyDiscord: 작업 결과 알림 ]
 ```
 
--   **내결함성**: `CompletableFuture`의 `exceptionally` 블록을 사용하여, 특정 카테고리/장르의 API 호출이 실패하더라도 전체 초기화 프로세스가 중단되지 않습니다. 실패한 호출은 로그만 남기고 건너뜁니다.
--   **AOP 모니터링**: `DataInitializationAspect`가 이 과정의 시작, 성공/실패, 소요 시간을 로깅하고 Discord로 알림을 보냅니다.
+- **Staggered Parallel Fetch**: 외부 API의 Rate Limit을 준수하기 위해 1초 간격으로 가상 스레드 작업을 순차적으로 제출(Submit)합니다.
+- **Redis Pipelining**: 대량의 데이터를 저장할 때 네트워크 왕복 시간을 줄이기 위해 파이프라인을 사용합니다.
 
-#### 3.1.2. 클라이언트 데이터 조회 요청
+#### 3.1.2. 데이터 제공 프로세스 (api 모듈)
+클라이언트가 데이터를 요청하면 Redis에서 무작위로 요소를 선택하여 반환합니다.
 
-클라이언트가 비디오 또는 음악 데이터를 요청하면, 컨트롤러는 서비스 계층을 통해 `DataStorage`에 캐시된 데이터를 조회하여 무작위로 하나를 반환합니다.
-
-API 서버는 또한 `/actuator/prometheus` 엔드포인트를 통해 Prometheus 메트릭을 노출하며, 이는 모니터링 시스템에서 애플리케이션 성능 및 상태를 수집하는 데 사용됩니다.
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant PixabayController
-    participant PixabayVideoService
-    participant DataStorage
-    participant GlobalExceptionHandler
-
-    Client->>PixabayController: GET /api/v1/pixabay/videos 요청
-    PixabayController->>PixabayVideoService: getRandomElement() 호출
-    PixabayVideoService->>DataStorage: 저장된 비디오 목록 조회
-    
-    alt 데이터가 존재하는 경우
-        DataStorage-->>PixabayVideoService: 비디오 목록 반환
-        PixabayVideoService-->>PixabayVideoService: 무작위 요소 선택
-        PixabayVideoService-->>PixabayController: 선택된 비디오 데이터 반환
-        PixabayController-->>Client: BaseResponse (200 OK) + 비디오 데이터
-    else 데이터가 없는 경우
-        DataStorage-->>PixabayVideoService: NotFoundException 발생
-        PixabayVideoService-->>GlobalExceptionHandler: 예외 전파
-        GlobalExceptionHandler-->>Client: BaseResponse (404 Not Found) + 에러 메시지
-    end
+```text
+[ Client ] ----( GET /video or /music )----> [ Controller ]
+                                                 |
+                                                 v
+[ Redis ] <---( SrandomMember )--- [ RedisDataStorage ] <--- [ Service ]
+    |                                            |              |
+    +-----------( Optional<T> )------------------+              |
+                                                                v
+[ Client ] <---( 200 OK: BaseResponse )------------------- [ DTO 변환 ]
 ```
 
-### 3.2. Message 도메인
+---
 
-#### 3.2.1. 메시지 저장 요청 (POST)
+### 3.2. 메시지 도메인 (Message Domain)
 
-클라이언트가 메시지를 저장하면, `MessageService`는 유효성을 검증한 후 `DataStorage`에 "lastMessage"라는 키로 메시지를 저장합니다.
+사용자의 간단한 텍스트 메시지를 검증하고 Redis에 최신 상태로 유지합니다.
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant MessageController
-    participant MessageService
-    participant MessageValidator
-    participant DataStorage
-
-    Client->>MessageController: POST /api/v1/messages (content 포함)
-    MessageController->>MessageService: saveMessage(content) 호출
-    MessageService->>MessageValidator: isValid(content) 유효성 검증
-    
-    alt 유효한 메시지
-        MessageValidator-->>MessageService: true
-        MessageService->>DataStorage: "lastMessage" 키로 메시지 저장
-        DataStorage-->>MessageService: 저장 완료
-        MessageService-->>MessageController: 성공 응답
-        MessageController-->>Client: 200 OK
-    else 유효하지 않은 메시지
-        MessageValidator-->>MessageService: false (BadRequestException 발생)
-        MessageService-->>GlobalExceptionHandler: 예외 전파
-        GlobalExceptionHandler-->>Client: BaseResponse (400 Bad Request)
-    end
+```text
+[ 클라이언트: POST /message ]
+           |
+           v
+[ MessageValidator (검증) ] --( 실패 )--> [ 400 Bad Request ]
+           |
+           +----( 성공 )----> [ Redis 저장 (SET) ]
+                                    |
+                                    v
+[ Discord 알림 (AOP) ] <--- [ @NotifyDiscord ]
+                                    |
+                                    v
+[ 클라이언트 ] <-----( 200 OK: Response )-----+
 ```
 
-#### 3.2.2. 메시지 조회 요청 (GET)
+- **저장 (POST)**: 한글 2자, 영문/숫자 1자로 계산하여 최대 30자까지 허용하며, 특수문자를 제한하는 `MessageValidator`를 거칩니다.
+- **알림**: 메시지 저장 성공 시 `@NotifyDiscord`를 통해 작업 로그가 Discord로 전송됩니다.
 
-클라이언트가 메시지 조회를 요청하면, `DataStorage`에서 "lastMessage" 키로 저장된 메시지를 찾아 반환합니다.
+---
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant MessageController
-    participant MessageService
-    participant DataStorage
+### 3.3. OmniWatch 도메인 (JPA Domain)
 
-    Client->>MessageController: GET /api/v1/messages
-    MessageController->>MessageService: getMessage() 호출
-    MessageService->>DataStorage: "lastMessage" 키로 메시지 조회
-    
-    alt 메시지가 존재하는 경우
-        DataStorage-->>MessageService: 저장된 Message 객체 반환
-        MessageService-->>MessageController: 메시지 내용(content) 반환
-        MessageController-->>Client: 200 OK + 메시지 내용
-    else 메시지가 없는 경우
-        DataStorage-->>MessageService: null 반환
-        MessageService-->>MessageController: 빈 문자열 반환
-        MessageController-->>Client: 200 OK + 빈 문자열
-    end
+시계 정보(Watch)를 관리하는 도메인으로, 슬러그(Slug) 기반 조회 및 연관된 브랜드, 소재, 작업물 정보를 관리합니다.
+
+```text
+[ Client (GET /watch/{slug}) ] ----> [ Controller ]
+                                         |
+                                         v
+[ DB (MySQL/H2) ] <---( Query )--- [ JPA Repository ] <--- [ Service ]
+        |                                 |                   |
+        +----( Brand/Material/Tag )-------+                   |
+                                                              v
+[ Client ] <---( 200 OK: DTO )-------------------------- [ DTO 변환 ]
 ```
 
-## 4. 핵심 컴포넌트 상세
+- **JPA Auditing**: 모든 엔티티의 생성/수정 시간을 자동으로 기록합니다.
+- **연관 관계**: 시계 하나에 대해 다수의 태그, 소재, 작업물이 1:N 관계로 매핑되어 복합적인 정보를 구성합니다.
 
--   **`DataInitializationService` (추상 클래스)**
-    -   **역할**: 외부 API로부터 데이터를 가져와 초기화하는 전체적인 흐름(템플릿)을 정의합니다.
-    -   **주요 메서드**:
-        -   `setDataStorage()`: `@EventListener(ApplicationReadyEvent.class)`에 의해 호출되며, 데이터 초기화 프로세스를 시작합니다.
-        -   `getFetchDataList()`: `CompletableFuture`를 사용하여 여러 필터에 대한 API 호출을 병렬로 실행하고 결과를 취합합니다.
-        -   `getBaseUrl()`, `getFilters()` (추상 메서드): 하위 클래스(`PixabayVideoService`, `PixabayMusicService`)가 각 서비스에 맞게 API 엔드포인트와 필터 목록을 구현해야 합니다.
+---
 
--   **`RestTemplateConfig` 및 `CustomResponseErrorHandler`**
-    -   **역할**: 외부 API 통신을 위한 `RestTemplate`을 설정하고, HTTP 에러 응답을 커스텀 예외로 변환하는 핸들러를 등록합니다.
-    -   **동작**:
-        -   `RestTemplate`은 API 호출 시 4xx 또는 5xx 응답을 받으면 `CustomResponseErrorHandler`를 실행합니다.
-        -   `CustomResponseErrorHandler`는 HTTP 상태 코드에 따라 `NotFoundException`, `BadGatewayException` 등 적절한 `CustomException`을 발생시킵니다.
-        -   이 예외는 서비스 로직(`fetchDataForFilter`)에서 `catch`되거나, `GlobalExceptionHandler`로 전파되어 처리됩니다.
+## 4. 예외 처리 가이드
+
+`GlobalExceptionHandler`는 모든 커스텀 예외를 감지하여 표준 응답 형식을 생성합니다.
+
+```text
+[ 예외 발생 (40x, 50x) ]
+           |
+           v
+[ GlobalExceptionHandler ]
+           |
+           +----[ messages.yml: 에러 메시지 매핑 ]
+           |
+           +----[ Prometheus: 에러 메트릭 카운팅 ]
+           |
+           v
+[ BaseResponse (JSON 응답) ]
+           |
+           v
+[ 클라이언트 (에러 코드 + 메시지) ]
+```
+
+- **HTTP Status 400**: 잘못된 요청 (메시지 유효성 실패 등)
+- **HTTP Status 404**: 데이터 없음 (Redis 히트 실패 등)
+- **HTTP Status 502**: 외부 서비스 오류 (Pixabay/Discord API 실패 등)
+
+각 에러는 `messages.yml`에 정의된 다국어(기본 ko_KR) 메시지와 함께 응답되며, Prometheus 에러 카운터가 1 증가합니다.
+
+```json
+{
+  "status": 404,
+  "data": null,
+  "error": {
+    "code": "PV1000",
+    "message": "비디오 데이터를 찾을 수 없습니다."
+  },
+  "timestamp": "2026-03-10T..."
+}
+```
