@@ -1,122 +1,18 @@
 # Domain Workflows
 
-## Data Server 워크플로우
+본 문서는 프로젝트 전반에 걸친 공통 워크플로우를 다룹니다. 각 도메인별 상세 워크플로우는 도메인 가이드를 참조하십시오.
 
-### Pixabay 데이터 수집 (PixabayDataScheduler)
-```
-[Server Startup] → ApplicationReadyEvent (Async)
-                        ↓
-              PixabayDataScheduler.initializeData()
-                        ↓
-        ┌───────────────┴───────────────┐
-        ▼                               ▼
-PixabayVideoCollector          PixabayMusicCollector
-@NotifyDiscord("Pixabay 비디오 수집")  @NotifyDiscord("Pixabay 음악 수집")
-        │                               │
-        ↓ (AOP Intercept)               ↓ (AOP Intercept)
-DiscordNotifierAspect          DiscordNotifierAspect
-        │                               │
-        ▼                               ▼
-CompletableFuture 병렬 처리    CompletableFuture 병렬 처리
-(20개 카테고리)               (32개 장르)
-        │                               │
-        ▼                               ▼
-   Pixabay API                     Pixabay API
-        │                               │
-        ▼                               ▼
-   RedisDataStorage.setData()      RedisDataStorage.setData()
-        │                               │
-        ▼                               ▼
-DataCollectionResult 반환      DataCollectionResult 반환
-        │                               │
-        ▼                               ▼
-Discord 성공 알림 전송         Discord 성공 알림 전송
-(비동기, Virtual Thread)       (비동기, Virtual Thread)
-        │                               │
-        └───────────────┬───────────────┘
-                        ▼
-                     [Redis]
-```
+## 서비스별 상세 워크플로우 가이드
 
-### 스케줄링 전략
-- `ApplicationReadyEvent`: 서버 구동 완료 시 비동기(Virtual Thread)로 즉시 수집 시작 (부팅 지연 방지)
-- `@Scheduled(cron = "0 0 3 * * *")`: 매일 새벽 3시
-- `@Scheduled(fixedRate = 21600000)`: 6시간마다 갱신
-
-### 처리 과정
-1. 스케줄러가 Collector의 `collectAndStore()` 호출
-2. **AOP Intercept**: `@NotifyDiscord` 어노테이션 감지, 시작 로깅
-3. Collector가 필터별로 병렬 API 호출 (Virtual Thread Pool)
-   - 각 필터는 독립적으로 실행
-   - 실패 시 retry 없이 즉시 Optional.empty() 반환
-   - 개별 실패가 전체 수집에 영향 주지 않음
-4. 응답 데이터를 DTO로 변환
-5. `RedisDataStorage`를 통해 Redis Set 자료구조에 저장 (O(1) 랜덤 액세스 보장)
-6. **AOP After**: `DataCollectionResult` 반환값 기반으로 Discord 알림 전송
-   - 총 아이템 수, 성공/실패 필터 수, 소요 시간 포함
-   - Virtual Thread로 비동기 전송 (메인 워크플로우 지연 없음)
-
-## API Server 워크플로우
-
-### Pixabay 도메인
-
-#### 랜덤 비디오 조회 (GET /video)
-```
-[Client] → [PixabayController] → [PixabayService]
-                                       ↓
-                    RedisDataStorage.getRandomElement()
-                                       ↓
-                                   [Redis]
-                                       ↓
-[Client] ← [BaseResponse] ← [PixabayVideoResult]
-```
-
-#### 랜덤 음악 조회 (GET /music)
-```
-[Client] → [PixabayController] → [PixabayService]
-                                       ↓
-                    RedisDataStorage.getRandomElement()
-                                       ↓
-                                   [Redis]
-                                       ↓
-[Client] ← [BaseResponse] ← [PixabayMusicResult]
-```
-
-### Message 도메인
-
-#### 메시지 저장 (POST /message)
-```
-[Client] → [MessageController] → [MessageService]
-                                       ↓
-                         1. MessageValidator.isValid()
-                         2. RedisMessageStorage.saveMessage()
-                                       ↓
-                                   [Redis]
-                                       ↓
-                    @NotifyDiscord → Discord 알림
-                                       ↓
-[Client] ← [200 OK]
-```
-
-#### 메시지 조회 (GET /message)
-```
-[Client] → [MessageController] → [MessageService]
-                                       ↓
-                    RedisMessageStorage.getMessage()
-                                       ↓
-                                   [Redis]
-                                       ↓
-[Client] ← [String content]
-```
-
-### 특징
-- Redis 기반 저장소 (서버 간 동기화)
-- 항상 마지막 메시지만 유지
-- 저장 시 Discord 웹훅 알림
+- **Pixabay (수집/조회):** [상세 가이드](.gemini/domains/pixabay.md)
+- **Message (저장/알림):** [상세 가이드](.gemini/domains/message.md)
+- **OmniWatch (JPA/속성):** [상세 가이드](.gemini/domains/omniwatch.md)
+- **Monitoring (지표/시각화):** [상세 가이드](.gemini/domains/monitoring.md)
 
 ## 공통 워크플로우
 
-### 전역 예외 처리 (GlobalExceptionHandler, api-server)
+### 전역 예외 처리 (GlobalExceptionHandler)
+모든 모듈에서 발생하는 예외는 전역 핸들러를 통해 일관된 응답 형식으로 변환됩니다.
 ```
 [Any Layer] → 예외 발생
                  ↓
@@ -129,35 +25,27 @@ Discord 성공 알림 전송         Discord 성공 알림 전송
 [Client] ← JSON 에러 응답
 ```
 
-### AOP Discord 알림 (core 모듈 - 공통)
+### AOP Discord 알림 (core 모듈)
+`@NotifyDiscord` 어노테이션이 붙은 메서드는 실행 전후로 Discord 알림을 트리거합니다.
 ```
 @NotifyDiscord 어노테이션 메서드 실행
                  ↓
-       DiscordNotifierAspect.notifyEvent() (core 모듈)
+       DiscordNotifierAspect.notifyEvent()
                  ↓
        1. 실행 시간 측정 시작
        2. 메서드 실행 (joinPoint.proceed())
-       3. 결과에 따라 성공/실패 메시지 생성
-          - DataCollectionResult: 통계 정보 포함
-          - 일반 메서드: 실행 시간만 포함
+       3. 성공/실패 결과에 따라 페이로드 생성
        4. DiscordWebhookService.sendMessageAsync()
                  ↓
        [Discord Webhook] (비동기, Virtual Thread)
 ```
 
-**사용 위치:**
-- **data-server**: 데이터 수집 완료 시 (PixabayVideoCollector, PixabayMusicCollector)
-- **api-server**: 메시지 저장 시 (MessageService)
+### Redis 데이터 저장 및 조회 추상화
+모든 데이터 저장소 연동은 `core` 모듈의 인프라 계층을 통해 캡슐화됩니다.
+- **Set 데이터 (O(1) 랜덤):** `RedisDataStorage` 활용
+- **단일 메시지 데이터:** `RedisMessageStorage` 활용
 
-### Redis 데이터 저장소 (core)
-```java
-// 리스트 데이터 저장 (data-server)
-RedisDataStorage.setListData("pixabayVideos", videoList)
+## 스케줄링 및 이벤트 핸들링
 
-// 랜덤 요소 조회 (api-server)
-RedisDataStorage.getRandomElement("pixabayVideos", PixabayVideoResult.class, ErrorCode)
-
-// 메시지 저장/조회
-RedisMessageStorage.saveMessage("Hello")
-RedisMessageStorage.getMessage() → Optional<String>
-```
+- **ApplicationReadyEvent:** 서버 구동 완료 시 초기화 작업 수행 (예: 데이터 초기 수집)
+- **@Scheduled:** 주기적인 데이터 동기화 및 갱신 (예: 6시간 주기, 매일 새벽 3시 등)

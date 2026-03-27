@@ -4,13 +4,13 @@
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Pixabay API │────▶│ Data Server │────▶│    Redis    │
-└─────────────┘     │  (1대)      │     │  (Docker)   │
+│ 외부 API     │────▶│ Data Server │────▶│    Redis    │
+└─────────────┘     │  (수집)      │     │  (공통 저장소)│
                     └─────────────┘     └──────┬──────┘
                                                │
                     ┌─────────────┐            │
                     │ API Server  │◀───────────┘
-                    │ (N대)       │  조회/저장
+                    │ (제공)       │  조회/저장
                     └──────┬──────┘
                            │ 메트릭 수집
                            ▼
@@ -24,244 +24,65 @@
 ```
 api-server ──▶ core
 data-server ──▶ core
-monitoring-server ──▶ (metrics from api-server)
+monitoring-server ──▶ (metrics from all servers)
 ```
 
-## 모듈별 계층 구조
+## 모듈별 역할
 
 ### core 모듈 (공통 라이브러리)
-```
-com.services.core/
-├── aop/             # AOP (Discord 알림 어노테이션 및 Aspect)
-│   ├── NotifyDiscord.java          (어노테이션)
-│   └── DiscordNotifierAspect.java  (AOP)
-├── config/          # Redis 설정
-├── dto/             # 공통 DTO (BaseResponse, ApiResponse)
-├── exception/       # 공통 예외 클래스
-├── infrastructure/  # Redis 저장소, ApiMetadata
-├── message/         # 메시지 DTO, Validator
-├── notification/    # 알림 관련
-│   ├── DataCollectionResult.java   (데이터 수집 결과 DTO)
-│   └── discord/     # Discord 웹훅
-│       ├── DiscordWebhookService.java
-│       ├── DiscordWebhookPayload.java
-│       ├── Embed.java
-│       └── Footer.java
-├── pixabay/dto/     # Pixabay DTO
-└── util/            # 유틸리티
-```
+- 모든 모듈에서 사용하는 공통 인프라, 예외, DTO, 유틸리티를 포함합니다.
+- **핵심 패키지:** `aop`, `config`, `dto`, `exception`, `infrastructure`, `notification`, `util`
 
 ### data-server 모듈
-```
-com.services.data/
-├── config/          # RestClient 설정
-├── pixabay/         # 데이터 수집기
-│   ├── PixabayDataCollector.java    (추상 클래스)
-│   ├── PixabayVideoCollector.java   (@NotifyDiscord 사용)
-│   └── PixabayMusicCollector.java   (@NotifyDiscord 사용)
-└── scheduler/       # 스케줄러
-    └── PixabayDataScheduler.java
-```
+- 외부 데이터를 수집하여 Redis에 동기화하는 역할을 수행합니다.
+- **상세 도메인:** `pixabay` ([상세 가이드](.gemini/domains/pixabay.md))
 
 ### api-server 모듈
-```
-com.services.api/
-├── config/          # CORS, MessageSource 설정
-├── message/         # Message API (@NotifyDiscord 사용)
-├── omniwatch/       # JPA 엔티티
-├── pixabay/         # Pixabay API
-├── presentation/    # GlobalExceptionHandler
-└── util/            # WebUtils
-```
+- 클라이언트에게 데이터를 제공하고 비즈니스 요청을 처리합니다.
+- **상세 도메인:** `pixabay`, `message` ([상세 가이드](.gemini/domains/message.md)), `omniwatch` ([상세 가이드](.gemini/domains/omniwatch.md))
 
-### monitoring 모듈 (모니터링 대시보드 및 수집기)
-```
-com.services.monitoring/
-└── ...              # Prometheus metric 수집 및 Grafana 대시보드
-```
-`monitoring` 모듈은 애플리케이션의 메트릭을 수집하고 시각화하는 역할을 담당합니다. Prometheus와 Grafana를 활용하여 시스템 전반의 상태를 모니터링합니다.
-
-**Prometheus/Grafana 통합:**
-`api-server` 모듈은 `spring-boot-starter-actuator`와 `micrometer-registry-prometheus`를 통해 `/actuator/prometheus` 엔드포인트에 메트릭을 노출합니다. Prometheus는 이 엔드포인트를 주기적으로 스크랩하여 메트릭을 수집하고, Grafana는 Prometheus에 저장된 메트릭을 사용하여 시각화된 대시보드를 제공합니다.
+### monitoring 모듈
+- 시스템 전반의 상태를 시각화하고 메트릭을 수집합니다.
+- **상세 가이드:** [Monitoring 가이드](.gemini/domains/monitoring.md)
 
 
 ## 주요 디자인 패턴
 
 ### 의존성 주입 (DI)
-```java
-@RequiredArgsConstructor  // 생성자 주입
-public class PixabayController {
-    private final PixabayService service;  // final 필드
-}
-```
+- Spring의 `@RequiredArgsConstructor`를 이용한 생성자 주입 방식을 원칙으로 합니다.
 
-### 템플릿 메서드 패턴 (data-server)
-```java
-// 추상 클래스에서 공통 로직 정의
-public abstract class PixabayDataCollector<T, R> {
-    public void collectAndStore() {
-        List<T> dataList = fetchAllData();
-        redisDataStorage.setData(getStorageKey(), dataList);
-    }
+### 템플릿 메서드 패턴
+- 반복되는 데이터 수집 및 저장 흐름을 공통화합니다.
+- **구현 예시:** `PixabayDataCollector` (상세 내용은 `pixabay.md` 참조)
 
-    protected abstract String getStorageKey();
-    protected abstract List<String> getFilters();
+### Repository 패턴 (Infrastructure 추상화)
+- Redis 등 외부 저장소 접근 로직을 `core` 모듈의 인프라 계층으로 추상화합니다.
+- **주요 클래스:** `RedisDataStorage`, `RedisMessageStorage`
 
-    // API 호출 (단순화된 에러 처리)
-    protected Optional<R> fetchDataForFilter(String filter) {
-        try {
-            String uri = buildUri(filter).toUriString();
-            R result = restClient.get().uri(uri).retrieve().body(getResponseTypeReference());
-            return Optional.ofNullable(result);
-        } catch (Exception e) {
-            log.error("Failed to fetch data for filter '{}'", filter, e);
-            return Optional.empty(); // 실패 시 retry 없이 즉시 반환
-        }
-    }
-}
+### 관점 지향 프로그래밍 (AOP)
+- 횡단 관심사(Discord 알림, 로깅 등)를 `@NotifyDiscord` 어노테이션으로 처리합니다.
+- **핵심 클래스:** `DiscordNotifierAspect`
 
-// 하위 클래스에서 구체적인 구현
-@Component
-public class PixabayVideoCollector extends PixabayDataCollector<...> {
-    @Override
-    protected String getStorageKey() {
-        return ApiMetadata.PIXABAY_VIDEOS.getKey();
-    }
-}
-```
-
-### Repository 패턴 (core)
-```java
-// Redis 저장소 추상화
-@Component
-public class RedisDataStorage {
-    public <T> void setData(String key, Collection<T> data) { ... } // Set 자료구조 사용 (O(1))
-    public <T> T getRandomElement(String key, Class<T> type, ErrorCode errorCode) { ... }
-}
-```
-@Component
-public class RedisMessageStorage {
-    public void saveMessage(String content) { ... }
-    public Optional<String> getMessage() { ... }
-}
-```
-
-### 관점 지향 프로그래밍 (AOP, core 모듈)
-```java
-// core 모듈에서 제공하는 공통 AOP
-@Aspect
-@Component
-public class DiscordNotifierAspect {
-    @Around("@annotation(notifyDiscord)")
-    public Object notifyEvent(ProceedingJoinPoint joinPoint, NotifyDiscord notifyDiscord) {
-        // 메서드 실행 전: 시작 로깅, 시간 기록
-        Object result = joinPoint.proceed();
-        // 메서드 실행 후: Discord 알림 전송 (성공/실패)
-        return result;
-    }
-}
-
-// data-server에서 사용 예시
-@Component
-public class PixabayVideoCollector extends PixabayDataCollector {
-    @Override
-    @NotifyDiscord(taskName = "Pixabay 비디오 수집")
-    public DataCollectionResult collectAndStore() {
-        return super.collectAndStore();
-    }
-}
-
-// api-server에서 사용 예시
-@Service
-public class MessageService {
-    @NotifyDiscord(taskName = "메시지 저장")
-    public void saveMessage(String content) {
-        // ...
-    }
-}
-```
-
-### DTO 패턴
-```java
-// record 타입 사용 (불변)
-public record PixabayVideoResult(
-    Integer id,
-    String pageURL,
-    String tags
-) implements Serializable {}
-```
+### DTO 및 Record 패턴
+- 데이터 전달 시 Java 21의 `record`를 사용하여 불변성을 보장합니다.
 
 ## 설계 원칙
 
 ### 불변성 (Immutability)
-- `record` 타입 적극 활용
-- `final` 필드 선언
-- 불변 컬렉션 반환 (`List.of()`)
+- `record` 타입 및 `final` 키워드 적극 활용.
 
-### SOLID 원칙
-- **SRP:** 각 클래스는 하나의 책임만 (Collector는 수집만, Storage는 저장만)
-- **OCP:** `PixabayDataCollector` 확장으로 새로운 데이터 타입 추가 가능
-- **LSP:** 상위 타입을 하위 타입으로 대체 가능
-- **ISP:** 클라이언트는 사용하지 않는 인터페이스에 의존하지 않음
-- **DIP:** 구체적인 것이 아닌 추상화에 의존 (RedisDataStorage 인터페이스화 가능)
+### SOLID 원칙 준수
+- **SRP:** 수집, 저장, 조회 책임을 명확히 분리.
+- **OCP:** 신규 데이터 타입 추가 시 추상 클래스 확장을 통해 대응.
 
 ### Fail-Fast & Graceful Degradation
-- 입력 검증은 빠르게 실패
-- 외부 API 호출 실패는 우아하게 처리 (retry 없이 즉시 실패 처리)
-- `CompletableFuture`를 통한 개별 실패 처리
-- 개별 필터 실패가 전체 데이터 수집에 영향 주지 않음
+- 외부 API 호출 실패가 전체 시스템에 영향을 주지 않도록 개별 태스크 단위로 에러를 격리합니다.
 
 ## HTTP 클라이언트 및 동시성
 
 ### RestClient (Spring 6.1+)
-모든 HTTP 통신에 `RestClient` 사용 (RestTemplate, WebClient 대체)
-```java
-// data-server: Pixabay API 호출
-restClient.get().uri(uri).retrieve().body(responseType);
-
-// api-server: Discord 웹훅 전송
-restClient.post().contentType(MediaType.APPLICATION_JSON).body(payload).retrieve().toBodilessEntity();
-```
+- 동기식 코드 스타일로 직관적인 HTTP 통신을 수행합니다.
 
 ### 가상 스레드 (Java 21)
-`spring.threads.virtual.enabled=true` 설정으로 가상 스레드 활성화
-
-```java
-// data-server: 병렬 데이터 수집
-try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-    List<CompletableFuture<Optional<R>>> futures = filters.stream()
-        .map(filter -> CompletableFuture.supplyAsync(() -> fetchDataForFilter(filter), executor))
-        .toList();
-    // ...
-}
-
-// api-server: 비동기 Discord 알림 전송
-Thread.startVirtualThread(() -> sendMessage(payload));
-```
-
-### 기존 방식 대비 장점
-| 항목 | 이전 (WebClient/RestTemplate) | 현재 (RestClient + 가상스레드) |
-|------|------------------------------|-------------------------------|
-| 코드 스타일 | 리액티브/동기 혼재 | 동기식 통일 |
-| 의존성 | webflux 필요 | 불필요 |
-| 디버깅 | 어려움 | 쉬움 |
-| 동시성 | 플랫폼 스레드풀 | 가상 스레드 (경량) |
-
-## 데이터 흐름
-
-### Data Server (데이터 수집)
-```
-[Pixabay API] → [PixabayDataCollector] → [RedisDataStorage] → [Redis]
-```
-
-### API Server (데이터 조회)
-```
-[Client] → [Controller] → [Service] → [RedisDataStorage] → [Redis]
-                                            ↓
-[Client] ← [BaseResponse] ← [Controller]
-```
-
-### Message 저장/조회
-```
-[Client] → [MessageController] → [MessageService] → [RedisMessageStorage] → [Redis]
-```
+- `spring.threads.virtual.enabled=true` 설정을 통해 I/O 집약적 작업의 효율을 극대화합니다.
+- 병렬 데이터 수집 및 비동기 알림 전송에 활용됩니다.
