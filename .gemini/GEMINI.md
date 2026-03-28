@@ -22,12 +22,14 @@
 - `pixabay.md` (키워드: Pixabay API, Video, Music, Scheduler, Random, Cache)
 - `message.md` (키워드: Message, Validation, Discord Webhook, 단일 메시지)
 - `omniwatch.md` (키워드: Watch, Brand, Attribute, JPA, Entity, Auditing)
+- `techblog.md` (키워드: RSS/Atom, Data Collection, Feed Retrieval, Filtering, Tag, Company)
 
 ### 전문가 스킬 가이드 (`.gemini/experts/`)
 해당 도메인을 다룰 때 AI가 준수해야 할 전문적인 지침, 체크리스트, 테스트 전략을 정의합니다.
 - `pixabay-expert.md` (키워드: Virtual Threads, 병렬 처리, Rate Limit, 에러 복원력)
 - `message-expert.md` (키워드: 알림 연동, AOP 설정, 저장소 캡슐화, 유효성 검증)
 - `omniwatch-expert.md` (키워드: N+1 문제, Fetch Join, DDD, Auditing)
+- `techblog-expert.md` (키워드: RSS Parsing, Deduplication, Virtual Threads, Dynamic Query)
 - `monitoring-expert.md` (키워드: Actuator 노출, Metric Naming, Tag 최적화)
 - `security-expert.md` (키워드: Secret, Environment, Error Masking, XSS, CORS)
 
