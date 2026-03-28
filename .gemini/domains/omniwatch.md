@@ -15,7 +15,7 @@
 - `com.services.api.omniwatch.attribute.Material`, `Tag`, `Work`: 시계의 세부 속성 정의
 
 ### 3. 공통 기반 (Base)
-- `com.services.api.common.persistence.BaseEntity`: 생성/수정 시간 자동 관리 및 소프트 딜리트(soft-delete)를 위한 공통 추상 클래스
+- `com.services.api.persistence.BaseEntity`: 생성/수정 시간 자동 관리 및 소프트 딜리트(soft-delete)를 위한 공통 추상 클래스
 
 ## ⚙️ 핵심 워크플로우
 1. **데이터 모델링**: 시계는 브랜드와 N:1 관계를 가지며, 태그/소재/작업 등과는 중간 테이블을 통해 다대다 관계를 형성합니다.

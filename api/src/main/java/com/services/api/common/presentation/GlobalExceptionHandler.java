@@ -1,4 +1,4 @@
-package com.services.api.presentation;
+package com.services.api.common.presentation;
 
 import com.services.core.dto.BaseResponse;
 import com.services.core.exception.*;

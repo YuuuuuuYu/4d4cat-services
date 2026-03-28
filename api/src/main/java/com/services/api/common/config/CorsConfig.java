@@ -1,4 +1,4 @@
-package com.services.api.config;
+package com.services.api.common.config;
 
 import java.util.Arrays;
 import java.util.List;

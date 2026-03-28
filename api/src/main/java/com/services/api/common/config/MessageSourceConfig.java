@@ -1,4 +1,4 @@
-package com.services.api.config;
+package com.services.api.common.config;
 
 import java.util.Locale;
 import java.util.ResourceBundle;
