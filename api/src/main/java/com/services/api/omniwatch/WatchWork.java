@@ -1,7 +1,7 @@
 package com.services.api.omniwatch;
 
 import com.services.api.omniwatch.attribute.Work;
-import com.services.api.omniwatch.dto.BaseEntity;
+import com.services.api.common.persistence.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

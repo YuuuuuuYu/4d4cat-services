@@ -19,7 +19,7 @@ public class GlobalExceptionHandler {
 ### 2. JPA 및 데이터베이스 연동 (Persistence)
 OmniWatch 등 도메인의 영속성 관리를 위해 Spring Data JPA를 사용합니다.
 - **Auditing**: `BaseEntity`를 상속받아 `createdAt`, `updatedAt`이 자동 관리되도록 설정합니다.
-- **연관 관계**: 지연 로딩(Lazy Loading)을 기본으로 하며 N+1 문제 방지를 위해 Fetch Join 및 EntityGraph를 활용합니다.
+- **Soft Delete**: `BaseEntity`의 `deleted` 필드와 `@SQLRestriction("deleted = false")`를 통해 논리적 삭제 및 자동 조회 필터링을 수행합니다.
 
 ### 3. API 보안 및 설정 (Security & Config)
 - **CORS**: 허용된 도메인(`CORS_ALLOWED_ORIGINS`)에서만 API 접근이 가능하도록 설정합니다.
