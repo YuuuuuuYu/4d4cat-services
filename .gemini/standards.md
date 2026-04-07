@@ -8,7 +8,10 @@
 @RequiredArgsConstructor    // final 필드 생성자 주입
 ```
 
-## DTO는 record 사용
+## 엔티티(Entity) 및 DTO 규약
+
+### 1. DTO는 record 사용
+- 데이터 전송 객체는 불변성을 보장하는 `record`를 사용합니다.
 
 ```java
 // ✅ 권장
@@ -17,6 +20,29 @@ public record VideoResult(Long id, String url) {}
 // ❌ 지양
 @Getter @AllArgsConstructor
 public class VideoResult { ... }
+```
+
+### 2. JPA 엔티티 상속 및 Soft Delete
+- 모든 엔티티는 `BaseEntity`를 상속받아 생성일, 수정일, 삭제 여부(Soft Delete) 필드를 공통으로 관리해야 합니다.
+- `BaseEntity`에 `@SQLRestriction("deleted = false")`가 선언되어 있으므로, 삭제된 데이터는 조회 시 자동으로 필터링됩니다.
+- 서비스 계층에서 데이터를 삭제할 때는 `repository.delete()`가 아닌 엔티티의 `delete()` 메서드를 호출하여 상태를 변경(`deleted = true`)해야 합니다.
+- 컨트롤러 응답 시 엔티티를 직접 노출하지 말고, 반드시 DTO(record)로 변환하여 반환해야 합니다.
+
+```java
+// ✅ 권장: 엔티티 생성 시 BaseEntity 상속
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Message extends BaseEntity {
+    private String content;
+    // ...
+}
+
+// ✅ 권장: 서비스 계층에서의 삭제 처리
+public void deleteMessage(Long id) {
+    Message message = repository.findById(id).orElseThrow();
+    message.delete(); // 논리적 삭제 처리 (deleted = true)
+}
 ```
 
 ## RESTful API 네이밍
@@ -118,6 +144,9 @@ public class Service {
 
 - [ ] Lombok을 적절히 사용했는가?
 - [ ] DTO는 `record`로 작성했는가?
+- [ ] 모든 엔티티는 `BaseEntity`를 상속받았는가?
+- [ ] 데이터 삭제 시 엔티티의 `delete()`를 호출하여 Soft Delete 처리했는가?
+- [ ] 엔티티를 직접 노출하지 않고 DTO로 변환하여 응답했는가?
 - [ ] 의존성 주입은 생성자 방식을 사용했는가?
 - [ ] 모든 필드는 `final`로 선언했는가?
 - [ ] API 응답은 `BaseResponse`로 통일했는가?
