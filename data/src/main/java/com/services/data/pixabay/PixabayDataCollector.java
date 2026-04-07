@@ -50,9 +50,15 @@ public abstract class PixabayDataCollector<T, R extends ApiResponse<T>> {
 
     double durationSeconds = (System.currentTimeMillis() - startTime) / 1000.0;
 
-    registry.counter("pixabay.collection.items", "type", getDataType()).increment(stats.results().size());
-    registry.counter("pixabay.collection.filters", "type", getDataType(), "status", "success").increment(stats.successCount());
-    registry.counter("pixabay.collection.filters", "type", getDataType(), "status", "failure").increment(stats.failureCount());
+    registry
+        .counter("pixabay.collection.items", "type", getDataType())
+        .increment(stats.results().size());
+    registry
+        .counter("pixabay.collection.filters", "type", getDataType(), "status", "success")
+        .increment(stats.successCount());
+    registry
+        .counter("pixabay.collection.filters", "type", getDataType(), "status", "failure")
+        .increment(stats.failureCount());
 
     log.info(
         "Completed data collection for: {} - {} items stored",

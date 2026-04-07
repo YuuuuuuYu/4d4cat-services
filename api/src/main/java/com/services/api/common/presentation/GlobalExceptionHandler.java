@@ -3,6 +3,7 @@ package com.services.api.common.presentation;
 import com.services.core.dto.BaseResponse;
 import com.services.core.exception.*;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
@@ -10,8 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.Locale;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -57,6 +56,7 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<BaseResponse<Void>> handleUnhandledException(Exception e) {
-    return createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, e);
+    return createErrorResponse(
+        ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR, e);
   }
 }
