@@ -15,9 +15,17 @@ spring:
       host: localhost
       port: 6379
 
-cors:
-  allowed-origins: "*"
+pixabay:
+  key: dummy
+  url:
+    video: http://dummy
+    music: http://dummy
 
 discord:
   webhook:
     url: http://dummy
+
+logging:
+  level:
+    com.services: DEBUG
+    org.springframework.test: INFO
