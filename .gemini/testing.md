@@ -258,3 +258,34 @@ verify(service, never()).getData();
 - [ ] Mock 객체의 호출을 검증했는가?
 - [ ] Redis Mock이 필요한 경우 적절히 처리했는가?
 - [ ] 복잡한 테스트 객체 생성 시 Test Fixture를 활용하여 가독성을 높였는가?
+
+## Redis Mocking (로컬 Redis 없이 테스트하기)
+
+로컬에 Redis가 실행되고 있지 않은 환경에서도 테스트가 가능하도록 `TestRedisConfig`를 활용합니다.
+
+### 1. TestRedisConfig 설정
+`api` 및 `data` 모듈의 테스트 소스셋에 `TestRedisConfig`를 작성하여 `RedisDataStorage` 등을 Mock 빈으로 등록합니다.
+
+```java
+@TestConfiguration
+public class TestRedisConfig {
+    @Bean
+    @Primary
+    public RedisDataStorage redisDataStorage() {
+        return Mockito.mock(RedisDataStorage.class);
+    }
+}
+```
+
+### 2. 테스트 클래스에서 활용
+`@SpringBootTest`를 사용하는 통합 테스트에서 `@Import`를 통해 Mock 설정을 주입합니다.
+
+```java
+@SpringBootTest
+@ActiveProfiles("test")
+@Import(TestRedisConfig.class) // Mock Redis 설정 주입
+class MyServiceTest {
+    @Autowired private RedisDataStorage redisDataStorage;
+    // ...
+}
+```
