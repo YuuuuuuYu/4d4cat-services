@@ -15,11 +15,11 @@
 - **인프라 상세**: [API Module 가이드](../modules/api.md) 참조.
 
 ### 3. 데이터 명세 및 영속성 (core 모듈)
+- 모든 엔티티는 `BaseEntity`를 상속받아 `createdAt`, `updatedAt`, `deleted` 필드를 공통으로 관리합니다.
 - `com.services.core.techblog.entity.TechBlogCompany`: 회사 정보 (고유 식별자: 영문 Slug).
-- `com.services.core.techblog.entity.TechBlogPost`: 메인 기술 블로그 게시물 (PK: Auto Increment ID). 노출 상태(`deleted`) 포함.
-- `com.services.core.techblog.entity.TechBlogPostTag`: 게시물에 부여된 태그 매핑 테이블.
-- `com.services.core.techblog.entity.TechBlogPostStat`: 포스트 클릭수 통계 정보 (post_id, post_title, collected_at, click_count).
-- `com.services.core.techblog.repository.*`: Spring Data JPA Repository 인터페이스.
+- `com.services.core.techblog.entity.TechBlogPost`: 기술 블로그 게시물. 실제 삭제 시에는 `BaseEntity`의 `deleted` 필드를 사용합니다.
+- `com.services.core.techblog.entity.TechBlogPostTag`: 게시물 태그 매핑 테이블.
+- `com.services.core.techblog.entity.TechBlogPostStat`: 포스트 클릭수 통계 정보.
 - **인프라 상세**: [Core Module 가이드](../modules/core.md) 참조.
 
 ## ⚙️ 상세 비즈니스 워크플로우
