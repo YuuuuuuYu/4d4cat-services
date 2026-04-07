@@ -1,6 +1,6 @@
 package com.services.api.omniwatch.attribute;
 
-import com.services.api.common.persistence.BaseEntity;
+import com.services.core.common.persistence.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

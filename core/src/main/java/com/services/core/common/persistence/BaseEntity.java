@@ -1,4 +1,4 @@
-package com.services.api.common.persistence;
+package com.services.core.common.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
@@ -29,5 +29,9 @@ public abstract class BaseEntity {
 
   public void delete() {
     this.deleted = true;
+  }
+
+  public void restore() {
+    this.deleted = false;
   }
 }
