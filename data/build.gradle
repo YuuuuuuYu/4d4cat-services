@@ -11,6 +11,10 @@ dependencies {
 
     // Infra
     implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'com.rometools:rome:2.1.0'
+
+    // Test
+    testRuntimeOnly 'com.h2database:h2'
 }
 
 bootJar {
