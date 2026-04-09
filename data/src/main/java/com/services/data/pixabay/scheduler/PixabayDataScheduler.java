@@ -1,4 +1,4 @@
-package com.services.data.scheduler;
+package com.services.data.pixabay.scheduler;
 
 import com.services.data.pixabay.PixabayMusicCollector;
 import com.services.data.pixabay.PixabayVideoCollector;

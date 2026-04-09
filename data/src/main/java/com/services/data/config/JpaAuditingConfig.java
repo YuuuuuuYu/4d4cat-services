@@ -1,4 +1,4 @@
-package com.services.data.common.config;
+package com.services.data.config;
 
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Configuration;
