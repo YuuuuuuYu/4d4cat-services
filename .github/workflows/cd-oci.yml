@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [ "main" ]
     types: [closed]
+    paths:
+      - 'core/**'
+      - 'api/**'
+      - '.github/workflows/cd-oci.yml'
 
 jobs:
   deploy:
