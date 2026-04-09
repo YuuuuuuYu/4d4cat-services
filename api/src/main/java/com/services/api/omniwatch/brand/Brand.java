@@ -1,6 +1,6 @@
 package com.services.api.omniwatch.brand;
 
-import com.services.api.omniwatch.dto.BaseEntity;
+import com.services.core.common.persistence.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.services.api.config.MessageSourceConfig;
+import com.services.api.common.config.MessageSourceConfig;
 import com.services.api.fixture.PixabayTestFixtures;
 import com.services.core.exception.ErrorCode;
 import com.services.core.exception.NotFoundException;
@@ -116,6 +116,24 @@ class PixabayControllerTest {
         .perform(get("/music"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.status").value(404))
+        .andExpect(jsonPath("$.data").isEmpty())
+        .andExpect(jsonPath("$.error.code").value(errorCode.getCode()))
+        .andExpect(jsonPath("$.error.message").value(expectedMessage));
+  }
+
+  @Test
+  @DisplayName("GET /video - 처리되지 않은 예외 발생 시 500 에러 응답")
+  void getVideo_shouldReturn500_whenUnexpectedExceptionOccurs() throws Exception {
+    // Given
+    when(pixabayService.getRandomVideo()).thenThrow(new RuntimeException("Unexpected error"));
+    ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+    String expectedMessage = getErrorMessage(errorCode);
+
+    // When & Then
+    mockMvc
+        .perform(get("/video"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.status").value(500))
         .andExpect(jsonPath("$.data").isEmpty())
         .andExpect(jsonPath("$.error.code").value(errorCode.getCode()))
         .andExpect(jsonPath("$.error.message").value(expectedMessage));

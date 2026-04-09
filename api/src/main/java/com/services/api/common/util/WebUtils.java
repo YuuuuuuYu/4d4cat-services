@@ -1,4 +1,4 @@
-package com.services.api.util;
+package com.services.api.common.util;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;

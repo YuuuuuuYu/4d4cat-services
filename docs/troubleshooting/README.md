@@ -18,11 +18,15 @@
 - Docker 네트워크 구성 변경
 - cd-data.yml 배포 스크립트 개선
 - 성능 측정 및 검증 방법
-
 #### [Redis 레이턴시 진단 가이드](./redis-latency-diagnosis.md)
 **상태**: 📖 참고 문서
 **목적**: Redis 성능 문제 진단 및 측정 방법 제공
 
+#### [Redis 커넥션 풀 최적화 가이드](./redis-connection-pool-optimization.md)
+**상태**: 📖 가이드 문서
+**목적**: 가상 스레드 환경에서의 Redis 연결 풀 조정 기준 제공
+
+---
 **핵심 내용**:
 - Redis 연결 테스트 명령어
 - 성능 모니터링 (slowlog, INFO, CLIENT LIST)

@@ -67,6 +67,40 @@ void saveMessage_shouldWork() {
 }
 ```
 
+### Test Fixture 활용
+테스트 코드의 가독성을 높이고 객체 생성의 중복을 줄이기 위해 Test Fixture를 적극 활용합니다.
+- 복잡한 객체 생성 로직은 테스트 클래스 내부에 두지 않고 별도의 Fixture 클래스로 분리합니다.
+- Fixture 클래스는 `src/test/java/.../fixture/` 패키지 아래에 위치하며 `[도메인]TestFixtures` 명명 규칙을 따릅니다.
+- 객체 생성 시 기본값이 채워진 팩토리 메서드를 제공하고, 필요한 경우 커스텀 값을 설정할 수 있도록 합니다.
+
+예시 (`PixabayTestFixtures.java`):
+```java
+public class PixabayTestFixtures {
+
+  public static PixabayVideoResult createDefaultVideoResult(int id) {
+    return PixabayVideoResult.builder()
+        .id(id)
+        .pageURL("https://pixabay.com/videos/id-125/")
+        .type("video")
+        .tags("nature, video")
+        .duration(120)
+        // ... 생략
+        .build();
+  }
+}
+```
+
+테스트 코드 내 사용 예시:
+```java
+@Test
+void getVideo_shouldReturnVideoData() {
+    // Given
+    PixabayVideoResult video = PixabayTestFixtures.createDefaultVideoResult(1);
+    when(service.getRandomVideo()).thenReturn(video);
+    // ...
+}
+```
+
 ## 모듈별 테스트 예시
 
 ### Core 모듈 (단위 테스트)
@@ -223,3 +257,35 @@ verify(service, never()).getData();
 - [ ] 예외 상황도 테스트했는가?
 - [ ] Mock 객체의 호출을 검증했는가?
 - [ ] Redis Mock이 필요한 경우 적절히 처리했는가?
+- [ ] 복잡한 테스트 객체 생성 시 Test Fixture를 활용하여 가독성을 높였는가?
+
+## Redis Mocking (로컬 Redis 없이 테스트하기)
+
+로컬에 Redis가 실행되고 있지 않은 환경에서도 테스트가 가능하도록 `TestRedisConfig`를 활용합니다.
+
+### 1. TestRedisConfig 설정
+`api` 및 `data` 모듈의 테스트 소스셋에 `TestRedisConfig`를 작성하여 `RedisDataStorage` 등을 Mock 빈으로 등록합니다.
+
+```java
+@TestConfiguration
+public class TestRedisConfig {
+    @Bean
+    @Primary
+    public RedisDataStorage redisDataStorage() {
+        return Mockito.mock(RedisDataStorage.class);
+    }
+}
+```
+
+### 2. 테스트 클래스에서 활용
+`@SpringBootTest`를 사용하는 통합 테스트에서 `@Import`를 통해 Mock 설정을 주입합니다.
+
+```java
+@SpringBootTest
+@ActiveProfiles("test")
+@Import(TestRedisConfig.class) // Mock Redis 설정 주입
+class MyServiceTest {
+    @Autowired private RedisDataStorage redisDataStorage;
+    // ...
+}
+```

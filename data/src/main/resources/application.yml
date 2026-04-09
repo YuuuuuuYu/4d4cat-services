@@ -7,6 +7,14 @@ spring:
       enabled: true
   application:
     name: data
+  jpa:
+    hibernate:
+      ddl-auto: ${DB_DDL_AUTO:create-drop}
+  datasource:
+    url: ${DB_URL:jdbc:h2:mem:testdb}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
   data:
     redis:
       host: ${REDIS_HOST:localhost}

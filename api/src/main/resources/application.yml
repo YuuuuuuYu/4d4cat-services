@@ -16,6 +16,8 @@ spring:
     basename: messages
   jpa:
     open-in-view: false
+    hibernate:
+      ddl-auto: ${DB_DDL_AUTO:create-drop}
     properties:
       hibernate:
         format_sql: true
@@ -29,10 +31,14 @@ spring:
       host: ${REDIS_HOST:localhost}
       port: 6379
   datasource:
-    url: ${OMNIWATCH_DB_URL:jdbc:h2:mem:testdb}
-    username: ${OMNIWATCH_DB_USERNAME:sa}
-    password: ${OMNIWATCH_DB_PASSWORD:}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:h2:mem:testdb}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      max-lifetime: 600000
 
 springdoc:
   api-docs:

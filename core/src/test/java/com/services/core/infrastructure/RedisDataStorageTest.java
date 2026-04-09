@@ -40,7 +40,7 @@ class RedisDataStorageTest {
     // Given
     String key = "test-key";
     List<String> data = List.of("item1", "item2");
-    
+
     // When
     storage.setData(key, data);
 

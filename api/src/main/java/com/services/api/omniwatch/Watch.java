@@ -2,7 +2,7 @@ package com.services.api.omniwatch;
 
 import com.services.api.omniwatch.attribute.WatchType;
 import com.services.api.omniwatch.brand.Brand;
-import com.services.api.omniwatch.dto.BaseEntity;
+import com.services.core.common.persistence.BaseEntity;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.util.ArrayList;

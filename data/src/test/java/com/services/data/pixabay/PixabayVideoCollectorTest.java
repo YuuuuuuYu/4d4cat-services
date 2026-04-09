@@ -47,11 +47,11 @@ class PixabayVideoCollectorTest {
     when(restClient.get()).thenReturn(requestHeadersUriSpec);
     when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
     when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-    
-    PixabayResponse<PixabayVideoResult> pixabayResponse = 
+
+    PixabayResponse<PixabayVideoResult> pixabayResponse =
         PixabayResponse.of("1", "1", List.of(PixabayVideoResult.builder().id(1).build()));
     when(responseSpec.body(any(ParameterizedTypeReference.class))).thenReturn(pixabayResponse);
-    
+
     when(registry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
     // When
@@ -59,8 +59,8 @@ class PixabayVideoCollectorTest {
 
     // Then
     assertThat(result).isNotNull();
-    assertThat(result.totalItems()).isEqualTo(20); 
-    
+    assertThat(result.totalItems()).isEqualTo(20);
+
     verify(redisDataStorage).setData(eq("pixabayVideos"), anyList());
   }
 }
