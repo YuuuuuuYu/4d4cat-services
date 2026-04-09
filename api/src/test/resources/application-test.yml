@@ -16,7 +16,7 @@ spring:
       port: 6379
 
 cors:
-  allowed-origins: "*"
+  allowed-origins: "http://localhost:8080"
 
 discord:
   webhook:
