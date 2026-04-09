@@ -13,6 +13,9 @@ dependencies {
     implementation 'io.micrometer:micrometer-registry-prometheus'
     implementation 'com.rometools:rome:2.1.0'
 
+    // Database
+    runtimeOnly 'org.postgresql:postgresql'
+
     // Test
     testRuntimeOnly 'com.h2database:h2'
 }
