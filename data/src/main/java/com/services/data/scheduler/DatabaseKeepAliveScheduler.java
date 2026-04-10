@@ -1,4 +1,4 @@
-package com.services.api.common.scheduler;
+package com.services.data.scheduler;
 
 import com.services.core.aop.NotifyDiscord;
 import org.slf4j.Logger;
