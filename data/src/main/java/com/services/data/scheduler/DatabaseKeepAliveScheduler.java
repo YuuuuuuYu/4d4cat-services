@@ -18,7 +18,7 @@ public class DatabaseKeepAliveScheduler {
     this.jdbcTemplate = jdbcTemplate;
   }
 
-  @Scheduled(cron = "0 0 5,17 * * *")
+  @Scheduled(cron = "0 0 1,5,9,13,17,21 * * *")
   @NotifyDiscord(taskName = "Database Keep-alive")
   public void keepAlive() {
     jdbcTemplate.execute("SELECT 1");
