@@ -23,10 +23,10 @@ public class TechBlogPost extends BaseEntity {
   @JoinColumn(name = "company_slug", nullable = false)
   private TechBlogCompany company;
 
-  @Column(name = "title", nullable = false)
+  @Column(name = "title", nullable = false, length = 1024)
   private String title;
 
-  @Column(name = "url", nullable = false, unique = true)
+  @Column(name = "url", nullable = false, unique = true, length = 1024)
   private String url;
 
   @Column(name = "published_at")

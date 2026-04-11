@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'java-test-fixtures'
 }
 
 dependencies {
@@ -10,7 +11,7 @@ dependencies {
     // Data
     api 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation 'org.apache.commons:commons-pool2' // Redis connection pooling
+    implementation 'org.apache.commons:commons-pool2'
 
     // QueryDSL
     api 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
@@ -26,4 +27,7 @@ dependencies {
 
     // Jackson for JSON serialization
     api 'com.fasterxml.jackson.core:jackson-databind'
+
+    // Test Fixtures
+    testFixturesImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

@@ -1,10 +1,10 @@
-package com.services.api.fixture;
+package com.services.core.fixture;
 
 import com.services.core.pixabay.dto.PixabayMusicResult;
 import com.services.core.pixabay.dto.PixabayVideoResult;
 import java.util.List;
 
-public class PixabayTestFixtures {
+public class PixabayFixtures {
 
   public static final String SAMPLE_VIDEOS_JSON =
       """

@@ -1,6 +1,8 @@
 package com.services.data.techblog.scheduler;
 
+import com.services.core.aop.NotifyDiscord;
 import com.services.core.infrastructure.RedisDataStorage;
+import com.services.core.notification.DataCollectionResult;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.techblog.TechBlogRssCollector;
 import lombok.RequiredArgsConstructor;
@@ -21,13 +23,16 @@ public class TechBlogDataScheduler {
   private final RedisDataStorage redisDataStorage;
 
   @Scheduled(cron = "0 0 8,13,22 * * *")
-  public void collectTechBlogFeeds() {
+  @NotifyDiscord(taskName = "기술 블로그 RSS 수집")
+  public DataCollectionResult collectTechBlogFeeds() {
     log.info("Starting scheduled RSS feed collection.");
-    rssCollector.collectFeeds();
+    DataCollectionResult result = rssCollector.collectFeeds();
     log.info("Finished scheduled RSS feed collection. Evicting caches.");
-    
+
     // RSS 수집 완료 후 모든 TechBlog 리스트 캐시 일괄 삭제
     redisDataStorage.deleteKeysByPattern("techblog:list:*");
+
+    return result;
   }
 
   @Scheduled(cron = "0 0 0 * * *")

@@ -2,7 +2,8 @@ package com.services.api.techblog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.services.api.fixture.TechBlogTestFixtures;
+import com.services.api.config.TestRedisConfig;
+import com.services.core.fixture.TechBlogFixtures;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.core.techblog.entity.TechBlogCompany;
 import com.services.core.techblog.entity.TechBlogPost;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import com.services.api.config.TestRedisConfig;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -33,14 +33,14 @@ class TechBlogQueryServiceTest {
     postRepository.deleteAll();
     companyRepository.deleteAll();
 
-    TechBlogCompany company = companyRepository.save(TechBlogTestFixtures.createDefaultCompany());
+    TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
 
     for (int i = 1; i <= 10; i++) {
-      TechBlogPost post = TechBlogTestFixtures.createDefaultPost(company, i);
+      TechBlogPost post = TechBlogFixtures.createDefaultPost(company, i);
       if (i % 2 == 0) {
-        post.addTag(TechBlogTestFixtures.createTag(post, "backend"));
+        post.addTag(TechBlogFixtures.createTag(post, "backend"));
       } else {
-        post.addTag(TechBlogTestFixtures.createTag(post, "frontend"));
+        post.addTag(TechBlogFixtures.createTag(post, "frontend"));
       }
       postRepository.save(post);
     }
