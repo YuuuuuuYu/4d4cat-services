@@ -17,7 +17,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -40,12 +39,7 @@ public class TechBlogRssCollector {
   private final TechBlogPostRepository postRepository;
   private final TechBlogPostStatRepository statRepository;
   private final TransactionTemplate transactionTemplate;
-
-  private final HttpClient httpClient =
-      HttpClient.newBuilder()
-          .followRedirects(HttpClient.Redirect.ALWAYS)
-          .connectTimeout(Duration.ofSeconds(10))
-          .build();
+  private final HttpClient httpClient;
 
   public DataCollectionResult collectFeeds() {
     final String taskName = "기술 블로그 RSS 수집";
