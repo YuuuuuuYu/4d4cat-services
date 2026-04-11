@@ -8,12 +8,13 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "techblog_company")
-public class TechBlogCompany extends BaseEntity {
+public class TechBlogCompany extends BaseEntity implements Persistable<String> {
 
   @Id
   @Column(name = "slug", nullable = false, unique = true)
@@ -29,5 +30,15 @@ public class TechBlogCompany extends BaseEntity {
     this.slug = slug;
     this.name = name;
     this.feedUrl = feedUrl;
+  }
+
+  @Override
+  public String getId() {
+    return slug;
+  }
+
+  @Override
+  public boolean isNew() {
+    return getCreatedAt() == null;
   }
 }

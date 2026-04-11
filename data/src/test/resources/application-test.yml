@@ -21,9 +21,10 @@ pixabay:
     video: http://dummy
     music: http://dummy
 
-discord:
-  webhook:
-    url: http://dummy
+test:
+  discord:
+    webhook:
+      url: http://dummy
 
 logging:
   level:
