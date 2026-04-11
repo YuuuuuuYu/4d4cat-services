@@ -17,7 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "discord.webhook.url=${test.discord.webhook.url}"
+})
 @ActiveProfiles("test")
 @Import(TestRedisConfig.class)
 class TechBlogDataLifecycleTest {
