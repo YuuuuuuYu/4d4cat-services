@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.services.api.common.config.MessageSourceConfig;
-import com.services.api.fixture.PixabayTestFixtures;
+import com.services.core.fixture.PixabayFixtures;
 import com.services.core.exception.ErrorCode;
 import com.services.core.exception.NotFoundException;
 import com.services.core.pixabay.dto.PixabayMusicResult;
@@ -54,7 +54,7 @@ class PixabayControllerTest {
   @DisplayName("GET /video - 비디오 데이터 성공 응답")
   void getVideo_shouldReturnVideoData() throws Exception {
     // Given
-    PixabayVideoResult videoResult = PixabayTestFixtures.createDefaultVideoResult(1);
+    PixabayVideoResult videoResult = PixabayFixtures.createDefaultVideoResult(1);
     when(pixabayService.getRandomVideo()).thenReturn(videoResult);
 
     // When & Then
@@ -71,7 +71,7 @@ class PixabayControllerTest {
   @DisplayName("GET /music - 음악 데이터 성공 응답")
   void getMusic_shouldReturnMusicData() throws Exception {
     // Given
-    PixabayMusicResult musicResult = PixabayTestFixtures.createDefaultMusicResult(1);
+    PixabayMusicResult musicResult = PixabayFixtures.createDefaultMusicResult(1);
     when(pixabayService.getRandomMusic()).thenReturn(musicResult);
 
     // When & Then

@@ -2,7 +2,8 @@ package com.services.api.techblog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.services.api.fixture.TechBlogTestFixtures;
+import com.services.api.config.TestRedisConfig;
+import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.entity.TechBlogCompany;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
@@ -18,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import com.services.api.config.TestRedisConfig;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -42,10 +42,10 @@ class TechBlogPostStatConcurrencyTest {
     postRepository.deleteAll();
     companyRepository.deleteAll();
 
-    TechBlogCompany company = companyRepository.save(TechBlogTestFixtures.createDefaultCompany());
-    TechBlogPost post = postRepository.save(TechBlogTestFixtures.createDefaultPost(company, 1));
+    TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
+    TechBlogPost post = postRepository.save(TechBlogFixtures.createDefaultPost(company, 1));
     testPostId = post.getId();
-    statRepository.save(TechBlogTestFixtures.createStat(testPostId, post.getTitle()));
+    statRepository.save(TechBlogFixtures.createStat(testPostId, post.getTitle()));
   }
 
   @AfterEach
