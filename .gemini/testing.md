@@ -13,15 +13,10 @@
 ./gradlew :core:test
 
 # Data Server 테스트
-./gradlew :data-server:test
+./gradlew :data:test
 
 # API Server 테스트
-./gradlew :api-server:test
-```
-
-### 특정 테스트 클래스 실행
-```bash
-./gradlew :api-server:test --tests "PixabayServiceTest"
+./gradlew :api:test
 ```
 
 ## 공통 규칙
@@ -55,50 +50,35 @@ void getVideo_shouldReturnVideoData() {}
 ```java
 @Test
 void saveMessage_shouldWork() {
-    // Given (준비)
+    // Given
     String content = "Hello";
 
-    // When (실행)
+    // When
     service.saveMessage(new MessageRequest(content));
 
-    // Then (검증)
+    // Then
     String result = service.getMessage();
     assertThat(result).isEqualTo(content);
 }
 ```
 
-### Test Fixture 활용
-테스트 코드의 가독성을 높이고 객체 생성의 중복을 줄이기 위해 Test Fixture를 적극 활용합니다.
-- 복잡한 객체 생성 로직은 테스트 클래스 내부에 두지 않고 별도의 Fixture 클래스로 분리합니다.
-- Fixture 클래스는 `src/test/java/.../fixture/` 패키지 아래에 위치하며 `[도메인]TestFixtures` 명명 규칙을 따릅니다.
-- 객체 생성 시 기본값이 채워진 팩토리 메서드를 제공하고, 필요한 경우 커스텀 값을 설정할 수 있도록 합니다.
+### 공유 Test Fixture 활용
+멀티 모듈 환경에서 테스트 객체 생성 로직의 중복을 방지하고 일관성을 유지하기 위해 `core` 모듈의 **Test Fixtures**를 활용합니다.
 
-예시 (`PixabayTestFixtures.java`):
+- **위치**: `core/src/testFixtures/java/com/services/core/fixture/`
+- **플러그인**: `core` 모듈에 `java-test-fixtures` 플러그인이 적용되어 있습니다.
+- **명명 규칙**: `[도메인]Fixtures` (예: `TechBlogFixtures`, `PixabayFixtures`)
+- **의존성 설정**: 다른 모듈(`api`, `data`)에서 사용 시 `build.gradle`에 다음과 같이 추가합니다.
+  ```gradle
+  testImplementation(testFixtures(project(':core')))
+  ```
+
+#### Auditing 필드 처리 (BaseEntity)
+`BaseEntity`를 상속받는 엔티티는 `createdAt` 등이 초기화되지 않으므로, JPA를 사용하지 않는 **단위 테스트**에서는 픽스처의 유틸리티를 사용해야 합니다.
 ```java
-public class PixabayTestFixtures {
-
-  public static PixabayVideoResult createDefaultVideoResult(int id) {
-    return PixabayVideoResult.builder()
-        .id(id)
-        .pageURL("https://pixabay.com/videos/id-125/")
-        .type("video")
-        .tags("nature, video")
-        .duration(120)
-        // ... 생략
-        .build();
-  }
-}
-```
-
-테스트 코드 내 사용 예시:
-```java
-@Test
-void getVideo_shouldReturnVideoData() {
-    // Given
-    PixabayVideoResult video = PixabayTestFixtures.createDefaultVideoResult(1);
-    when(service.getRandomVideo()).thenReturn(video);
-    // ...
-}
+// 예시: 단위 테스트에서 날짜 필드 주입
+TechBlogCompany company = TechBlogFixtures.createDefaultCompany();
+TechBlogFixtures.setAuditingFields(company); // Reflection을 통해 createdAt, updatedAt 주입
 ```
 
 ## 모듈별 테스트 예시

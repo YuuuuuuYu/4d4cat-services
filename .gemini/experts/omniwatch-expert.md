@@ -26,8 +26,7 @@
 - [ ] `BaseEntity` 상속을 통해 감사(Auditing) 기능이 활성화되었는가?
 
 ## 🧪 테스트 전략 (Testing Strategy)
-- **Mocking 대상**: 불필요 (가급적 DataJpaTest를 활용한 통합 테스트 권장)
-- **검증 포인트**:
-  - JPA Repository 테스트 시 `@DataJpaTest`를 사용하여 쿼리가 예상대로 실행되는지(특히 Fetch Join) 확인합니다.
-  - `BaseEntity`의 `createdAt`, `updatedAt`이 실제 영속화 시점에 자동으로 채워지는지 검증합니다.
-  - N:1, 다대다 관계 엔티티 저장 시 Cascade 옵션이 정상 작동하여 연관 엔티티도 함께 저장/삭제되는지 테스트합니다.
+- **공유 픽스처 활용**: `Watch` 관련 객체 생성 시 공통 픽스처를 우선 사용하십시오.
+- **JPA Auditing 검증**: `@DataJpaTest` 등을 활용하여 `BaseEntity`의 `createdAt`, `updatedAt`이 영속화 시점에 정상적으로 기록되는지 확인합니다.
+- **연관 관계 성능**: Fetch Join이 의도대로 동작하여 N+1 문제가 발생하지 않는지 쿼리 로그를 통해 검증하십시오.
+- **Cascade 전이**: 부모 엔티티(`Watch`) 저장 시 자식 엔티티(`WatchTag` 등)가 함께 저장되는지 테스트합니다.
