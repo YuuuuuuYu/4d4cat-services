@@ -1,5 +1,6 @@
 package com.services.api.techblog;
 
+import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.core.dto.BaseResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +26,10 @@ public class TechBlogController {
     return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, data));
   }
 
-  @GetMapping("/companies/slugs")
-  public ResponseEntity<BaseResponse<List<String>>> getActiveCompanySlugs() {
-    List<String> slugs = queryService.getActiveCompanySlugs();
-    return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, slugs));
+  @GetMapping("/companies")
+  public ResponseEntity<BaseResponse<List<TechBlogCompanyResponse>>> getActiveCompanies() {
+    List<TechBlogCompanyResponse> companies = queryService.getActiveCompanies();
+    return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, companies));
   }
 
   @PostMapping("/{id}/click")

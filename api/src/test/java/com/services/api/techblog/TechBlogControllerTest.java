@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.services.api.common.config.MessageSourceConfig;
+import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -84,19 +85,23 @@ class TechBlogControllerTest {
   }
 
   @Test
-  @DisplayName("GET /techblogs/companies/slugs - 활성 회사 슬러그 목록 조회 성공")
-  void getActiveCompanySlugs_shouldReturnSlugs() throws Exception {
+  @DisplayName("GET /techblogs/companies - 활성 회사 목록 조회 성공")
+  void getActiveCompanies_shouldReturnCompanies() throws Exception {
     // Given
-    List<String> slugs = List.of("woowahan", "toss", "kakao");
-    when(techBlogQueryService.getActiveCompanySlugs()).thenReturn(slugs);
+    List<TechBlogCompanyResponse> companies = List.of(
+        new TechBlogCompanyResponse("woowahan", "WoowaBros"),
+        new TechBlogCompanyResponse("toss", "Toss")
+    );
+    when(techBlogQueryService.getActiveCompanies()).thenReturn(companies);
 
     // When & Then
     mockMvc
-        .perform(get("/techblogs/companies/slugs"))
+        .perform(get("/techblogs/companies"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(200))
         .andExpect(jsonPath("$.data").isArray())
-        .andExpect(jsonPath("$.data[0]").value("woowahan"))
+        .andExpect(jsonPath("$.data[0].slug").value("woowahan"))
+        .andExpect(jsonPath("$.data[0].name").value("WoowaBros"))
         .andExpect(jsonPath("$.error").isEmpty());
   }
 

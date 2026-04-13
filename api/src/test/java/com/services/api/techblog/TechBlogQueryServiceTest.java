@@ -3,6 +3,7 @@ package com.services.api.techblog;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.services.api.config.TestRedisConfig;
+import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
 import com.services.core.fixture.TechBlogFixtures;
@@ -132,8 +133,8 @@ class TechBlogQueryServiceTest {
   }
 
   @Test
-  @DisplayName("활성 회사 슬러그 조회 - 성공")
-  void getActiveCompanySlugs_shouldReturnOnlyActiveSlugs() {
+  @DisplayName("활성 회사 목록 조회 - 성공")
+  void getActiveCompanies_shouldReturnOnlyActiveCompanies() {
     // Given
     TechBlogCompany active = new TechBlogCompany("active-test", "Active Test", "url");
     companyRepository.save(active);
@@ -143,11 +144,14 @@ class TechBlogQueryServiceTest {
     companyRepository.save(deleted);
 
     // When
-    List<String> slugs = techBlogQueryService.getActiveCompanySlugs();
+    List<TechBlogCompanyResponse> companies = techBlogQueryService.getActiveCompanies();
 
     // Then
-    assertThat(slugs).contains("woowahan", "active-test");
-    assertThat(slugs).doesNotContain("deleted-test");
+    assertThat(companies).extracting(TechBlogCompanyResponse::slug)
+        .contains("woowahan", "active-test")
+        .doesNotContain("deleted-test");
+    assertThat(companies).extracting(TechBlogCompanyResponse::name)
+        .contains("woowahan", "Active Test");
   }
 
   @Test
