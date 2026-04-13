@@ -8,7 +8,10 @@ import com.services.core.infrastructure.RedisDataStorage;
 import com.services.core.techblog.entity.QTechBlogPost;
 import com.services.core.techblog.entity.QTechBlogPostTag;
 import com.services.core.techblog.entity.TechBlogPost;
+import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -24,18 +27,32 @@ public class TechBlogQueryService {
 
   private final JPAQueryFactory queryFactory;
   private final TechBlogPostStatRepository statRepository;
+  private final TechBlogCompanyRepository companyRepository;
   private final RedisDataStorage redisDataStorage;
+  private final MeterRegistry registry;
 
   private static final String CACHE_KEY_PREFIX = "techblog:list:";
   private static final int CACHE_EXPIRATION_HOURS = 12;
 
-  public TechBlogListResponse getTechBlogs(Long cursorId, String companySlug, String tag) {
-    String cacheKey = generateCacheKey(cursorId, companySlug, tag);
+  public TechBlogListResponse getTechBlogs(Long cursorId, List<String> companySlugs, String tag) {
+    registry
+        .counter(
+            "techblog.api.request",
+            "has_company_filter",
+            String.valueOf(companySlugs != null && !companySlugs.isEmpty()),
+            "has_tag_filter",
+            String.valueOf(tag != null && !tag.isBlank()))
+        .increment();
+
+    String cacheKey = generateCacheKey(cursorId, companySlugs, tag);
     Optional<TechBlogListResponse> cachedResponse = redisDataStorage.getCache(cacheKey);
 
     if (cachedResponse.isPresent()) {
+      registry.counter("techblog.cache.access", "status", "hit").increment();
       return cachedResponse.get();
     }
+
+    registry.counter("techblog.cache.access", "status", "miss").increment();
 
     QTechBlogPost post = QTechBlogPost.techBlogPost;
     QTechBlogPostTag postTag = QTechBlogPostTag.techBlogPostTag;
@@ -43,20 +60,24 @@ public class TechBlogQueryService {
     int limit = 5;
 
     List<TechBlogPost> result =
-        queryFactory
-            .selectFrom(post)
-            .leftJoin(post.company)
-            .fetchJoin()
-            .leftJoin(post.tags, postTag)
-            .where(
-                cursorCondition(cursorId, post),
-                companyEq(companySlug, post),
-                tagEq(tag, postTag),
-                post.deleted.eq(false))
-            .orderBy(post.id.desc())
-            .limit(limit + 1)
-            .distinct()
-            .fetch();
+        Timer.builder("techblog.query.duration")
+            .register(registry)
+            .record(
+                () ->
+                    queryFactory
+                        .selectFrom(post)
+                        .leftJoin(post.company)
+                        .fetchJoin()
+                        .leftJoin(post.tags, postTag)
+                        .where(
+                            cursorCondition(cursorId, post),
+                            companyIn(companySlugs, post),
+                            tagEq(tag, postTag),
+                            post.deleted.eq(false))
+                        .orderBy(post.id.desc())
+                        .limit(limit + 1)
+                        .distinct()
+                        .fetch());
 
     boolean hasNext = result.size() > limit;
     if (hasNext) {
@@ -78,14 +99,23 @@ public class TechBlogQueryService {
   @Transactional
   public void incrementClickCount(Long postId) {
     statRepository.incrementClickCount(postId);
+    registry.counter("techblog.post.click").increment();
   }
 
-  private String generateCacheKey(Long cursorId, String companySlug, String tag) {
+  public List<String> getActiveCompanySlugs() {
+    return companyRepository.findAllActiveSlugs();
+  }
+
+  private String generateCacheKey(Long cursorId, List<String> companySlugs, String tag) {
+    String companySlugKey = "all";
+    if (companySlugs != null && !companySlugs.isEmpty()) {
+      companySlugKey = companySlugs.stream().sorted().collect(Collectors.joining(","));
+    }
     return CACHE_KEY_PREFIX
         + "cursor:"
         + (cursorId != null ? cursorId : "none")
         + ":company:"
-        + (companySlug != null ? companySlug : "all")
+        + companySlugKey
         + ":tag:"
         + (tag != null ? tag : "all");
   }
@@ -97,11 +127,11 @@ public class TechBlogQueryService {
     return post.id.lt(cursorId);
   }
 
-  private BooleanExpression companyEq(String companySlug, QTechBlogPost post) {
-    if (companySlug == null || companySlug.isBlank()) {
+  private BooleanExpression companyIn(List<String> companySlugs, QTechBlogPost post) {
+    if (companySlugs == null || companySlugs.isEmpty()) {
       return null;
     }
-    return post.company.slug.eq(companySlug);
+    return post.company.slug.in(companySlugs);
   }
 
   private BooleanExpression tagEq(String tag, QTechBlogPostTag postTag) {
