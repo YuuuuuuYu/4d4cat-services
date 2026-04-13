@@ -166,5 +166,49 @@ class TechBlogRssCollectorTest {
         
         Thread.sleep(2000);
     }
+
+    @Test
+    @DisplayName("RSS 피드 수집 - 네이버 D2(Atom) 피드 updated 태그 인식 성공")
+    void collectFeeds_withNaverAtomFeed_shouldUseUpdatedDate() throws Exception {
+        // Given
+        TechBlogCompany company = TechBlogFixtures.createDefaultCompany();
+        companyRepository.save(company);
+
+        String mockAtom = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <feed xmlns="http://www.w3.org/2005/Atom">
+                  <title>D2 Blog</title>
+                  <link rel="alternate" href="https://d2.naver.com" />
+                  <updated>2026-04-13T04:59:35Z</updated>
+                  <entry>
+                    <title>[사전 안내] 첫 번째 'NAVER SECURITY SEMINAR'가 열립니다.</title>
+                    <link rel="alternate" href="https://d2.naver.com/news/2009415" />
+                    <id>https://d2.naver.com/news/2009415</id>
+                    <updated>2026-04-13T14:07:34Z</updated>
+                    <content type="html">테스트 본문</content>
+                  </entry>
+                </feed>
+                """;
+
+        HttpResponse<InputStream> response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn(new ByteArrayInputStream(mockAtom.getBytes(StandardCharsets.UTF_8)));
+
+        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenReturn(response);
+
+        // When
+        dataScheduler.collectTechBlogFeeds();
+
+        // Then
+        var savedPost = postRepository.findAll().get(0);
+        assertThat(savedPost.getTitle()).contains("NAVER SECURITY SEMINAR");
+        assertThat(savedPost.getPublishedAt()).isNotNull();
+        assertThat(savedPost.getPublishedAt().getYear()).isEqualTo(2026);
+        assertThat(savedPost.getPublishedAt().getMonthValue()).isEqualTo(4);
+        assertThat(savedPost.getPublishedAt().getDayOfMonth()).isEqualTo(13);
+
+        Thread.sleep(2000);
+    }
 }
 
