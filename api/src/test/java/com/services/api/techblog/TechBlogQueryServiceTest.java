@@ -13,6 +13,7 @@ import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,7 +84,7 @@ class TechBlogQueryServiceTest {
   void getTechBlogs_whenCursorProvided_shouldReturnNextPage() {
     // Given
     TechBlogListResponse firstPage = techBlogQueryService.getTechBlogs(null, null, null);
-    Long nextCursor = firstPage.nextCursor();
+    String nextCursor = firstPage.nextCursor();
 
     // When
     TechBlogListResponse secondPage = techBlogQueryService.getTechBlogs(nextCursor, null, null);
@@ -91,14 +92,16 @@ class TechBlogQueryServiceTest {
     // Then
     assertThat(secondPage.items()).hasSize(5);
     assertThat(secondPage.hasNext()).isFalse();
-    assertThat(firstPage.items().get(4).id()).isGreaterThan(secondPage.items().get(0).id());
+    assertThat(firstPage.items().get(4).publishedAt())
+        .isAfterOrEqualTo(secondPage.items().get(0).publishedAt());
   }
 
   @Test
   @DisplayName("게시글 목록 조회 - 단일 회사 필터링")
   void getTechBlogs_whenCompanyFilterProvided_shouldReturnFilteredPosts() {
     // When
-    TechBlogListResponse response = techBlogQueryService.getTechBlogs(null, List.of("woowahan"), null);
+    TechBlogListResponse response =
+        techBlogQueryService.getTechBlogs(null, List.of("woowahan"), null);
 
     // Then
     assertThat(response.items()).hasSize(5);
@@ -113,12 +116,57 @@ class TechBlogQueryServiceTest {
     statRepository.save(TechBlogFixtures.createStat(kakaoPost.getId(), kakaoPost.getTitle()));
 
     // When
-    TechBlogListResponse response = techBlogQueryService.getTechBlogs(null, List.of("woowahan", "kakao"), null);
+    TechBlogListResponse response =
+        techBlogQueryService.getTechBlogs(null, List.of("woowahan", "kakao"), null);
 
     // Then
     assertThat(response.items()).hasSize(5);
     assertThat(response.hasNext()).isTrue();
-    assertThat(response.items()).extracting(TechBlogResponse::companySlug).contains("woowahan", "kakao");
+    assertThat(response.items())
+        .extracting(TechBlogResponse::companySlug)
+        .contains("woowahan", "kakao");
+  }
+
+  @Test
+  @DisplayName("게시글 목록 조회 - 잘못된 형식의 커서인 경우 첫 페이지 반환")
+  void getTechBlogs_whenInvalidFormatCursor_shouldReturnFirstPage() {
+    // Given
+    String invalidCursor = "invalid_format_cursor";
+
+    // When
+    TechBlogListResponse response = techBlogQueryService.getTechBlogs(invalidCursor, null, null);
+
+    // Then
+    assertThat(response.items()).hasSize(5);
+    assertThat(response.hasNext()).isTrue();
+  }
+
+  @Test
+  @DisplayName("게시글 목록 조회 - 날짜 형식이 잘못된 커서인 경우 첫 페이지 반환")
+  void getTechBlogs_whenInvalidDateCursor_shouldReturnFirstPage() {
+    // Given
+    String invalidDateCursor = "invalid-date_1";
+
+    // When
+    TechBlogListResponse response = techBlogQueryService.getTechBlogs(invalidDateCursor, null, null);
+
+    // Then
+    assertThat(response.items()).hasSize(5);
+    assertThat(response.hasNext()).isTrue();
+  }
+
+  @Test
+  @DisplayName("게시글 목록 조회 - ID 형식이 잘못된 커서인 경우 첫 페이지 반환")
+  void getTechBlogs_whenInvalidIdCursor_shouldReturnFirstPage() {
+    // Given
+    String invalidIdCursor = "2024-04-13T10:00:00_notanid";
+
+    // When
+    TechBlogListResponse response = techBlogQueryService.getTechBlogs(invalidIdCursor, null, null);
+
+    // Then
+    assertThat(response.items()).hasSize(5);
+    assertThat(response.hasNext()).isTrue();
   }
 
   @Test
@@ -147,11 +195,11 @@ class TechBlogQueryServiceTest {
     List<TechBlogCompanyResponse> companies = techBlogQueryService.getActiveCompanies();
 
     // Then
-    assertThat(companies).extracting(TechBlogCompanyResponse::slug)
+    assertThat(companies)
+        .extracting(TechBlogCompanyResponse::slug)
         .contains("woowahan", "active-test")
         .doesNotContain("deleted-test");
-    assertThat(companies).extracting(TechBlogCompanyResponse::name)
-        .contains("woowahan", "Active Test");
+    assertThat(companies).extracting(TechBlogCompanyResponse::name).contains("woowahan", "Active Test");
   }
 
   @Test
@@ -170,9 +218,13 @@ class TechBlogQueryServiceTest {
     assertThat(meterRegistry.find("techblog.query.duration").timer()).isNotNull();
     assertThat(meterRegistry.find("techblog.post.click").counter()).isNotNull();
 
-    assertThat(meterRegistry.find("techblog.api.request").tag("has_company_filter", "true").counter().count())
+    assertThat(
+            meterRegistry
+                .find("techblog.api.request")
+                .tag("has_company_filter", "true")
+                .counter()
+                .count())
         .isEqualTo(1);
-    assertThat(meterRegistry.find("techblog.post.click").counter().count())
-        .isEqualTo(1);
+    assertThat(meterRegistry.find("techblog.post.click").counter().count()).isEqualTo(1);
   }
 }
