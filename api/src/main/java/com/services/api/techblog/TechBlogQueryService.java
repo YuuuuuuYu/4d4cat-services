@@ -80,7 +80,7 @@ public class TechBlogQueryService {
                           companyIn(companySlugs, post),
                           tagEq(tag, postTag),
                           post.deleted.eq(false))
-                      .orderBy(post.id.desc())
+                      .orderBy(post.publishedAt.desc())
                       .limit(limit + 1)
                       .distinct()
                       .fetch();
