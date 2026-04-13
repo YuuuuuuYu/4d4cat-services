@@ -50,18 +50,18 @@ class TechBlogControllerTest {
             "https://techblog.woowahan.com/1",
             LocalDateTime.now(),
             List.of("Java", "Spring"));
-    TechBlogListResponse response = new TechBlogListResponse(List.of(post), 2L, true);
+    TechBlogListResponse response = new TechBlogListResponse(List.of(post), "2024-04-13T10:00:00_2", true);
 
     when(techBlogQueryService.getTechBlogs(any(), anyList(), anyString())).thenReturn(response);
 
     // When & Then
     mockMvc
-        .perform(get("/techblogs").param("companySlug", "woowahan").param("tag", "Java"))
+        .perform(get("/techblogs").param("cursor", "2024-04-13T10:00:00_1").param("companySlug", "woowahan").param("tag", "Java"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(200))
         .andExpect(jsonPath("$.data.items[0].id").value(1))
         .andExpect(jsonPath("$.data.items[0].title").value("테스트 포스트"))
-        .andExpect(jsonPath("$.data.nextCursor").value(2))
+        .andExpect(jsonPath("$.data.nextCursor").value("2024-04-13T10:00:00_2"))
         .andExpect(jsonPath("$.data.hasNext").value(true))
         .andExpect(jsonPath("$.error").isEmpty());
   }

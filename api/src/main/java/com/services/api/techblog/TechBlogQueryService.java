@@ -13,14 +13,18 @@ import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -35,7 +39,7 @@ public class TechBlogQueryService {
   private static final String CACHE_KEY_PREFIX = "techblog:list:";
   private static final int CACHE_EXPIRATION_HOURS = 12;
 
-  public TechBlogListResponse getTechBlogs(Long cursorId, List<String> companySlugs, String tag) {
+  public TechBlogListResponse getTechBlogs(String cursor, List<String> companySlugs, String tag) {
     registry
         .counter(
             "techblog.api.request",
@@ -45,7 +49,7 @@ public class TechBlogQueryService {
             String.valueOf(tag != null && !tag.isBlank()))
         .increment();
 
-    String cacheKey = generateCacheKey(cursorId, companySlugs, tag);
+    String cacheKey = generateCacheKey(cursor, companySlugs, tag);
     Optional<TechBlogListResponse> cachedResponse = redisDataStorage.getCache(cacheKey);
 
     if (cachedResponse.isPresent()) {
@@ -59,6 +63,30 @@ public class TechBlogQueryService {
     QTechBlogPostTag postTag = QTechBlogPostTag.techBlogPostTag;
 
     int limit = 5;
+
+    LocalDateTime cursorPublishedAt = null;
+    Long cursorId = null;
+
+    if (cursor != null && !cursor.isBlank()) {
+      try {
+        String[] parts = cursor.split("_");
+        if (parts.length == 2) {
+          cursorPublishedAt = LocalDateTime.parse(parts[0]);
+          cursorId = Long.parseLong(parts[1]);
+        } else {
+          log.warn("Invalid cursor format. Expected 'date_id', but got: {}", cursor);
+        }
+      } catch (DateTimeParseException e) {
+        log.warn("Failed to parse date from cursor: {}", cursor, e);
+      } catch (NumberFormatException e) {
+        log.warn("Failed to parse ID from cursor: {}", cursor, e);
+      } catch (Exception e) {
+        log.error("Unexpected error parsing cursor: {}", cursor, e);
+      }
+    }
+
+    LocalDateTime finalCursorPublishedAt = cursorPublishedAt;
+    Long finalCursorId = cursorId;
 
     List<TechBlogPost> result =
         Timer.builder("techblog.query.duration")
@@ -76,11 +104,10 @@ public class TechBlogQueryService {
 
                   return query
                       .where(
-                          cursorCondition(cursorId, post),
+                          cursorCondition(finalCursorId, finalCursorPublishedAt, post),
                           companyIn(companySlugs, post),
-                          tagEq(tag, postTag),
-                          post.deleted.eq(false))
-                      .orderBy(post.publishedAt.desc())
+                          tagEq(tag, postTag))
+                      .orderBy(post.publishedAt.desc(), post.id.desc())
                       .limit(limit + 1)
                       .distinct()
                       .fetch();
@@ -91,7 +118,11 @@ public class TechBlogQueryService {
       result.remove(limit);
     }
 
-    Long nextCursor = result.isEmpty() ? null : result.get(result.size() - 1).getId();
+    String nextCursor = null;
+    if (!result.isEmpty()) {
+      TechBlogPost lastPost = result.get(result.size() - 1);
+      nextCursor = lastPost.getPublishedAt().toString() + "_" + lastPost.getId();
+    }
 
     List<TechBlogResponse> items =
         result.stream().map(TechBlogResponse::from).collect(Collectors.toList());
@@ -115,25 +146,29 @@ public class TechBlogQueryService {
         .toList();
   }
 
-  private String generateCacheKey(Long cursorId, List<String> companySlugs, String tag) {
+  private String generateCacheKey(String cursor, List<String> companySlugs, String tag) {
     String companySlugKey = "all";
     if (companySlugs != null && !companySlugs.isEmpty()) {
       companySlugKey = companySlugs.stream().sorted().collect(Collectors.joining(","));
     }
     return CACHE_KEY_PREFIX
         + "cursor:"
-        + (cursorId != null ? cursorId : "none")
+        + (cursor != null ? cursor : "none")
         + ":company:"
         + companySlugKey
         + ":tag:"
         + (tag != null ? tag : "all");
   }
 
-  private BooleanExpression cursorCondition(Long cursorId, QTechBlogPost post) {
-    if (cursorId == null) {
+  private BooleanExpression cursorCondition(
+      Long cursorId, LocalDateTime cursorPublishedAt, QTechBlogPost post) {
+    if (cursorId == null || cursorPublishedAt == null) {
       return null;
     }
-    return post.id.lt(cursorId);
+
+    return post.publishedAt
+        .lt(cursorPublishedAt)
+        .or(post.publishedAt.eq(cursorPublishedAt).and(post.id.lt(cursorId)));
   }
 
   private BooleanExpression companyIn(List<String> companySlugs, QTechBlogPost post) {
