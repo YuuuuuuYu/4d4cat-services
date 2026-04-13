@@ -2,6 +2,7 @@ package com.services.api.techblog;
 
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
 import com.services.core.infrastructure.RedisDataStorage;
@@ -108,8 +109,10 @@ public class TechBlogQueryService {
     registry.counter("techblog.post.click").increment();
   }
 
-  public List<String> getActiveCompanySlugs() {
-    return companyRepository.findAllActiveSlugs();
+  public List<TechBlogCompanyResponse> getActiveCompanies() {
+    return companyRepository.findAllActiveCompanies().stream()
+        .map(TechBlogCompanyResponse::from)
+        .toList();
   }
 
   private String generateCacheKey(Long cursorId, List<String> companySlugs, String tag) {
