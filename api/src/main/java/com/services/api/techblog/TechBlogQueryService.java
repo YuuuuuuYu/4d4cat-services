@@ -63,21 +63,27 @@ public class TechBlogQueryService {
         Timer.builder("techblog.query.duration")
             .register(registry)
             .record(
-                () ->
-                    queryFactory
-                        .selectFrom(post)
-                        .leftJoin(post.company)
-                        .fetchJoin()
-                        .leftJoin(post.tags, postTag)
-                        .where(
-                            cursorCondition(cursorId, post),
-                            companyIn(companySlugs, post),
-                            tagEq(tag, postTag),
-                            post.deleted.eq(false))
-                        .orderBy(post.id.desc())
-                        .limit(limit + 1)
-                        .distinct()
-                        .fetch());
+                () -> {
+                  var query = queryFactory
+                      .selectFrom(post)
+                      .leftJoin(post.company)
+                      .fetchJoin();
+
+                  if (tag != null && !tag.isBlank()) {
+                    query.leftJoin(post.tags, postTag);
+                  }
+
+                  return query
+                      .where(
+                          cursorCondition(cursorId, post),
+                          companyIn(companySlugs, post),
+                          tagEq(tag, postTag),
+                          post.deleted.eq(false))
+                      .orderBy(post.id.desc())
+                      .limit(limit + 1)
+                      .distinct()
+                      .fetch();
+                });
 
     boolean hasNext = result.size() > limit;
     if (hasNext) {
