@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -132,10 +133,15 @@ public class TechBlogRssCollector {
         String rawTitle = entry.getTitle();
         String title = rawTitle != null ? Jsoup.parse(rawTitle).text().trim() : "No Title";
 
+        Date entryDate = entry.getPublishedDate();
+        if (entryDate == null) {
+          entryDate = entry.getUpdatedDate();
+        }
+
         LocalDateTime publishedAt = null;
-        if (entry.getPublishedDate() != null) {
+        if (entryDate != null) {
           publishedAt =
-              entry.getPublishedDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+              entryDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
         }
 
         TechBlogPost post = postRepository.findByUrl(link).orElse(null);
