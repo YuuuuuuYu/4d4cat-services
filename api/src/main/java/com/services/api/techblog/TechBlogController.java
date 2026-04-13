@@ -18,11 +18,11 @@ public class TechBlogController {
 
   @GetMapping
   public ResponseEntity<BaseResponse<TechBlogListResponse>> getTechBlogs(
-      @RequestParam(required = false) Long cursorId,
+      @RequestParam(required = false) String cursor,
       @RequestParam(required = false) List<String> companySlug,
       @RequestParam(required = false) String tag) {
 
-    TechBlogListResponse data = queryService.getTechBlogs(cursorId, companySlug, tag);
+    TechBlogListResponse data = queryService.getTechBlogs(cursor, companySlug, tag);
     return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, data));
   }
 
