@@ -27,6 +27,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -128,7 +129,9 @@ public class TechBlogRssCollector {
 
       for (SyndEntry entry : feed.getEntries()) {
         String link = entry.getLink();
-        String title = entry.getTitle();
+        String rawTitle = entry.getTitle();
+        String title = rawTitle != null ? Jsoup.parse(rawTitle).text().trim() : "No Title";
+
         LocalDateTime publishedAt = null;
         if (entry.getPublishedDate() != null) {
           publishedAt =
