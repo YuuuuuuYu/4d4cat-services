@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +72,7 @@ public class TechBlogQueryService {
       try {
         String[] parts = cursor.split("_");
         if (parts.length == 2) {
-          cursorPublishedAt = LocalDateTime.parse(parts[0]);
+          cursorPublishedAt = LocalDateTime.parse(parts[0]).truncatedTo(ChronoUnit.MICROS);
           cursorId = Long.parseLong(parts[1]);
         } else {
           log.warn("Invalid cursor format. Expected 'date_id', but got: {}", cursor);
@@ -109,7 +110,6 @@ public class TechBlogQueryService {
                           tagEq(tag, postTag))
                       .orderBy(post.publishedAt.desc(), post.id.desc())
                       .limit(limit + 1)
-                      .distinct()
                       .fetch();
                 });
 
@@ -119,9 +119,9 @@ public class TechBlogQueryService {
     }
 
     String nextCursor = null;
-    if (!result.isEmpty()) {
+    if (!result.isEmpty() && hasNext) {
       TechBlogPost lastPost = result.get(result.size() - 1);
-      nextCursor = lastPost.getPublishedAt().toString() + "_" + lastPost.getId();
+      nextCursor = lastPost.getPublishedAt().truncatedTo(ChronoUnit.MICROS).toString() + "_" + lastPost.getId();
     }
 
     List<TechBlogResponse> items =
