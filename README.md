@@ -1,7 +1,10 @@
-[![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://www.java.com)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.12-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-blue.svg?logo=openjdk&logoColor=white)](https://www.java.com)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.12-brightgreen.svg?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-DC382D.svg?logo=redis&logoColor=white)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C.svg?logo=prometheus&logoColor=white)](https://prometheus.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](https://docs.docker.com/compose/)
 
 **이런 기능이 있으면 어떨까?** 라는 생각으로 시작하여 여러 기능들을 제공하는 서비스입니다.
 
@@ -23,8 +26,14 @@
 - 📝 메시지 유효성 검증 (빈 문자열, null 체크)
 
 ### 3. Keyword
-#### 실시간 트렌드
+#### Trend
 - 🔍 구글 트렌드를 이용한 실시간 검색어 제공
+
+#### Tech Blog
+- 📰 주요 기술 블로그(Naver, Kakao, Toss 등) RSS/Atom 피드 수집
+- 🔍 회사별, 태그별 필터링 기능 제공
+- 📜 커서 기반(Cursor-based) 무한 스크롤 지원
+- 📈 아티클 클릭 수 통계 집계
 
 ## 🏗️ 기술 스택
 
@@ -35,7 +44,7 @@
 
 ### Spring Ecosystem
 - **Spring Web** - RESTful API 개발
-- **Spring Data JPA** - ORM 기반 데이터베이스 연동
+- **Spring Data JPA & QueryDSL** - 동적 쿼리 및 ORM 기반 데이터베이스 연동
 - **Spring Data Redis** - 분산 캐싱 및 세션 관리
 - **Spring AOP** - 횡단 관심사 처리 (로깅, 모니터링, 알림)
 - **Spring Actuator** - 헬스체크, 메트릭 노출
@@ -47,6 +56,7 @@
 
 ### Infrastructure & DevOps
 - **Docker & Docker Compose** - 컨테이너화 및 로컬 개발 환경
+- **PostgreSQL** - 영속성 저장소
 - **Redis** - 인메모리 데이터 스토어, 캐시
 - **Nginx** - 리버스 프록시, 로드 밸런싱
 - **Prometheus** - 메트릭 수집 및 모니터링
@@ -71,6 +81,9 @@
 | GET | `/music` | 랜덤 음악 반환 | `BaseResponse<PixabayMusicResult>` |
 | GET | `/message` | 저장된 마지막 메시지 조회 | `String` |
 | POST | `/message` | 새로운 메시지 저장 | `200 OK` |
+| GET | `/techblogs` | 기술 블로그 목록 조회 (필터링/페이징) | `BaseResponse<TechBlogListResponse>` |
+| GET | `/techblogs/companies` | 활성화된 기술 블로그 회사 목록 | `BaseResponse<List<TechBlogCompanyResponse>>` |
+| POST | `/techblogs/{id}/click` | 기술 블로그 게시물 클릭 수 증가 | `BaseResponse<Void>` |
 
 ### 응답 형식 예시
 
@@ -79,10 +92,18 @@
 {
   "status": 200,
   "data": {
-    "id": 12345,
-    "tags": "nature, landscape",
-    "webformatURL": "https://...",
-    "duration": 30
+    "items": [
+      {
+        "id": 1,
+        "companyName": "Naver D2",
+        "title": "Java 21 Virtual Threads 적용기",
+        "url": "https://...",
+        "publishedAt": "2024-04-17T10:00:00",
+        "tags": ["Java", "VirtualThreads"]
+      }
+    ],
+    "nextCursor": "2024-04-17T10:00:00_1",
+    "hasNext": true
   },
   "error": null,
   "timestamp": "2025-08-08T16:10:30.123456"
@@ -107,16 +128,16 @@
 ### 멀티모듈 구조
 ```
 services/
-├── core/                  # 공통 라이브러리 (DTO, 예외, Redis, AOP, 알림)
-├── api/                   # API 서버 (REST API, JPA)
-├── data/                  # 데이터 수집 서버 (스케줄러, Pixabay API 호출)
+├── core/                  # 공통 라이브러리 (DTO, 예외, Redis, AOP, 알림, 도메인 엔티티)
+├── api/                   # API 서버 (REST API, JPA/QueryDSL)
+├── data/                  # 데이터 수집 서버 (RSS 수집기, Pixabay API 호출)
 └── monitoring/            # 모니터링 서버 (Actuator, Prometheus)
 ```
 
 **모듈별 역할:**
-- **core**: 공통 예외, Redis 저장소, Pixabay DTO, AOP (Discord 알림), 유틸리티
-- **api**: REST API 제공, 사용자 요청 처리
-- **data**: 외부 API 데이터 수집, Redis 저장, 스케줄링
+- **core**: 공통 예외, Redis 저장소, Pixabay/TechBlog DTO & Entity, AOP, 유틸리티
+- **api**: REST API 제공, QueryDSL 기반 동적 필터링 및 커서 페이징 처리
+- **data**: 외부 API(Pixabay) 및 RSS(TechBlog) 데이터 수집, 가상 스레드 기반 병렬 처리
 - **monitoring**: 서비스 메트릭 수집 및 Prometheus 엔드포인트 제공
 
 ### 서비스 아키텍처
@@ -145,7 +166,7 @@ services/
       │   :8080      │  │  :8080   │  │   :8081      │
       └───────┬──────┘  └────┬─────┘  └─────┬────────┘
               │              │              │
-              │              │              │ Redis :6379
+              │              │              │ Redis :6379 / DB
               └──────────────┴──────────────┘
 ```
 
@@ -155,9 +176,10 @@ services/
 ```
 api/
 ├── pixabay/              # Pixabay API (Controller + Service)
+├── techblog/             # Tech Blog (Controller + QueryService + QueryDSL)
 ├── message/              # Message 기능 (Controller + Service)
 ├── omniwatch/            # OmniWatch 분석 (추후 구현 예정)
-├── config/               # Spring 설정 (CORS, JPA 등)
+├── config/               # Spring 설정 (CORS, JPA, Redis 등)
 ├── presentation/         # 공통 예외 처리 (GlobalExceptionHandler)
 └── util/                 # 유틸리티
 ```
@@ -165,18 +187,20 @@ api/
 **data 모듈:**
 ```
 data/
-├── collector/            # Pixabay API 데이터 수집
-├── scheduler/            # 주기적 데이터 갱신
+├── pixabay/              # Pixabay API 데이터 수집
+├── techblog/             # RSS/Atom 피드 수집 (Collector + Scheduler)
+├── scheduler/            # 공통 스케줄링 로직
 └── DataServerApplication
 ```
 
 **core 모듈:**
 ```
 core/
-├── aop/                  # AOP (Discord 알림 어노테이션 및 Aspect)
-├── dto/                  # 공통 DTO (Pixabay 응답, API 응답)
+├── aop/                  # AOP (Discord 알림, 로깅)
+├── dto/                  # 공통 DTO
+├── techblog/             # Tech Blog 엔티티 및 리포지토리
+├── pixabay/              # Pixabay 관련 도메인 로직
 ├── exception/            # 공통 예외 클래스
-├── notification/         # 알림 관련 (Discord 웹훅, DataCollectionResult)
 ├── infrastructure/       # Redis 설정 및 저장소
 └── util/                 # 공통 유틸리티
 ```
@@ -190,6 +214,7 @@ monitoring/
 **설계 철학:**
 - **기능별 응집**: 관련 코드를 한 패키지에 모아 직관적으로 구성
 - **수직 슬라이싱**: Controller-Service를 기능별로 수직 분리
+- **커서 기반 페이징**: 대용량 데이터에서 성능을 보장하는 페이징 방식 채택
 - **YAGNI 원칙**: 현재 규모에 적합한 단순한 구조 유지
 
 ### 🔧 핵심 설계 패턴
@@ -204,24 +229,29 @@ monitoring/
   - 실행 시간 측정 및 Discord 웹훅 실시간 알림
 
 ### ⚡ 성능 최적화
-- **분산 캐싱**: Redis 기반 데이터 캐싱으로 서버 간 상태 공유
-- **가상 스레드**: Java 21 Virtual Threads를 활용한 경량 동시성 처리
+- **분산 캐싱**: Redis 기반 데이터 캐싱으로 서버 간 상태 공유 (Tech Blog API 12시간 캐시)
+- **가상 스레드**: Java 21 Virtual Threads를 활용하여 RSS 피드 수집 시 I/O 병목 최소화
+- **QueryDSL & Indexing**: 효율적인 동적 쿼리 및 커서 기반 페이징을 통한 DB 조회 최적화
 - **RestClient**: Spring 6.1+ RestClient를 통한 간결한 HTTP 통신
 - **내결함성**: 개별 API 실패가 전체 시스템에 영향 주지 않음 (Optional 기반 실패 처리)
 - **단순한 에러 처리**: Retry 없이 실패 시 즉시 다음 작업 진행, 시스템 복잡도 감소
-- **계층화된 예외 처리**: `NotFoundException`, `BadGatewayException` 우아한 처리
 - **컨테이너화**: Docker Compose로 일관된 배포 환경 보장
-- **메트릭 수집**: Prometheus를 통한 모니터링 데이터 수집
-- **AOP 기반 알림**: 주요 작업의 실행 시간 추적 및 Discord 실시간 알림
+- **메트릭 수집**: Prometheus를 통한 모니터링 데이터 수집 (Tech Blog 조회수, 캐시 히트율 등)
 
 ## 📊 데이터 플로우
 
-1. **Data 서버 시작**: 스케줄러를 통해 주기적으로 Pixabay API 호출
-2. **AOP Intercept**: `@NotifyDiscord` 어노테이션으로 데이터 수집 시작 감지
-3. **데이터 수집**: 32개 음악 장르 + 20개 비디오 카테고리 병렬 수집 (Virtual Threads)
-4. **Redis 저장**: 수집된 데이터를 Redis에 캐싱 (서버 간 공유)
-5. **Discord 알림**: 수집 완료 시 통계 정보와 함께 비동기 알림 전송
-6. **API 서버 요청**: Redis에서 랜덤 데이터 선택하여 즉시 응답
+### 1. Pixabay 데이터
+- **Data 서버 시작**: 스케줄러를 통해 주기적으로 Pixabay API 호출
+- **AOP Intercept**: `@NotifyDiscord` 어노테이션으로 데이터 수집 시작 감지
+- **데이터 수집**: 32개 음악 장르 + 20개 비디오 카테고리 병렬 수집 (Virtual Threads)
+- **Redis 저장**: 수집된 데이터를 Redis에 캐싱 (서버 간 공유)
+- **Discord 알림**: 수집 완료 시 통계 정보와 함께 비동기 알림 전송
+
+### 2. Tech Blog 데이터
+- **정기 수집**: 스케줄러가 지정된 시간(08:00, 13:00, 22:00)에 RSS/Atom 피드 수집
+- **병렬 파싱**: 가상 스레드를 활용하여 여러 회사의 기술 블로그 피드를 동시에 파싱
+- **중복 제거 및 저장**: 신규 게시물만 DB에 저장하고, 사라진 게시물은 Soft Delete 처리
+- **조회 API**: 사용자가 요청 시 Redis 캐시 확인 후 없을 경우 QueryDSL로 DB 조회 (커서 페이징)
 
 ## 📈 향후 개선 계획
 
@@ -313,6 +343,15 @@ docker-compose down
 ```bash
 # 헬스체크
 curl http://localhost:8080/actuator/health
+
+# 기술 블로그 목록 (페이징)
+curl "http://localhost:8080/techblogs?limit=5"
+
+# 특정 회사 필터링
+curl "http://localhost:8080/techblogs?companySlug=naver"
+
+# 게시물 클릭 수 증가
+curl -X POST http://localhost:8080/techblogs/1/click
 
 # 랜덤 비디오
 curl http://localhost:8080/video?q=nature
