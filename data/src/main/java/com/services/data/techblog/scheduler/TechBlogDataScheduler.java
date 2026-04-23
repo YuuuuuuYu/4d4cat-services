@@ -35,7 +35,8 @@ public class TechBlogDataScheduler {
     return result;
   }
 
-  @Scheduled(cron = "0 0 0 * * *")
+  @Scheduled(cron = "0 5 0 * * *")
+  @NotifyDiscord(taskName = "Clean Unexposed posts")
   @Transactional
   public void cleanupUnexposedPosts() {
     log.info("Starting scheduled cleanup of unexposed posts.");
