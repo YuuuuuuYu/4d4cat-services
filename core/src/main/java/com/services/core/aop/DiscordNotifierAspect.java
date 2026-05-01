@@ -56,12 +56,9 @@ public class DiscordNotifierAspect {
                   .register(registry));
 
       Duration duration = Duration.ofNanos(durationNanos);
-      log.info(
-          "Task '{}' completed successfully in {} seconds.", taskName, duration.toSeconds());
+      log.info("Task '{}' completed successfully in {} seconds.", taskName, duration.toSeconds());
 
-      registry
-          .counter("task.execution.total", "task", taskName, "status", "success")
-          .increment();
+      registry.counter("task.execution.total", "task", taskName, "status", "success").increment();
 
       sendSuccessWebhook(serviceName, taskName, duration, result);
 
@@ -76,9 +73,7 @@ public class DiscordNotifierAspect {
               .register(registry));
 
       log.error("Task '{}' in {} failed.", taskName, serviceName, e);
-      registry
-          .counter("task.execution.total", "task", taskName, "status", "failure")
-          .increment();
+      registry.counter("task.execution.total", "task", taskName, "status", "failure").increment();
 
       sendErrorWebhook(serviceName, taskName, e);
       throw e;

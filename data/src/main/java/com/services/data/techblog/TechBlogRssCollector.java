@@ -157,12 +157,6 @@ public class TechBlogRssCollector {
           post = postRepository.save(post);
           statRepository.save(new TechBlogPostStat(post.getId(), post.getTitle()));
           companyPostCount++;
-        } else {
-          if (post.isDeleted()) {
-            post.restore();
-            postRepository.save(post);
-            companyPostCount++;
-          }
         }
         activePostIds.add(post.getId());
       }
