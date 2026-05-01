@@ -123,6 +123,33 @@
 
 ---
 
+### 3.4. 테크 블로그 도메인 (Tech Blog Domain)
+
+국내외 기술 블로그의 최신 포스트를 수집하고 필터링 및 조회를 제공합니다.
+
+#### 3.4.1. 테크 블로그 조회 및 클릭 수 관리 (api 모듈)
+
+```text
+[ Client (GET /techblogs) ] ----> [ Controller ]
+                                         |
+                                         v
+[ Redis ] <---( Cache Hit? )--- [ RedisDataStorage ]
+    |                                    |
+    +----( No )----+----( Query DSL )----+----> [ DB (MySQL/H2) ]
+                   |                     |
+                   +----( Set Cache )----+
+                                         |
+                                         v
+[ Client ] <---( 200 OK: List DTO )--- [ DTO 변환 ]
+```
+
+- **커서 기반 페이지네이션 (No-offset)**: 대량의 데이터 조회 성능을 위해 `cursorId`를 이용한 페이징을 지원하며, 기본적으로 5개씩 제공합니다.
+- **Redis 캐싱**: 조회 결과는 `techblog:list:...` 키로 Redis에 12시간 동안 캐싱되어 DB 부하를 최소화합니다.
+- **필터링**: `companySlug`(기업별), `tag`(기술 스택별) 파라미터를 통해 동적 쿼리 필터링이 가능합니다.
+- **통계 관리**: `POST /techblogs/{id}/click` 호출 시 해당 포스트의 누적 클릭 수가 RDB에 반영됩니다.
+
+---
+
 ## 4. 예외 처리 가이드
 
 `GlobalExceptionHandler`는 모든 커스텀 예외를 감지하여 표준 응답 형식을 생성합니다.

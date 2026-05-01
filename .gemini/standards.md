@@ -1,5 +1,21 @@
 # Coding Standards
 
+## 클래스 참조 및 Import 규약 (강력 준수)
+
+- **FQN(전체 패키지 경로) 사용 절대 금지**: 코드 본문 내에서 `java.util.Date` 처럼 전체 경로를 쓰는 것을 금지합니다.
+- **수정 절차**: 반드시 파일 상단에 `import`를 추가한 뒤, 본문에서는 클래스명만 사용하십시오.
+- **예외 없음**: 단 한 번만 사용하는 클래스라도 반드시 `import` 규칙을 따릅니다.
+
+```java
+// ❌ 절대 금지 (FQN 사용)
+java.util.Date now = new java.util.Date();
+
+// ✅ 권장 (import 후 사용)
+import java.util.Date;
+...
+Date now = new Date();
+```
+
 ## Lombok 활용
 
 ```java
@@ -22,27 +38,24 @@ public record VideoResult(Long id, String url) {}
 public class VideoResult { ... }
 ```
 
-### 2. JPA 엔티티 상속 및 Soft Delete
-- 모든 엔티티는 `BaseEntity`를 상속받아 생성일, 수정일, 삭제 여부(Soft Delete) 필드를 공통으로 관리해야 합니다.
-- `BaseEntity`에 `@SQLRestriction("deleted = false")`가 선언되어 있으므로, 삭제된 데이터는 조회 시 자동으로 필터링됩니다.
-- 서비스 계층에서 데이터를 삭제할 때는 `repository.delete()`가 아닌 엔티티의 `delete()` 메서드를 호출하여 상태를 변경(`deleted = true`)해야 합니다.
-- 컨트롤러 응답 시 엔티티를 직접 노출하지 말고, 반드시 DTO(record)로 변환하여 반환해야 합니다.
+### 2. JPA 엔티티 상속 및 삭제 전략 (Soft/Physical Delete)
+- **BaseEntity 상속**: 모든 엔티티는 `BaseEntity`를 상속받아 생성일, 수정일, `deleted` 필드를 공통으로 가져야 합니다.
+- **삭제 전략 선택**:
+    - **Soft Delete (핵심 엔티티)**: 게시글, 회사, 통계 등 보존 가치가 높은 엔티티는 클래스 레벨에 `@SQLRestriction("deleted = false")`와 `@SQLDelete`를 선언합니다.
+    - **Physical Delete (종속 엔티티)**: 태그, 매핑 테이블 등 부모에 종속적이고 이력이 불필요한 엔티티는 어노테이션을 생략하여 물리 삭제합니다.
+- **삭제 처리**: 서비스 계층에서 Soft Delete 엔티티를 삭제할 때는 `repository.delete()`를 호출하면 자동으로 상태가 변경(`deleted = true`)됩니다.
+- **DTO 응답**: 컨트롤러 응답 시 엔티티를 직접 노출하지 말고, 반드시 DTO(record)로 변환하여 반환해야 합니다.
 
 ```java
-// ✅ 권장: 엔티티 생성 시 BaseEntity 상속
+// ✅ 권장: 핵심 엔티티 (Soft Delete)
 @Entity
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Message extends BaseEntity {
-    private String content;
-    // ...
-}
+@SQLRestriction("deleted = false")
+@SQLDelete(sql = "UPDATE techblog_post SET deleted = true WHERE id = ?")
+public class TechBlogPost extends BaseEntity { ... }
 
-// ✅ 권장: 서비스 계층에서의 삭제 처리
-public void deleteMessage(Long id) {
-    Message message = repository.findById(id).orElseThrow();
-    message.delete(); // 논리적 삭제 처리 (deleted = true)
-}
+// ✅ 권장: 종속 엔티티 (Physical Delete)
+@Entity
+public class TechBlogPostTag extends BaseEntity { ... } // 어노테이션 생략
 ```
 
 ## RESTful API 네이밍
@@ -153,3 +166,7 @@ public class Service {
 - [ ] 예외 처리는 `GlobalExceptionHandler`에서 하는가?
 - [ ] 로깅은 `@Slf4j`를 사용했는가?
 - [ ] 네이밍 컨벤션을 준수했는가?
+- [ ] 코드 내에서 전체 패키지 경로(FQN) 대신 올바른 `import` 문을 사용했는가?
+- [ ] 신규 서비스인 경우, monitoring-expert.md의 필수 메트릭 4종이 구현되었는가?
+DTO로 변환하여 응답했는가?
+- [ ] 의존성 주입은 생성자 방식을 사용했는가?

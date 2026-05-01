@@ -44,6 +44,14 @@ Micrometer 표준 API 및 `Timer.Sample`을 활용한 정밀한 측정이 적용
 | :--- | :--- | :--- | :--- |
 | `api.errors.total` | Counter | `code`, `status` | `GlobalExceptionHandler`에서 처리된 에러 코드별 횟수 |
 
+### TechBlog 메트릭
+| 메트릭 이름 | 타입 | 태그 | 설명 |
+| :--- | :--- | :--- | :--- |
+| `techblog.api.request` | Counter | `has_company_filter`, `has_tag_filter` | 테크블로그 목록 조회 요청 수 (필터 사용 여부 포함) |
+| `techblog.cache.access` | Counter | `status` (hit/miss) | 테크블로그 목록 Redis 캐시 적중/실패 횟수 |
+| `techblog.query.duration` | Timer | - | 테크블로그 DB(Querydsl) 조회 수행 시간 |
+| `techblog.post.click` | Counter | - | 테크블로그 게시글 전체 클릭 수 |
+
 ---
 
 ## 4. Grafana 활용 팁

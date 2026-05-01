@@ -10,6 +10,7 @@ import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
+import jakarta.persistence.EntityManager;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -34,25 +36,39 @@ class TechBlogPostStatConcurrencyTest {
 
   @Autowired private TechBlogCompanyRepository companyRepository;
 
+  @Autowired private EntityManager entityManager;
+
+  @Autowired private TransactionTemplate transactionTemplate;
+
   private Long testPostId;
 
   @BeforeEach
   void setUp() {
-    statRepository.deleteAll();
-    postRepository.deleteAll();
-    companyRepository.deleteAll();
+    cleanup();
 
-    TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
-    TechBlogPost post = postRepository.save(TechBlogFixtures.createDefaultPost(company, 1));
-    testPostId = post.getId();
-    statRepository.save(TechBlogFixtures.createStat(testPostId, post.getTitle()));
+    transactionTemplate.execute(status -> {
+      TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
+      TechBlogPost post = postRepository.save(TechBlogFixtures.createDefaultPost(company, 1));
+      testPostId = post.getId();
+      statRepository.save(TechBlogFixtures.createStat(testPostId, post.getTitle()));
+      return null;
+    });
   }
 
   @AfterEach
   void tearDown() {
-    statRepository.deleteAll();
-    postRepository.deleteAll();
-    companyRepository.deleteAll();
+    cleanup();
+  }
+
+  private void cleanup() {
+    transactionTemplate.executeWithoutResult(status -> {
+      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
+    });
   }
 
   @Test

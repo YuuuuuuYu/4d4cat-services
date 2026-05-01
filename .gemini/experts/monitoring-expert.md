@@ -20,6 +20,21 @@
 - Grafana 대시보드 구성 시 서비스별 핵심 지표(Golden Signals: Latency, Traffic, Errors, Saturation)를 우선 배치하십시오.
 - 임계치 초과 시 알람이 Discord 등 채널로 전송되도록 Prometheus Alertmanager 설정을 검토하십시오.
 
+### 5. 신규 서비스 필수 메트릭 표준 (Required Metrics)
+신규 도메인/서비스 구현 시, 가시성 확보를 위해 다음 4가지 핵심 지표를 반드시 포함하십시오.
+
+1. **API Traffic (`domain.api.request`)**
+   - 목적: 서비스 호출 빈도 및 필터 사용 패턴 분석
+   - 태그: `has_filter`, `type`, `status` 등 활용
+2. **Cache Efficiency (`domain.cache.access`)**
+   - 목적: Redis 등 캐시 계층의 효율성 및 DB 부하 전이 측정
+   - 태그: `status` (hit/miss)
+3. **DB Performance (`domain.query.duration`)**
+   - 목적: 캐시 미스 시 발생하는 실 DB 조회 쿼리의 Latency 모니터링 (Timer 사용)
+4. **Business Volume (`domain.action.target`)**
+   - 목적: 비즈니스 핵심 액션(예: 클릭, 전송, 수집)의 전체 볼륨 측정
+   - 주의: `user_id`, `post_id` 등 카디널리티가 높은 값은 태그에서 제외
+
 ## 🔍 작업 전 체크리스트
 - [ ] 신규 메트릭이 `/actuator/prometheus`에 정상적으로 노출되는가?
 - [ ] Prometheus가 해당 타겟을 성공적으로 스크랩하고 있는가 (UP 상태 확인)?

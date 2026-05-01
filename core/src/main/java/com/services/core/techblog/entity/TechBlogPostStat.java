@@ -8,11 +8,15 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.data.domain.Persistable;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@SQLRestriction("deleted = false")
+@SQLDelete(sql = "UPDATE techblog_post_stat SET deleted = true WHERE post_id = ?")
 @Table(name = "techblog_post_stat")
 public class TechBlogPostStat extends BaseEntity implements Persistable<Long> {
 
