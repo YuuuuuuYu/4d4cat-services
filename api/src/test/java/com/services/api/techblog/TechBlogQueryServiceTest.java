@@ -15,18 +15,18 @@ import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.persistence.EntityManager;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 @ActiveProfiles("test")
 @Import(TestRedisConfig.class)
+@Transactional
 class TechBlogQueryServiceTest {
 
   @Autowired private TechBlogQueryService techBlogQueryService;
@@ -39,11 +39,11 @@ class TechBlogQueryServiceTest {
 
   @Autowired private MeterRegistry meterRegistry;
 
+  @Autowired private EntityManager entityManager;
+
   @BeforeEach
   void setUp() {
-    statRepository.deleteAll();
-    postRepository.deleteAll();
-    companyRepository.deleteAll();
+    cleanup();
     meterRegistry.forEachMeter(meterRegistry::remove);
 
     TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
@@ -58,13 +58,22 @@ class TechBlogQueryServiceTest {
       postRepository.save(post);
       statRepository.save(TechBlogFixtures.createStat(post.getId(), post.getTitle()));
     }
+    entityManager.flush();
+    entityManager.clear();
   }
 
   @AfterEach
   void tearDown() {
-    statRepository.deleteAll();
-    postRepository.deleteAll();
-    companyRepository.deleteAll();
+    cleanup();
+  }
+
+  private void cleanup() {
+    entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+    entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
+    entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
+    entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
+    entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+    entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
   }
 
   @Test
@@ -77,6 +86,68 @@ class TechBlogQueryServiceTest {
     assertThat(response.items()).hasSize(5);
     assertThat(response.hasNext()).isTrue();
     assertThat(response.nextCursor()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("게시글 삭제 시 - 조회 결과에서 제외됨 (Soft Delete 검증)")
+  void deletePost_shouldExcludeFromList() {
+    // Given
+    List<TechBlogPost> allPosts = postRepository.findAll();
+    TechBlogPost postToDelete = allPosts.stream()
+        .max((p1, p2) -> p1.getId().compareTo(p2.getId()))
+        .orElseThrow();
+    Long targetId = postToDelete.getId();
+
+    // When
+    postRepository.delete(postToDelete);
+    entityManager.flush();
+
+    // Then
+    TechBlogListResponse response = techBlogQueryService.getTechBlogs(null, null, null);
+    assertThat(response.items()).extracting(TechBlogResponse::id).doesNotContain(targetId);
+
+    var deletedFlag =
+        entityManager
+            .createNativeQuery("SELECT deleted FROM techblog_post WHERE id = :id")
+            .setParameter("id", targetId)
+            .getSingleResult();
+    assertThat(deletedFlag).isEqualTo(true);
+  }
+
+  @Test
+  @DisplayName("게시글 태그 삭제 시 - 해당 태그는 결과에서 제외됨 (물리 삭제 검증)")
+  void deleteTag_shouldExcludeFromList() {
+    // Given
+    List<TechBlogPost> allPosts = postRepository.findAll();
+    TechBlogPost post = allPosts.stream()
+        .max((p1, p2) -> p1.getId().compareTo(p2.getId()))
+        .orElseThrow();
+    
+    String targetTagName = post.getTags().get(0).getTagName();
+    Long tagId = post.getTags().get(0).getId();
+
+    // When
+    post.getTags().remove(0);
+    postRepository.save(post);
+    entityManager.flush();
+    entityManager.clear();
+
+    // Then
+    // 1. 서비스 조회 결과에서 해당 태그가 제외되었는지 확인
+    TechBlogListResponse response = techBlogQueryService.getTechBlogs(null, null, null);
+    TechBlogResponse postResponse =
+        response.items().stream()
+            .filter(item -> item.id().equals(post.getId()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("첫 페이지에서 게시글을 찾을 수 없습니다."));
+    assertThat(postResponse.tags()).doesNotContain(targetTagName);
+
+    // 2. DB에서 태그 데이터가 물리적으로 삭제되었는지 확인
+    Long count = ((Number) entityManager
+            .createNativeQuery("SELECT count(*) FROM techblog_post_tag WHERE id = :id")
+            .setParameter("id", tagId)
+            .getSingleResult()).longValue();
+    assertThat(count).isZero();
   }
 
   @Test
@@ -188,8 +259,8 @@ class TechBlogQueryServiceTest {
     companyRepository.save(active);
 
     TechBlogCompany deleted = new TechBlogCompany("deleted-test", "Deleted Test", "url");
-    deleted.delete();
     companyRepository.save(deleted);
+    companyRepository.delete(deleted);
 
     // When
     List<TechBlogCompanyResponse> companies = techBlogQueryService.getActiveCompanies();

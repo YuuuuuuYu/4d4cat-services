@@ -16,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -54,6 +55,9 @@ class TechBlogRssCollectorTest {
     @Autowired
     private TransactionTemplate transactionTemplate;
 
+    @Autowired
+    private EntityManager entityManager;
+
     @MockitoBean
     private RedisDataStorage redisDataStorage;
 
@@ -68,9 +72,14 @@ class TechBlogRssCollectorTest {
 
     @BeforeEach
     void setUp() {
-        statRepository.deleteAll();
-        postRepository.deleteAll();
-        companyRepository.deleteAll();
+        transactionTemplate.executeWithoutResult(status -> {
+            entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+            entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
+            entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
+            entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
+            entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+            entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
+        });
     }
 
     @Test

@@ -2,23 +2,26 @@ package com.services.data.techblog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.entity.TechBlogCompany;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.config.TestRedisConfig;
-import com.services.core.fixture.TechBlogFixtures;
 import com.services.data.techblog.scheduler.TechBlogDataScheduler;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(properties = {
-        "discord.webhook.url=${test.discord.webhook.url}"
+    "discord.webhook.url=${test.discord.webhook.url}"
 })
 @ActiveProfiles("test")
 @Import(TestRedisConfig.class)
@@ -30,20 +33,35 @@ class TechBlogDataLifecycleTest {
 
   @Autowired private TechBlogCompanyRepository companyRepository;
 
+  @Autowired private TransactionTemplate transactionTemplate;
+
+  @Autowired private EntityManager entityManager;
+
   @BeforeEach
   void setUp() {
-    postRepository.deleteAll();
-    companyRepository.deleteAll();
+    cleanup();
   }
 
   @AfterEach
   void tearDown() {
-    postRepository.deleteAll();
-    companyRepository.deleteAll();
+    cleanup();
+  }
+
+  private void cleanup() {
+    transactionTemplate.executeWithoutResult(status -> {
+      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
+      entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
+    });
   }
 
   @Test
-  void cleanupUnexposedPosts_DeletesUnexposedPosts() {
+  @DisplayName("논리 삭제된 게시글 물리 삭제 - 성공")
+  void cleanupUnexposedPosts_shouldDeleteUnexposedPosts() {
+    // Given
     TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
 
     TechBlogPost exposedPost =
@@ -54,13 +72,14 @@ class TechBlogDataLifecycleTest {
     TechBlogPost unexposedPost =
         TechBlogFixtures.createPost(
             company, "Unexposed", TechBlogFixtures.DEFAULT_POST_URL_PREFIX + "2");
-    unexposedPost.delete();
     postRepository.save(unexposedPost);
 
-    // Act
+    postRepository.delete(unexposedPost);
+
+    // When
     scheduler.cleanupUnexposedPosts();
 
-    // Assert
+    // Then
     assertThat(postRepository.findByUrl(TechBlogFixtures.DEFAULT_POST_URL_PREFIX + "1"))
         .isPresent();
     assertThat(postRepository.findByUrl(TechBlogFixtures.DEFAULT_POST_URL_PREFIX + "2"))
