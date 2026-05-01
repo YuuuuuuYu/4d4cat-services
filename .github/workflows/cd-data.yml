@@ -18,19 +18,19 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.SUBMODULE_TOKEN }}
           submodules: true
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -41,19 +41,19 @@ jobs:
         run: ./gradlew :data:bootJar
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./data
           file: ./data/Dockerfile
@@ -64,7 +64,7 @@ jobs:
             ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:latest
 
       - name: (SSH) Deploy to Data Server
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DATA_SERVER_IP }}
           username: ${{ secrets.DATA_SERVER_USER }}
