@@ -4,12 +4,12 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
-import com.services.core.notification.DataCollectionResult;
-import com.services.core.techblog.entity.TechBlogCompany;
+import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.entity.TechBlogPostTag;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import java.net.URI;
@@ -37,7 +37,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @RequiredArgsConstructor
 public class TechBlogRssCollector {
 
-  private final TechBlogCompanyRepository companyRepository;
+  private final CompanyRepository companyRepository;
   private final TechBlogPostRepository postRepository;
   private final TechBlogPostStatRepository statRepository;
   private final TransactionTemplate transactionTemplate;
@@ -46,7 +46,7 @@ public class TechBlogRssCollector {
   public DataCollectionResult collectFeeds() {
     final String taskName = "기술 블로그 RSS 수집";
     long startTime = System.currentTimeMillis();
-    List<TechBlogCompany> companies = companyRepository.findAll();
+    List<Company> companies = companyRepository.findAll();
     if (companies.isEmpty()) {
       log.info("No companies found to collect RSS feeds.");
       return new DataCollectionResult(taskName, 0, 0, 0, 0);
@@ -58,7 +58,7 @@ public class TechBlogRssCollector {
 
     try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
       List<Callable<Integer>> tasks = new ArrayList<>();
-      for (TechBlogCompany company : companies) {
+      for (Company company : companies) {
         tasks.add(
             () -> {
               try {
@@ -89,7 +89,7 @@ public class TechBlogRssCollector {
             taskName, totalItems, successCount, failureCount, duration);
   }
 
-  private int processCompanyFeed(TechBlogCompany company) {
+  private int processCompanyFeed(Company company) {
     log.info("Processing feed for company: {}", company.getName());
     int companyPostCount = 0;
     try {

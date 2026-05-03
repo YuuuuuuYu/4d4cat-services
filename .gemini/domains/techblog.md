@@ -16,7 +16,7 @@
 
 ### 3. 데이터 명세 및 영속성 (core 모듈)
 - 모든 엔티티는 `BaseEntity`를 상속받아 `createdAt`, `updatedAt`, `deleted` 필드를 공통으로 관리합니다.
-- `com.services.core.techblog.entity.TechBlogCompany`: 회사 정보 (고유 식별자: 영문 Slug).
+- `com.services.core.common.entity.Company`: 회사 정보 (고유 식별자: 영문 Slug).
 - `com.services.core.techblog.entity.TechBlogPost`: 기술 블로그 게시물 (Soft Delete 적용).
 - `com.services.core.techblog.entity.TechBlogPostTag`: 게시물 태그 매핑 테이블.
 - `com.services.core.techblog.entity.TechBlogPostStat`: 포스트 클릭수 통계 정보.

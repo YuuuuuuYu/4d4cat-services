@@ -2,8 +2,8 @@ package com.services.data.config;
 
 import static org.mockito.Mockito.mock;
 
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.infrastructure.RedisMessageStorage;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.infrastructure.RedisMessageStorage;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;

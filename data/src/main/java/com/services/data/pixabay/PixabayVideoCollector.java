@@ -1,11 +1,11 @@
 package com.services.data.pixabay;
 
-import com.services.core.aop.NotifyDiscord;
-import com.services.core.infrastructure.ApiMetadata;
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.notification.DataCollectionResult;
-import com.services.core.pixabay.dto.PixabayResponse;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.common.notification.discord.NotifyDiscord;
+import com.services.core.common.infrastructure.ApiMetadata;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.pixabay.PixabayResponse;
+import com.services.core.pixabay.PixabayVideoResult;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;

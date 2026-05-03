@@ -1,5 +1,6 @@
 package com.services.core.techblog.entity;
 
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.BaseEntity;
 
 import java.time.LocalDateTime;
@@ -37,7 +38,7 @@ public class TechBlogPost extends BaseEntity {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "company_slug", nullable = false)
-  private TechBlogCompany company;
+  private Company company;
 
   @Column(name = "title", nullable = false, length = 1024)
   private String title;
@@ -52,7 +53,7 @@ public class TechBlogPost extends BaseEntity {
   private List<TechBlogPostTag> tags = new ArrayList<>();
 
   public TechBlogPost(
-      TechBlogCompany company, String title, String url, LocalDateTime publishedAt) {
+          Company company, String title, String url, LocalDateTime publishedAt) {
     this.company = company;
     this.title = title;
     this.url = url;

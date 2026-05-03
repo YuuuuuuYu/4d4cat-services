@@ -1,10 +1,10 @@
 package com.services.data.techblog;
 
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.fixture.TechBlogFixtures;
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.notification.DataCollectionResult;
-import com.services.core.techblog.entity.TechBlogCompany;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import com.services.data.pixabay.PixabayMusicCollector;
@@ -44,7 +44,7 @@ class TechBlogRssCollectorTest {
     private TechBlogDataScheduler dataScheduler;
 
     @Autowired
-    private TechBlogCompanyRepository companyRepository;
+    private CompanyRepository companyRepository;
 
     @Autowired
     private TechBlogPostRepository postRepository;
@@ -86,7 +86,7 @@ class TechBlogRssCollectorTest {
     @DisplayName("RSS 피드 수집 - 성공 (포스트 및 통계 저장 확인)")
     void collectFeeds_shouldSavePostsAndStats() throws Exception {
         // Given
-        TechBlogCompany company = TechBlogFixtures.createDefaultCompany();
+        Company company = TechBlogFixtures.createDefaultCompany();
         companyRepository.save(company);
 
         String mockRss = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
@@ -130,7 +130,7 @@ class TechBlogRssCollectorTest {
     @DisplayName("RSS 피드 수집 - CDATA 필터링 성공")
     void collectFeeds_withCdata_shouldFilterAndSaveCorrectly() throws Exception {
         // Given
-        TechBlogCompany company = TechBlogFixtures.createDefaultCompany();
+        Company company = TechBlogFixtures.createDefaultCompany();
         companyRepository.save(company);
 
         String mockRss = """
@@ -180,7 +180,7 @@ class TechBlogRssCollectorTest {
     @DisplayName("RSS 피드 수집 - 네이버 D2(Atom) 피드 updated 태그 인식 성공")
     void collectFeeds_withNaverAtomFeed_shouldUseUpdatedDate() throws Exception {
         // Given
-        TechBlogCompany company = TechBlogFixtures.createDefaultCompany();
+        Company company = TechBlogFixtures.createDefaultCompany();
         companyRepository.save(company);
 
         String mockAtom = """

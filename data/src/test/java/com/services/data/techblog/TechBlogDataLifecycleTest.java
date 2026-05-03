@@ -2,10 +2,10 @@ package com.services.data.techblog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.fixture.TechBlogFixtures;
-import com.services.core.techblog.entity.TechBlogCompany;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.config.TestRedisConfig;
 import com.services.data.techblog.scheduler.TechBlogDataScheduler;
@@ -31,7 +31,7 @@ class TechBlogDataLifecycleTest {
 
   @Autowired private TechBlogPostRepository postRepository;
 
-  @Autowired private TechBlogCompanyRepository companyRepository;
+  @Autowired private CompanyRepository companyRepository;
 
   @Autowired private TransactionTemplate transactionTemplate;
 
@@ -62,7 +62,7 @@ class TechBlogDataLifecycleTest {
   @DisplayName("논리 삭제된 게시글 물리 삭제 - 성공")
   void cleanupUnexposedPosts_shouldDeleteUnexposedPosts() {
     // Given
-    TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
+    Company company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
 
     TechBlogPost exposedPost =
         TechBlogFixtures.createPost(

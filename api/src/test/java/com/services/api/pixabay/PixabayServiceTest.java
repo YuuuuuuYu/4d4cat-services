@@ -5,9 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.pixabay.dto.PixabayMusicResult;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.pixabay.PixabayMusicResult;
+import com.services.core.pixabay.PixabayVideoResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

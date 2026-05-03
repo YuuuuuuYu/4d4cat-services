@@ -3,7 +3,7 @@ package com.services.data.techblog;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.services.core.infrastructure.RedisDataStorage;
+import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.techblog.scheduler.TechBlogDataScheduler;
 import org.junit.jupiter.api.DisplayName;

@@ -10,10 +10,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.services.api.common.config.MessageSourceConfig;
 import com.services.core.fixture.PixabayFixtures;
-import com.services.core.exception.ErrorCode;
-import com.services.core.exception.NotFoundException;
-import com.services.core.pixabay.dto.PixabayMusicResult;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.exception.NotFoundException;
+import com.services.core.pixabay.PixabayMusicResult;
+import com.services.core.pixabay.PixabayVideoResult;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Locale;

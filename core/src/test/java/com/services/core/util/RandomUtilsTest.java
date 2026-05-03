@@ -2,6 +2,7 @@ package com.services.core.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.services.core.common.util.RandomUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

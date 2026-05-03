@@ -1,7 +1,7 @@
 package com.services.core.fixture;
 
-import com.services.core.pixabay.dto.PixabayMusicResult;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.pixabay.PixabayMusicResult;
+import com.services.core.pixabay.PixabayVideoResult;
 import java.util.List;
 
 public class PixabayFixtures {

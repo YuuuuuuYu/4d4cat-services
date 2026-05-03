@@ -6,10 +6,10 @@ import com.services.api.config.TestRedisConfig;
 import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.fixture.TechBlogFixtures;
-import com.services.core.techblog.entity.TechBlogCompany;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -33,7 +33,7 @@ class TechBlogQueryServiceTest {
 
   @Autowired private TechBlogPostRepository postRepository;
 
-  @Autowired private TechBlogCompanyRepository companyRepository;
+  @Autowired private CompanyRepository companyRepository;
 
   @Autowired private TechBlogPostStatRepository statRepository;
 
@@ -46,7 +46,7 @@ class TechBlogQueryServiceTest {
     cleanup();
     meterRegistry.forEachMeter(meterRegistry::remove);
 
-    TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
+    Company company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
 
     for (int i = 1; i <= 10; i++) {
       TechBlogPost post = TechBlogFixtures.createDefaultPost(company, i);
@@ -182,7 +182,7 @@ class TechBlogQueryServiceTest {
   @DisplayName("게시글 목록 조회 - 다중 회사 필터링")
   void getTechBlogs_whenMultiCompanyFilterProvided_shouldReturnFilteredPosts() {
     // Given
-    TechBlogCompany kakao = companyRepository.save(new TechBlogCompany("kakao", "kakao", "url"));
+    Company kakao = companyRepository.save(new Company("kakao", "kakao", "url"));
     TechBlogPost kakaoPost = postRepository.save(TechBlogFixtures.createDefaultPost(kakao, 100));
     statRepository.save(TechBlogFixtures.createStat(kakaoPost.getId(), kakaoPost.getTitle()));
 
@@ -255,10 +255,10 @@ class TechBlogQueryServiceTest {
   @DisplayName("활성 회사 목록 조회 - 성공")
   void getActiveCompanies_shouldReturnOnlyActiveCompanies() {
     // Given
-    TechBlogCompany active = new TechBlogCompany("active-test", "Active Test", "url");
+    Company active = new Company("active-test", "Active Test", "url");
     companyRepository.save(active);
 
-    TechBlogCompany deleted = new TechBlogCompany("deleted-test", "Deleted Test", "url");
+    Company deleted = new Company("deleted-test", "Deleted Test", "url");
     companyRepository.save(deleted);
     companyRepository.delete(deleted);
 

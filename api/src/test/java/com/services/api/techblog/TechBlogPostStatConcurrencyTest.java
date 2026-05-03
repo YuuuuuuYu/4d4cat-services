@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.services.api.config.TestRedisConfig;
 import com.services.core.fixture.TechBlogFixtures;
-import com.services.core.techblog.entity.TechBlogCompany;
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import jakarta.persistence.EntityManager;
@@ -34,7 +34,7 @@ class TechBlogPostStatConcurrencyTest {
 
   @Autowired private TechBlogPostRepository postRepository;
 
-  @Autowired private TechBlogCompanyRepository companyRepository;
+  @Autowired private CompanyRepository companyRepository;
 
   @Autowired private EntityManager entityManager;
 
@@ -47,7 +47,7 @@ class TechBlogPostStatConcurrencyTest {
     cleanup();
 
     transactionTemplate.execute(status -> {
-      TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
+      Company company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
       TechBlogPost post = postRepository.save(TechBlogFixtures.createDefaultPost(company, 1));
       testPostId = post.getId();
       statRepository.save(TechBlogFixtures.createStat(testPostId, post.getTitle()));

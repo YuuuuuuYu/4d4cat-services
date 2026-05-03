@@ -2,7 +2,7 @@ package com.services.api.techblog;
 
 import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
-import com.services.core.dto.BaseResponse;
+import com.services.core.common.dto.BaseResponse;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
 import org.springframework.http.HttpStatus;

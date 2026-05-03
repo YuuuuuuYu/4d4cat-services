@@ -12,8 +12,8 @@ import static org.mockito.Mockito.when;
 
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.services.api.techblog.dto.TechBlogListResponse;
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -36,7 +36,7 @@ class TechBlogQueryServiceUnitTest {
   @Mock private TechBlogPostStatRepository statRepository;
   @Mock private RedisDataStorage redisDataStorage;
   @Mock private JPAQueryFactory queryFactory;
-  @Mock private TechBlogCompanyRepository companyRepository;
+  @Mock private CompanyRepository companyRepository;
   @Spy private MeterRegistry registry = new SimpleMeterRegistry();
 
   @InjectMocks private TechBlogQueryService techBlogQueryService;
