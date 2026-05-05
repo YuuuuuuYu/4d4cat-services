@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
   private final MeterRegistry registry;
 
   private ResponseEntity<BaseResponse<Void>> createErrorResponse(
-          ErrorCode errorCode, HttpStatus status, Exception e) {
+      ErrorCode errorCode, HttpStatus status, Exception e) {
 
     registry
         .counter("api.errors.total", "code", errorCode.getCode(), "status", status.name())

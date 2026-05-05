@@ -1,7 +1,7 @@
 package com.services.core.fixture;
 
-import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.BaseEntity;
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.entity.TechBlogPostTag;

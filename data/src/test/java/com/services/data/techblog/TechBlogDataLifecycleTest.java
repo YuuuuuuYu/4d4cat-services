@@ -3,9 +3,9 @@ package com.services.data.techblog;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.services.core.common.persistence.entity.Company;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.config.TestRedisConfig;
 import com.services.data.techblog.scheduler.TechBlogDataScheduler;
@@ -20,9 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@SpringBootTest(properties = {
-    "discord.webhook.url=${test.discord.webhook.url}"
-})
+@SpringBootTest(properties = {"discord.webhook.url=${test.discord.webhook.url}"})
 @ActiveProfiles("test")
 @Import(TestRedisConfig.class)
 class TechBlogDataLifecycleTest {
@@ -48,14 +46,15 @@ class TechBlogDataLifecycleTest {
   }
 
   private void cleanup() {
-    transactionTemplate.executeWithoutResult(status -> {
-      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
-      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
-    });
+    transactionTemplate.executeWithoutResult(
+        status -> {
+          entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+          entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
+        });
   }
 
   @Test
@@ -82,7 +81,6 @@ class TechBlogDataLifecycleTest {
     // Then
     assertThat(postRepository.findByUrl(TechBlogFixtures.DEFAULT_POST_URL_PREFIX + "1"))
         .isPresent();
-    assertThat(postRepository.findByUrl(TechBlogFixtures.DEFAULT_POST_URL_PREFIX + "2"))
-        .isEmpty();
+    assertThat(postRepository.findByUrl(TechBlogFixtures.DEFAULT_POST_URL_PREFIX + "2")).isEmpty();
   }
 }

@@ -9,9 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.services.api.common.config.MessageSourceConfig;
-import com.services.core.fixture.PixabayFixtures;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.NotFoundException;
+import com.services.core.fixture.PixabayFixtures;
 import com.services.core.pixabay.PixabayMusicResult;
 import com.services.core.pixabay.PixabayVideoResult;
 import io.micrometer.core.instrument.Counter;

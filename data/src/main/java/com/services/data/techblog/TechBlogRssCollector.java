@@ -6,10 +6,10 @@ import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
 import com.services.core.common.notification.DataCollectionResult;
 import com.services.core.common.persistence.entity.Company;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.entity.TechBlogPostTag;
-import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import java.net.URI;
@@ -85,8 +85,7 @@ public class TechBlogRssCollector {
     }
 
     double duration = (System.currentTimeMillis() - startTime) / 1000.0;
-    return new DataCollectionResult(
-            taskName, totalItems, successCount, failureCount, duration);
+    return new DataCollectionResult(taskName, totalItems, successCount, failureCount, duration);
   }
 
   private int processCompanyFeed(Company company) {
@@ -123,8 +122,7 @@ public class TechBlogRssCollector {
       SyndFeed feed =
           input.build(
               new XmlReader(
-                  new java.io.ByteArrayInputStream(
-                      filteredXml.getBytes(StandardCharsets.UTF_8))));
+                  new java.io.ByteArrayInputStream(filteredXml.getBytes(StandardCharsets.UTF_8))));
 
       List<Long> activePostIds = new ArrayList<>();
 
@@ -140,8 +138,7 @@ public class TechBlogRssCollector {
 
         LocalDateTime publishedAt = null;
         if (entryDate != null) {
-          publishedAt =
-              entryDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+          publishedAt = entryDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
         }
 
         TechBlogPost post = postRepository.findByUrl(link).orElse(null);

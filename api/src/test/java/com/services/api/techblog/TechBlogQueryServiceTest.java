@@ -7,15 +7,14 @@ import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
 import com.services.core.common.persistence.entity.Company;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.persistence.EntityManager;
 import java.util.List;
-
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -93,9 +92,8 @@ class TechBlogQueryServiceTest {
   void deletePost_shouldExcludeFromList() {
     // Given
     List<TechBlogPost> allPosts = postRepository.findAll();
-    TechBlogPost postToDelete = allPosts.stream()
-        .max((p1, p2) -> p1.getId().compareTo(p2.getId()))
-        .orElseThrow();
+    TechBlogPost postToDelete =
+        allPosts.stream().max((p1, p2) -> p1.getId().compareTo(p2.getId())).orElseThrow();
     Long targetId = postToDelete.getId();
 
     // When
@@ -119,10 +117,9 @@ class TechBlogQueryServiceTest {
   void deleteTag_shouldExcludeFromList() {
     // Given
     List<TechBlogPost> allPosts = postRepository.findAll();
-    TechBlogPost post = allPosts.stream()
-        .max((p1, p2) -> p1.getId().compareTo(p2.getId()))
-        .orElseThrow();
-    
+    TechBlogPost post =
+        allPosts.stream().max((p1, p2) -> p1.getId().compareTo(p2.getId())).orElseThrow();
+
     String targetTagName = post.getTags().get(0).getTagName();
     Long tagId = post.getTags().get(0).getId();
 
@@ -143,10 +140,13 @@ class TechBlogQueryServiceTest {
     assertThat(postResponse.tags()).doesNotContain(targetTagName);
 
     // 2. DB에서 태그 데이터가 물리적으로 삭제되었는지 확인
-    Long count = ((Number) entityManager
-            .createNativeQuery("SELECT count(*) FROM techblog_post_tag WHERE id = :id")
-            .setParameter("id", tagId)
-            .getSingleResult()).longValue();
+    Long count =
+        ((Number)
+                entityManager
+                    .createNativeQuery("SELECT count(*) FROM techblog_post_tag WHERE id = :id")
+                    .setParameter("id", tagId)
+                    .getSingleResult())
+            .longValue();
     assertThat(count).isZero();
   }
 
@@ -219,7 +219,8 @@ class TechBlogQueryServiceTest {
     String invalidDateCursor = "invalid-date_1";
 
     // When
-    TechBlogListResponse response = techBlogQueryService.getTechBlogs(invalidDateCursor, null, null);
+    TechBlogListResponse response =
+        techBlogQueryService.getTechBlogs(invalidDateCursor, null, null);
 
     // Then
     assertThat(response.items()).hasSize(5);
@@ -270,7 +271,9 @@ class TechBlogQueryServiceTest {
         .extracting(TechBlogCompanyResponse::slug)
         .contains("woowahan", "active-test")
         .doesNotContain("deleted-test");
-    assertThat(companies).extracting(TechBlogCompanyResponse::name).contains("woowahan", "Active Test");
+    assertThat(companies)
+        .extracting(TechBlogCompanyResponse::name)
+        .contains("woowahan", "Active Test");
   }
 
   @Test

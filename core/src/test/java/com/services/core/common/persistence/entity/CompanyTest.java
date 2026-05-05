@@ -10,46 +10,48 @@ import org.junit.jupiter.api.Test;
 
 class CompanyTest {
 
-    @Test
-    @DisplayName("create - 새 회사 객체 생성 시 Auditing 필드는 null")
-    void create_shouldHaveNullAuditingFields() {
-        // When
-        Company company = TechBlogFixtures.createDefaultCompany();
+  @Test
+  @DisplayName("create - 새 회사 객체 생성 시 Auditing 필드는 null")
+  void create_shouldHaveNullAuditingFields() {
+    // When
+    Company company = TechBlogFixtures.createDefaultCompany();
 
-        // Then
-        assertThat(company.getCreatedAt()).isNull();
-        assertThat(company.getUpdatedAt()).isNull();
-        assertThat(company.isNew()).isTrue();
-    }
+    // Then
+    assertThat(company.getCreatedAt()).isNull();
+    assertThat(company.getUpdatedAt()).isNull();
+    assertThat(company.isNew()).isTrue();
+  }
 
-    @Test
-    @DisplayName("setAuditingFields - 호출 시 createdAt과 updatedAt이 현재 시간으로 설정됨")
-    void setAuditingFields_shouldPopulateDates() {
-        // Given
-        Company company = TechBlogFixtures.createDefaultCompany();
+  @Test
+  @DisplayName("setAuditingFields - 호출 시 createdAt과 updatedAt이 현재 시간으로 설정됨")
+  void setAuditingFields_shouldPopulateDates() {
+    // Given
+    Company company = TechBlogFixtures.createDefaultCompany();
 
-        // When
-        TechBlogFixtures.setAuditingFields(company);
+    // When
+    TechBlogFixtures.setAuditingFields(company);
 
-        // Then
-        assertThat(company.getCreatedAt()).isNotNull();
-        assertThat(company.getUpdatedAt()).isNotNull();
-        assertThat(company.getCreatedAt()).isBeforeOrEqualTo(LocalDateTime.now());
-        assertThat(company.isNew()).isFalse();
-    }
+    // Then
+    assertThat(company.getCreatedAt()).isNotNull();
+    assertThat(company.getUpdatedAt()).isNotNull();
+    assertThat(company.getCreatedAt()).isBeforeOrEqualTo(LocalDateTime.now());
+    assertThat(company.isNew()).isFalse();
+  }
 
-    @Test
-    @DisplayName("dateLogic - Auditing 필드가 채워지면 날짜 기반 로직 정상 동작")
-    void dateLogic_shouldWorkWithoutNPE() {
-        // Given
-        Company company = TechBlogFixtures.createDefaultCompany();
-        TechBlogFixtures.setAuditingFields(company);
+  @Test
+  @DisplayName("dateLogic - Auditing 필드가 채워지면 날짜 기반 로직 정상 동작")
+  void dateLogic_shouldWorkWithoutNPE() {
+    // Given
+    Company company = TechBlogFixtures.createDefaultCompany();
+    TechBlogFixtures.setAuditingFields(company);
 
-        // When & Then
-        assertThatCode(() -> {
-            LocalDateTime now = LocalDateTime.now();
-            boolean isCreatedToday = company.getCreatedAt().isAfter(now.minusDays(1));
-            assertThat(isCreatedToday).isTrue();
-        }).doesNotThrowAnyException();
-    }
+    // When & Then
+    assertThatCode(
+            () -> {
+              LocalDateTime now = LocalDateTime.now();
+              boolean isCreatedToday = company.getCreatedAt().isAfter(now.minusDays(1));
+              assertThat(isCreatedToday).isTrue();
+            })
+        .doesNotThrowAnyException();
+  }
 }

@@ -1,8 +1,8 @@
 package com.services.data.techblog.scheduler;
 
-import com.services.core.common.notification.discord.NotifyDiscord;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.notification.discord.NotifyDiscord;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.techblog.TechBlogRssCollector;
 import lombok.RequiredArgsConstructor;
