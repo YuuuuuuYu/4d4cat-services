@@ -4,6 +4,8 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.7'
     id 'org.springdoc.openapi-gradle-plugin' version '1.9.0' apply false
     id 'com.diffplug.spotless' version '8.1.0'
+    id 'org.sonarqube' version '7.3.0.8198'
+    id 'jacoco'
 }
 
 allprojects {
@@ -19,11 +21,27 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'com.diffplug.spotless'
+    apply plugin: 'jacoco'
 
     java {
         toolchain {
             languageVersion = JavaLanguageVersion.of(21)
         }
+    }
+
+    jacoco {
+        toolVersion = "0.8.14"
+    }
+
+    jacocoTestReport {
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
+    test {
+        finalizedBy jacocoTestReport
     }
 
     configurations {
@@ -53,5 +71,12 @@ subprojects {
 
     tasks.named('test') {
         useJUnitPlatform()
+    }
+}
+
+sonar {
+    properties {
+        property "sonar.projectKey", "YuuuuuuYu_4d4cat-services"
+        property "sonar.organization", "yuuuuuuyu"
     }
 }
