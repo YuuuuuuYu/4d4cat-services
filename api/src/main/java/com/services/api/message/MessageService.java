@@ -1,9 +1,9 @@
 package com.services.api.message;
 
-import com.services.core.aop.NotifyDiscord;
-import com.services.core.exception.BadRequestException;
-import com.services.core.exception.ErrorCode;
-import com.services.core.infrastructure.RedisMessageStorage;
+import com.services.core.common.exception.BadRequestException;
+import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.infrastructure.RedisMessageStorage;
+import com.services.core.common.notification.discord.NotifyDiscord;
 import com.services.core.message.MessageRequest;
 import com.services.core.message.MessageValidator;
 import lombok.RequiredArgsConstructor;

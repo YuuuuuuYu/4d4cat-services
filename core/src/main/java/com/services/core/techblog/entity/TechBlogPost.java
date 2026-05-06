@@ -1,11 +1,7 @@
 package com.services.core.techblog.entity;
 
 import com.services.core.common.persistence.BaseEntity;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
+import com.services.core.common.persistence.entity.Company;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,6 +13,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -37,7 +36,7 @@ public class TechBlogPost extends BaseEntity {
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "company_slug", nullable = false)
-  private TechBlogCompany company;
+  private Company company;
 
   @Column(name = "title", nullable = false, length = 1024)
   private String title;
@@ -51,8 +50,7 @@ public class TechBlogPost extends BaseEntity {
   @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<TechBlogPostTag> tags = new ArrayList<>();
 
-  public TechBlogPost(
-      TechBlogCompany company, String title, String url, LocalDateTime publishedAt) {
+  public TechBlogPost(Company company, String title, String url, LocalDateTime publishedAt) {
     this.company = company;
     this.title = title;
     this.url = url;

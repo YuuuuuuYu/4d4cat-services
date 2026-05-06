@@ -3,11 +3,11 @@ package com.services.api.techblog;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.services.api.config.TestRedisConfig;
+import com.services.core.common.persistence.entity.Company;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.TechBlogFixtures;
-import com.services.core.techblog.entity.TechBlogCompany;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import jakarta.persistence.EntityManager;
@@ -34,7 +34,7 @@ class TechBlogPostStatConcurrencyTest {
 
   @Autowired private TechBlogPostRepository postRepository;
 
-  @Autowired private TechBlogCompanyRepository companyRepository;
+  @Autowired private CompanyRepository companyRepository;
 
   @Autowired private EntityManager entityManager;
 
@@ -46,13 +46,14 @@ class TechBlogPostStatConcurrencyTest {
   void setUp() {
     cleanup();
 
-    transactionTemplate.execute(status -> {
-      TechBlogCompany company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
-      TechBlogPost post = postRepository.save(TechBlogFixtures.createDefaultPost(company, 1));
-      testPostId = post.getId();
-      statRepository.save(TechBlogFixtures.createStat(testPostId, post.getTitle()));
-      return null;
-    });
+    transactionTemplate.execute(
+        status -> {
+          Company company = companyRepository.save(TechBlogFixtures.createDefaultCompany());
+          TechBlogPost post = postRepository.save(TechBlogFixtures.createDefaultPost(company, 1));
+          testPostId = post.getId();
+          statRepository.save(TechBlogFixtures.createStat(testPostId, post.getTitle()));
+          return null;
+        });
   }
 
   @AfterEach
@@ -61,14 +62,15 @@ class TechBlogPostStatConcurrencyTest {
   }
 
   private void cleanup() {
-    transactionTemplate.executeWithoutResult(status -> {
-      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
-      entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
-      entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
-    });
+    transactionTemplate.executeWithoutResult(
+        status -> {
+          entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+          entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
+        });
   }
 
   @Test

@@ -50,13 +50,18 @@ class TechBlogControllerTest {
             "https://techblog.woowahan.com/1",
             LocalDateTime.now(),
             List.of("Java", "Spring"));
-    TechBlogListResponse response = new TechBlogListResponse(List.of(post), "2024-04-13T10:00:00_2", true);
+    TechBlogListResponse response =
+        new TechBlogListResponse(List.of(post), "2024-04-13T10:00:00_2", true);
 
     when(techBlogQueryService.getTechBlogs(any(), anyList(), anyString())).thenReturn(response);
 
     // When & Then
     mockMvc
-        .perform(get("/techblogs").param("cursor", "2024-04-13T10:00:00_1").param("companySlug", "woowahan").param("tag", "Java"))
+        .perform(
+            get("/techblogs")
+                .param("cursor", "2024-04-13T10:00:00_1")
+                .param("companySlug", "woowahan")
+                .param("tag", "Java"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(200))
         .andExpect(jsonPath("$.data.items[0].id").value(1))
@@ -88,10 +93,10 @@ class TechBlogControllerTest {
   @DisplayName("GET /techblogs/companies - 활성 회사 목록 조회 성공")
   void getActiveCompanies_shouldReturnCompanies() throws Exception {
     // Given
-    List<TechBlogCompanyResponse> companies = List.of(
-        new TechBlogCompanyResponse("woowahan", "WoowaBros"),
-        new TechBlogCompanyResponse("toss", "Toss")
-    );
+    List<TechBlogCompanyResponse> companies =
+        List.of(
+            new TechBlogCompanyResponse("woowahan", "WoowaBros"),
+            new TechBlogCompanyResponse("toss", "Toss"));
     when(techBlogQueryService.getActiveCompanies()).thenReturn(companies);
 
     // When & Then

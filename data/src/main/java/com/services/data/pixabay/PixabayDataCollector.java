@@ -1,8 +1,8 @@
 package com.services.data.pixabay;
 
-import com.services.core.dto.ApiResponse;
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.notification.DataCollectionResult;
+import com.services.core.common.dto.ApiResponse;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.notification.DataCollectionResult;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;

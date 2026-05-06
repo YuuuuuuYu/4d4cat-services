@@ -1,8 +1,8 @@
 package com.services.api.pixabay;
 
-import com.services.core.dto.BaseResponse;
-import com.services.core.pixabay.dto.PixabayMusicResult;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.common.dto.BaseResponse;
+import com.services.core.pixabay.PixabayMusicResult;
+import com.services.core.pixabay.PixabayVideoResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

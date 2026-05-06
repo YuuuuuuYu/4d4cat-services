@@ -1,10 +1,10 @@
 package com.services.api.pixabay;
 
-import com.services.core.exception.ErrorCode;
-import com.services.core.infrastructure.ApiMetadata;
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.pixabay.dto.PixabayMusicResult;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.infrastructure.ApiMetadata;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.pixabay.PixabayMusicResult;
+import com.services.core.pixabay.PixabayVideoResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

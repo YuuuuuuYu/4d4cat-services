@@ -8,10 +8,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.services.core.infrastructure.RedisDataStorage;
-import com.services.core.notification.DataCollectionResult;
-import com.services.core.pixabay.dto.PixabayResponse;
-import com.services.core.pixabay.dto.PixabayVideoResult;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.pixabay.PixabayResponse;
+import com.services.core.pixabay.PixabayVideoResult;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;

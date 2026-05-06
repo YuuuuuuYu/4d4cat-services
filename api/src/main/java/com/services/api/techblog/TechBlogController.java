@@ -2,9 +2,9 @@ package com.services.api.techblog;
 
 import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
-import com.services.core.dto.BaseResponse;
-import lombok.RequiredArgsConstructor;
+import com.services.core.common.dto.BaseResponse;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

@@ -1,7 +1,7 @@
 package com.services.core.fixture;
 
 import com.services.core.common.persistence.BaseEntity;
-import com.services.core.techblog.entity.TechBlogCompany;
+import com.services.core.common.persistence.entity.Company;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.entity.TechBlogPostTag;
@@ -16,15 +16,15 @@ public class TechBlogFixtures {
   public static final String DEFAULT_POST_URL_PREFIX = "https://techblog.woowahan.com/";
   public static final String DEFAULT_POST_TITLE = "develop";
 
-  public static TechBlogCompany createDefaultCompany() {
-    return new TechBlogCompany(DEFAULT_COMPANY_SLUG, DEFAULT_COMPANY_NAME, DEFAULT_FEED_URL);
+  public static Company createDefaultCompany() {
+    return new Company(DEFAULT_COMPANY_SLUG, DEFAULT_COMPANY_NAME, DEFAULT_FEED_URL);
   }
 
-  public static TechBlogPost createPost(TechBlogCompany company, String title, String url) {
+  public static TechBlogPost createPost(Company company, String title, String url) {
     return new TechBlogPost(company, title, url, LocalDateTime.now());
   }
 
-  public static TechBlogPost createDefaultPost(TechBlogCompany company, int idSuffix) {
+  public static TechBlogPost createDefaultPost(Company company, int idSuffix) {
     return new TechBlogPost(
         company,
         DEFAULT_POST_TITLE + " " + idSuffix,

@@ -1,6 +1,6 @@
 package com.services.data.scheduler;
 
-import com.services.core.aop.NotifyDiscord;
+import com.services.core.common.notification.discord.NotifyDiscord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;

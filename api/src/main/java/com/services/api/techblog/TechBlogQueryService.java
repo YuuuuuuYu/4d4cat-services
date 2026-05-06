@@ -5,11 +5,11 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
-import com.services.core.infrastructure.RedisDataStorage;
+import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.entity.QTechBlogPost;
 import com.services.core.techblog.entity.QTechBlogPostTag;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.techblog.repository.TechBlogCompanyRepository;
 import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -33,7 +33,7 @@ public class TechBlogQueryService {
 
   private final JPAQueryFactory queryFactory;
   private final TechBlogPostStatRepository statRepository;
-  private final TechBlogCompanyRepository companyRepository;
+  private final CompanyRepository companyRepository;
   private final RedisDataStorage redisDataStorage;
   private final MeterRegistry registry;
 
@@ -94,10 +94,7 @@ public class TechBlogQueryService {
             .register(registry)
             .record(
                 () -> {
-                  var query = queryFactory
-                      .selectFrom(post)
-                      .leftJoin(post.company)
-                      .fetchJoin();
+                  var query = queryFactory.selectFrom(post).leftJoin(post.company).fetchJoin();
 
                   if (tag != null && !tag.isBlank()) {
                     query.leftJoin(post.tags, postTag);
@@ -121,7 +118,10 @@ public class TechBlogQueryService {
     String nextCursor = null;
     if (!result.isEmpty() && hasNext) {
       TechBlogPost lastPost = result.get(result.size() - 1);
-      nextCursor = lastPost.getPublishedAt().truncatedTo(ChronoUnit.MICROS).toString() + "_" + lastPost.getId();
+      nextCursor =
+          lastPost.getPublishedAt().truncatedTo(ChronoUnit.MICROS).toString()
+              + "_"
+              + lastPost.getId();
     }
 
     List<TechBlogResponse> items =

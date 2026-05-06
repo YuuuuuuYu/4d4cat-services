@@ -1,7 +1,11 @@
 package com.services.api.common.presentation;
 
-import com.services.core.dto.BaseResponse;
-import com.services.core.exception.*;
+import com.services.core.common.dto.BaseResponse;
+import com.services.core.common.exception.BadGatewayException;
+import com.services.core.common.exception.BadRequestException;
+import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.exception.InternalServerException;
+import com.services.core.common.exception.NotFoundException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
