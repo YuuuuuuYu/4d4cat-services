@@ -65,6 +65,8 @@
 - **Gradle** - 멀티모듈 빌드 도구
 - **JUnit 5** - 단위 테스트 프레임워크
 - **Mockito** - 모킹 라이브러리
+- **JaCoCo 0.8.14** - 코드 커버리지 측정 및 분석
+- **SonarQube** - 지속적인 코드 품질 분석
 - **Spotless** - 코드 포맷팅 (Google Java Format)
 - **GitHub Actions** - CI/CD 자동화
 
@@ -135,9 +137,9 @@ services/
 ```
 
 **모듈별 역할:**
-- **core**: 공통 예외, Redis 저장소, Pixabay/TechBlog DTO & Entity, AOP, 유틸리티
-- **api**: REST API 제공, QueryDSL 기반 동적 필터링 및 커서 페이징 처리
-- **data**: 외부 API(Pixabay) 및 RSS(TechBlog) 데이터 수집, 가상 스레드 기반 병렬 처리
+- **core**: 공통 예외 및 HTTP 응답 처리, Redis 기반 데이터 저장소 및 분산 메시지 큐, 암호화 유틸리티(AES), 공통 소프트 딜리트(Soft Delete) 엔티티 정의, 외부 알림 서비스(Discord AOP, 이메일 알림 - Woorimail/SendPulse)
+- **api**: REST API 제공, QueryDSL 기반 동적 필터링 및 커서 페이징 처리, Redis 기반 JWT 블랙리스트 로그아웃 구현
+- **data**: 외부 API(Pixabay) 및 RSS(TechBlog) 데이터 수집, 가상 스레드 기반 병렬 처리 및 Micrometer 기반 가상 스레드 메트릭 수집
 - **monitoring**: 서비스 메트릭 수집 및 Prometheus 엔드포인트 제공
 
 ### 서비스 아키텍처
@@ -178,7 +180,6 @@ api/
 ├── pixabay/              # Pixabay API (Controller + Service)
 ├── techblog/             # Tech Blog (Controller + QueryService + QueryDSL)
 ├── message/              # Message 기능 (Controller + Service)
-├── omniwatch/            # OmniWatch 분석 (추후 구현 예정)
 ├── config/               # Spring 설정 (CORS, JPA, Redis 등)
 ├── presentation/         # 공통 예외 처리 (GlobalExceptionHandler)
 └── util/                 # 유틸리티
@@ -211,6 +212,18 @@ monitoring/
 └── src/main/java/com/services/monitoring/MonitoringApplication.java
 ```
 
+### 📦 공통 모듈(core) 주요 기능
+- **공통 인프라 및 보안**
+  - **AES 암호화**: `AesUtil`을 통한 데이터 암·복호화 지원
+  - **Redis 메시지 큐**: `RedisMessageQueue`를 활용한 비동기 메시지 처리 기반 마련
+  - **소프트 딜리트**: `BaseSoftDeleteEntity`를 통해 삭제 데이터를 보존하는 데이터 영속성 표준 지원
+- **이메일 및 외부 알림 인프라**
+  - **다중 이메일 클라이언트**: `EmailNotificationService`를 인터페이스로 하여 우리메일(Woorimail) 및 SendPulse 메일 전송 지원
+  - **Woorimail 설정 분리**: 하드코딩된 서버 주소 및 인증 키 대신 외부 프로퍼티(YAML) 바인딩(`WoorimailProperties`) 적용
+  - **Discord 웹훅 AOP**: `@NotifyDiscord` 어노테이션 기반으로 실행 상태 및 완료 알림 자동화
+- **API 공통 처리**
+  - 공통 응답 규격(`BaseResponse`) 및 글로벌 예외 구조 정립 (`ForbiddenException`, `UnauthorizedException` 등)
+
 **설계 철학:**
 - **기능별 응집**: 관련 코드를 한 패키지에 모아 직관적으로 구성
 - **수직 슬라이싱**: Controller-Service를 기능별로 수직 분리
@@ -230,7 +243,8 @@ monitoring/
 
 ### ⚡ 성능 최적화
 - **분산 캐싱**: Redis 기반 데이터 캐싱으로 서버 간 상태 공유 (Tech Blog API 12시간 캐시)
-- **가상 스레드**: Java 21 Virtual Threads를 활용하여 RSS 피드 수집 시 I/O 병목 최소화
+- **가상 스레드 & 메트릭**: Java 21 Virtual Threads를 활용하여 RSS 피드 수집 시 I/O 병목 최소화, Micrometer를 통해 활성 가상 스레드 개수(`jvm.threads.virtual.count`) 모니터링 적용
+- **JWT 블랙리스트 무효화**: 로그아웃된 토큰의 남은 유효 시간을 Redis에 TTL 기반 블랙리스트로 등록하여 악용 방지
 - **QueryDSL & Indexing**: 효율적인 동적 쿼리 및 커서 기반 페이징을 통한 DB 조회 최적화
 - **RestClient**: Spring 6.1+ RestClient를 통한 간결한 HTTP 통신
 - **내결함성**: 개별 API 실패가 전체 시스템에 영향 주지 않음 (Optional 기반 실패 처리)
@@ -324,6 +338,21 @@ docker-compose down
 # 코드 포맷팅
 ./gradlew spotlessApply
 ```
+
+## 📊 테스트 커버리지
+
+JaCoCo 플러그인을 도입하여 빌드 시 테스트 커버리지를 자동으로 측정하고 있으며, SonarQube와 연동하여 지속적인 코드 품질을 관리하고 있습니다.
+
+### 모듈별 커버리지 현황 (최근 빌드 기준)
+
+| 모듈 | Line Coverage | Branch Coverage | 설명 |
+|------|---------------|-----------------|------|
+| **api** | 53.13% (662/1246) | 36.71% (105/286) | REST API 컨트롤러 및 비즈니스 쿼리 서비스 |
+| **core** | 28.62% (249/870) | 32.08% (34/106) | 공통 유틸리티, 데이터 저장소 및 알림 서비스 |
+| **data** | 58.52% (316/540) | 41.30% (38/92) | 외부 데이터 수집, 가상 스레드 병렬 처리 스케줄러 |
+| **monitoring** | 33.33% (1/3) | - | 모니터링 애플리케이션 시작점 |
+| **전체 합계** | **46.18% (1228/2659)** | **36.57% (177/484)** | 프로젝트 전체 커버리지 지표 |
+
 
 ### 접속 정보
 | 서비스 | URL | 설명 |
