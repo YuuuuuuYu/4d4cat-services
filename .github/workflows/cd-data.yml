@@ -138,10 +138,9 @@ jobs:
             # Pull the latest image
             sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-data:${{ github.sha }}
 
-            # Deploy using docker-compose
+            # Deploy using docker-compose (Zero-Downtime recreate)
             cd /home/opc
-            sudo docker compose -f docker-compose.data.yml down
-            sudo docker compose -f docker-compose.data.yml up -d
+            sudo docker compose -f docker-compose.data.yml up -d --no-deps data
 
             # Wait for services to be healthy
             echo "Waiting for services to be healthy..."
