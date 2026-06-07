@@ -63,10 +63,10 @@ jobs:
             ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
             ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:latest
 
-      - name: (SSH) Deploy to Oracle Instances
+      - name: (SSH) Deploy to Main Oracle Instance
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
         with:
-          host: ${{ secrets.ORACLE_MAIN_IP }},${{ secrets.ORACLE_SUB_IP }}
+          host: ${{ secrets.ORACLE_MAIN_IP }}
           username: ${{ secrets.ORACLE_USER }}
           key: ${{ secrets.ORACLE_KEY }}
           script: |
@@ -86,15 +86,63 @@ jobs:
               -v /home/opc/logs:/app/logs \
               ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
 
-            # Health check - wait for container to be healthy
-            echo "Waiting for container to start..."
-            sleep 10
-            if ! sudo docker ps | grep -q 4d4cat-api; then
-              echo "Container failed to start!"
-              sudo docker logs 4d4cat-api
-              exit 1
-            fi
-            echo "Container is running."
+            # Health check - wait for Spring Boot to be healthy
+            echo "Waiting for container to start and be healthy..."
+            for i in {1..30}; do
+              if curl -s -f http://localhost:8080/actuator/health | grep -q "UP"; then
+                echo "Main container is healthy and running!"
+                break
+              fi
+              echo "Waiting for application startup (attempt $i/30)..."
+              sleep 2
+              if [ $i -eq 30 ]; then
+                echo "Health check failed for Main instance!"
+                sudo docker logs 4d4cat-api
+                exit 1
+              fi
+            done
+
+            # Clean up unused images to save disk space
+            sudo docker image prune -f
+
+      - name: (SSH) Deploy to Sub Oracle Instance
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        with:
+          host: ${{ secrets.ORACLE_SUB_IP }}
+          username: ${{ secrets.ORACLE_USER }}
+          key: ${{ secrets.ORACLE_KEY }}
+          script: |
+            # Pull the specific version of the image using the commit SHA
+            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
+
+            # Stop and remove the old container
+            sudo docker stop 4d4cat-api || true
+            sudo docker rm 4d4cat-api || true
+
+            # Run the new container with environment variables from server
+            sudo docker run -d \
+              --name 4d4cat-api \
+              -p 8080:8080 \
+              --env-file /home/opc/.env \
+              -e TZ=Asia/Seoul \
+              -v /home/opc/logs:/app/logs \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/4d4cat-api:${{ github.sha }}
+
+            # Health check - wait for Spring Boot to be healthy
+            echo "Waiting for container to start and be healthy..."
+            for i in {1..30}; do
+              if curl -s -f http://localhost:8080/actuator/health | grep -q "UP"; then
+                echo "Sub container is healthy and running!"
+                break
+              fi
+              echo "Waiting for application startup (attempt $i/30)..."
+              sleep 2
+              if [ $i -eq 30 ]; then
+                echo "Health check failed for Sub instance!"
+                sudo docker logs 4d4cat-api
+                exit 1
+              fi
+            done
 
             # Clean up unused images to save disk space
             sudo docker image prune -f
