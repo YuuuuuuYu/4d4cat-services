@@ -10,16 +10,21 @@ dependencies {
 
     // Data
     api 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.apache.commons:commons-pool2'
 
     // QueryDSL
+    api "io.github.openfeign.querydsl:querydsl-jpa:7.1"
     annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.1:jakarta'
     annotationProcessor "jakarta.annotation:jakarta.annotation-api"
     annotationProcessor "jakarta.persistence:jakarta.persistence-api"
 
     // Utils
     api 'org.apache.commons:commons-lang3:3.18.0'
+    api 'io.github.resilience4j:resilience4j-ratelimiter:2.2.0'
+
+    // Mail
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 
     // Metrics
     implementation 'io.micrometer:micrometer-core'
