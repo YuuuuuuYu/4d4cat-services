@@ -21,4 +21,10 @@ public interface TechBlogPostRepository extends JpaRepository<TechBlogPost, Long
       @Param("activeIds") List<Long> activeIds, @Param("companySlug") String companySlug);
 
   Optional<TechBlogPost> findByUrl(String url);
+
+  @Modifying(flushAutomatically = true)
+  @Query(
+      value = "UPDATE techblog_post SET company_slug = :newSlug WHERE company_slug = :oldSlug",
+      nativeQuery = true)
+  void updateCompanySlug(@Param("oldSlug") String oldSlug, @Param("newSlug") String newSlug);
 }

@@ -1,12 +1,26 @@
 package com.services.core.common.persistence.repository;
 
 import com.services.core.common.persistence.entity.Company;
+import com.services.core.common.persistence.entity.CompanyStatus;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
-public interface CompanyRepository extends JpaRepository<Company, String> {
+public interface CompanyRepository extends JpaRepository<Company, UUID>, CompanyRepositoryCustom {
 
-  @Query("SELECT c.slug as slug, c.name as name FROM Company c WHERE c.feedUrl IS NOT NULL")
-  List<CompanyInfo> findAllActiveCompanies();
+  Optional<Company> findByName(String name);
+
+  Optional<Company> findBySlug(String slug);
+
+  List<Company> findBySlugIn(Collection<String> slugs);
+
+  boolean existsBySlug(String slug);
+
+  Slice<Company> findByStatus(CompanyStatus status, Pageable pageable);
+
+  List<Company> findByNameChosungIsNull();
 }

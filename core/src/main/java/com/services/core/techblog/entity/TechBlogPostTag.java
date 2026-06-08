@@ -1,6 +1,6 @@
 package com.services.core.techblog.entity;
 
-import com.services.core.common.persistence.BaseEntity;
+import com.services.core.common.persistence.BaseSoftDeleteEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "techblog_post_tag")
-public class TechBlogPostTag extends BaseEntity {
+public class TechBlogPostTag extends BaseSoftDeleteEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
