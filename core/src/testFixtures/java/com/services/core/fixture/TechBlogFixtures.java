@@ -3,7 +3,6 @@ package com.services.core.fixture;
 import com.services.core.common.persistence.BaseEntity;
 import com.services.core.common.persistence.entity.Company;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.entity.TechBlogPostTag;
 import java.time.LocalDateTime;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -17,7 +16,11 @@ public class TechBlogFixtures {
   public static final String DEFAULT_POST_TITLE = "develop";
 
   public static Company createDefaultCompany() {
-    return new Company(DEFAULT_COMPANY_SLUG, DEFAULT_COMPANY_NAME, DEFAULT_FEED_URL);
+    return Company.builder()
+        .slug(DEFAULT_COMPANY_SLUG)
+        .name(DEFAULT_COMPANY_NAME)
+        .feedUrl(DEFAULT_FEED_URL)
+        .build();
   }
 
   public static TechBlogPost createPost(Company company, String title, String url) {
@@ -34,10 +37,6 @@ public class TechBlogFixtures {
 
   public static TechBlogPostTag createTag(TechBlogPost post, String tagName) {
     return new TechBlogPostTag(post, tagName);
-  }
-
-  public static TechBlogPostStat createStat(Long postId, String title) {
-    return new TechBlogPostStat(postId, title);
   }
 
   public static void setAuditingFields(BaseEntity entity) {

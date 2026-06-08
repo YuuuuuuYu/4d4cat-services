@@ -1,7 +1,6 @@
 package com.services.core.common.persistence.entity;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.services.core.fixture.TechBlogFixtures;
 import java.time.LocalDateTime;
@@ -39,19 +38,28 @@ class CompanyTest {
   }
 
   @Test
-  @DisplayName("dateLogic - Auditing 필드가 채워지면 날짜 기반 로직 정상 동작")
-  void dateLogic_shouldWorkWithoutNPE() {
+  @DisplayName("extractChosung - 한국어 기업명에서 초성이 올바르게 추출됨")
+  void extractChosung_shouldWorkCorrectly() {
     // Given
-    Company company = TechBlogFixtures.createDefaultCompany();
-    TechBlogFixtures.setAuditingFields(company);
+    Company company = Company.builder().slug("samsung").name("삼성전자").build();
 
-    // When & Then
-    assertThatCode(
-            () -> {
-              LocalDateTime now = LocalDateTime.now();
-              boolean isCreatedToday = company.getCreatedAt().isAfter(now.minusDays(1));
-              assertThat(isCreatedToday).isTrue();
-            })
-        .doesNotThrowAnyException();
+    // When
+    company.updateChosung();
+
+    // Then
+    assertThat(company.getNameChosung()).isEqualTo("ㅅㅅㅈㅈ");
+  }
+
+  @Test
+  @DisplayName("extractChosung - 영문 및 숫자가 섞인 경우에도 올바르게 동작함")
+  void extractChosung_withMixedCharacters_shouldWorkCorrectly() {
+    // Given
+    Company company = Company.builder().slug("kakao").name("카카오123Bank").build();
+
+    // When
+    company.updateChosung();
+
+    // Then
+    assertThat(company.getNameChosung()).isEqualTo("ㅋㅋㅇ123Bank");
   }
 }
