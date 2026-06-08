@@ -53,6 +53,7 @@ subprojects {
     spotless {
         java {
             googleJavaFormat()
+            targetExclude 'build/generated/**/*.java'
         }
     }
 
@@ -67,6 +68,10 @@ subprojects {
         annotationProcessor 'org.projectlombok:lombok'
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs << '-parameters'
     }
 
     tasks.named('test') {
