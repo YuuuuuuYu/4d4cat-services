@@ -11,7 +11,6 @@ import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.entity.TechBlogPost;
 import com.services.core.techblog.repository.TechBlogPostRepository;
-import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -34,8 +33,6 @@ class TechBlogQueryServiceTest {
 
   @Autowired private CompanyRepository companyRepository;
 
-  @Autowired private TechBlogPostStatRepository statRepository;
-
   @Autowired private MeterRegistry meterRegistry;
 
   @Autowired private EntityManager entityManager;
@@ -55,7 +52,6 @@ class TechBlogQueryServiceTest {
         post.addTag(TechBlogFixtures.createTag(post, "frontend"));
       }
       postRepository.save(post);
-      statRepository.save(TechBlogFixtures.createStat(post.getId(), post.getTitle()));
     }
     entityManager.flush();
     entityManager.clear();
@@ -68,10 +64,9 @@ class TechBlogQueryServiceTest {
 
   private void cleanup() {
     entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
     entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
     entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
-    entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+    entityManager.createNativeQuery("DELETE FROM company").executeUpdate();
     entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
   }
 
@@ -184,7 +179,6 @@ class TechBlogQueryServiceTest {
     // Given
     Company kakao = companyRepository.save(new Company("kakao", "kakao", "url"));
     TechBlogPost kakaoPost = postRepository.save(TechBlogFixtures.createDefaultPost(kakao, 100));
-    statRepository.save(TechBlogFixtures.createStat(kakaoPost.getId(), kakaoPost.getTitle()));
 
     // When
     TechBlogListResponse response =
@@ -277,20 +271,15 @@ class TechBlogQueryServiceTest {
   }
 
   @Test
-  @DisplayName("조회 요청 및 클릭 발생 시 - 메트릭 기록 검증")
-  void getTechBlogsAndIncrementClickCount_shouldRecordMetrics() {
-    // Given
-    Long postId = postRepository.findAll().get(0).getId();
-
+  @DisplayName("조회 요청 시 - 메트릭 기록 검증")
+  void getTechBlogs_shouldRecordMetrics() {
     // When
     techBlogQueryService.getTechBlogs(null, List.of("woowahan"), "backend");
-    techBlogQueryService.incrementClickCount(postId);
 
     // Then
     assertThat(meterRegistry.find("techblog.api.request").counter()).isNotNull();
     assertThat(meterRegistry.find("techblog.cache.access").counter()).isNotNull();
     assertThat(meterRegistry.find("techblog.query.duration").timer()).isNotNull();
-    assertThat(meterRegistry.find("techblog.post.click").counter()).isNotNull();
 
     assertThat(
             meterRegistry
@@ -299,6 +288,5 @@ class TechBlogQueryServiceTest {
                 .counter()
                 .count())
         .isEqualTo(1);
-    assertThat(meterRegistry.find("techblog.post.click").counter().count()).isEqualTo(1);
   }
 }

@@ -14,7 +14,6 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.persistence.repository.CompanyRepository;
-import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
@@ -33,26 +32,12 @@ import org.mockito.quality.Strictness;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class TechBlogQueryServiceUnitTest {
 
-  @Mock private TechBlogPostStatRepository statRepository;
   @Mock private RedisDataStorage redisDataStorage;
   @Mock private JPAQueryFactory queryFactory;
   @Mock private CompanyRepository companyRepository;
   @Spy private MeterRegistry registry = new SimpleMeterRegistry();
 
   @InjectMocks private TechBlogQueryService techBlogQueryService;
-
-  @Test
-  @DisplayName("incrementClickCount - 클릭수 증가 호출 검증")
-  void incrementClickCount_shouldInvokeRepository() {
-    // Given
-    Long postId = 1L;
-
-    // When
-    techBlogQueryService.incrementClickCount(postId);
-
-    // Then
-    verify(statRepository, times(1)).incrementClickCount(postId);
-  }
 
   @Test
   @DisplayName("getTechBlogs - 캐시 히트 시 DB 조회 없이 캐시 데이터 반환")
