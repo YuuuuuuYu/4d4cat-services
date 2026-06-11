@@ -3,7 +3,9 @@ error:
     CO1000: "Invalid request"
     CO1001: "Data not found"
     CO1002: "Internal server error"
-    CO1003: "External service temporarily unavailable"
+    CO1400: "External service temporarily unavailable"
+    CO1401: "Full authentication is required to access this resource"
+    CO1403: "Access denied"
   pixabay:
     PV1000: "PixabayVideo data not found"
     PM1000: "PixabayMusic data not found"
@@ -12,6 +14,17 @@ error:
     MS0400: "Invalid message content"
   discord:
     DC1000: "Discord webhook sending failed (code: {0})"
+  applydays:
+    AD1000: "Company not found"
+    AD1001: "Category not found"
+    AD1002: "Application not found"
+    AD1003: "Unauthorized access to this application"
+    AD1004: "Maximum 10 verification images allowed per application"
+    AD1005: "Failed to upload image to R2"
+    AD1006: "Error generating owner hash"
+  techblog:
+    TB1000: "Failed to fetch RSS feed"
+    TB1001: "Failed to parse RSS feed"
 
 discord:
   init:

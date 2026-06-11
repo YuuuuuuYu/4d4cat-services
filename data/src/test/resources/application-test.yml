@@ -1,4 +1,7 @@
 spring:
+  batch:
+    jdbc:
+      initialize-schema: always
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
@@ -10,10 +13,14 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  cache:
+    redis:
+      time-to-live: 60s
   data:
     redis:
       host: localhost
       port: 6379
+      timeout: 2000ms
 
 pixabay:
   key: dummy
@@ -21,12 +28,46 @@ pixabay:
     video: http://dummy
     music: http://dummy
 
-test:
-  discord:
-    webhook:
-      url: http://dummy
+discord:
+  webhook:
+    url: http://dummy
+
 
 logging:
   level:
     com.services: DEBUG
     org.springframework.test: INFO
+
+app:
+  crypto:
+    key: "1234567890123456"
+    iv: "1234567890123456"
+  woorimail:
+    server-url: "woorimail.com"
+    ssl: "Y"
+    ssl-port: 20080
+    authkey: "dummy-authkey"
+    domain: "dummy-domain"
+    type: "test"
+    mid: "dummy-mid"
+    endpoint: "dummy-endpoint"
+    act: "dummy-act"
+    sender-email: "dummy@dummy.com"
+    sender-nickname: "dummy(Test)"
+    wms-domain: "dummy-wms-domain"
+    wms-nick: "dummy-wms-nick"
+  notification:
+    email:
+      queue-name: dummy:queue:email
+      retry-queue: dummy:queue:retry
+      batch-cron: "0 0 9 * * *"
+    sendpulse:
+      api-key: "dummy-sendpulse-key"
+      api-url: "http://dummy-url.com"
+      sender-email: "dummy@dummy.com"
+      sender-name: "dummy(Test)"
+
+applydays:
+  notification:
+    email:
+      trigger-queue: dummy-trigger-queue

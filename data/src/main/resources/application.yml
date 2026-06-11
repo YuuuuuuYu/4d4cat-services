@@ -7,6 +7,10 @@ spring:
       enabled: true
   application:
     name: data
+  batch:
+    jdbc:
+      initialize-schema: ${BATCH_INIT_SCHEMA}
+      isolation-level-for-create-lock: read_committed # 직렬화 에러 방지용 설정 추가
   jpa:
     hibernate:
       ddl-auto: ${DB_DDL_AUTO:create-drop}
@@ -19,10 +23,16 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 2
       max-lifetime: 600000
+  cache:
+    type: redis
+    redis:
+      cache-null-values: false
+      time-to-live: ${REDIS_CACHE_TTL}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: 6379
+      timeout: ${REDIS_TIMEOUT}
 
 pixabay:
   key: ${PIXABAY_KEY}
@@ -49,3 +59,36 @@ management:
 logging:
   level:
     com.services: INFO
+
+app:
+  woorimail:
+    server-url: ${WOORIMAIL_SERVER_URL}
+    ssl: ${WOORIMAIL_SSL}
+    ssl-port: ${WOORIMAIL_SSL_PORT}
+    authkey: ${WOORIMAIL_AUTHKEY}
+    domain: ${WOORIMAIL_DOMAIN}
+    type: ${WOORIMAIL_TYPE}
+    mid: ${WOORIMAIL_MID}
+    endpoint: ${WOORIMAIL_ENDPOINT}
+    act: ${WOORIMAIL_ACT}
+    sender-email: ${WOORIMAIL_SENDER_EMAIL}
+    sender-nickname: ${WOORIMAIL_SENDER_NICKNAME}
+    wms-domain: ${WOORIMAIL_WMS_DOMAIN}
+    wms-nick: ${WOORIMAIL_WMS_NICK}
+  crypto:
+    key: ${CRYPTO_KEY}
+    iv: ${CRYPTO_IV}
+  notification:
+    email:
+      queue-name: ${APPLYDAYS_NOTIFICATION_QUEUE}
+      retry-queue: ${APPLYDAYS_RETRY_QUEUE}
+      batch-cron: ${APPLYDAYS_EMAIL_CRON}
+    sendpulse:
+      api-key: ${SENDPULSE_API_KEY}
+      sender-email: ${SENDPULSE_SENDER_EMAIL}
+      sender-name: ${SENDPULSE_SENDER_NAME}
+
+applydays:
+  notification:
+    email:
+      trigger-queue: ${APPLYDAYS_TRIGGER_QUEUE}

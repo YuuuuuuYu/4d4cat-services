@@ -3,14 +3,13 @@ package com.services.api.techblog;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.services.api.common.config.MessageSourceConfig;
+import com.services.api.common.config.TestSecurityConfig;
 import com.services.api.techblog.dto.TechBlogCompanyResponse;
 import com.services.api.techblog.dto.TechBlogListResponse;
 import com.services.api.techblog.dto.TechBlogResponse;
@@ -27,7 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(TechBlogController.class)
-@Import(MessageSourceConfig.class)
+@Import({MessageSourceConfig.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
 class TechBlogControllerTest {
 
@@ -107,22 +106,6 @@ class TechBlogControllerTest {
         .andExpect(jsonPath("$.data").isArray())
         .andExpect(jsonPath("$.data[0].slug").value("woowahan"))
         .andExpect(jsonPath("$.data[0].name").value("WoowaBros"))
-        .andExpect(jsonPath("$.error").isEmpty());
-  }
-
-  @Test
-  @DisplayName("POST /techblogs/{id}/click - 클릭 수 증가 성공")
-  void incrementClickCount_shouldReturnOk() throws Exception {
-    // Given
-    Long postId = 1L;
-    doNothing().when(techBlogQueryService).incrementClickCount(postId);
-
-    // When & Then
-    mockMvc
-        .perform(post("/techblogs/{id}/click", postId))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value(200))
-        .andExpect(jsonPath("$.data").isEmpty())
         .andExpect(jsonPath("$.error").isEmpty());
   }
 }

@@ -10,6 +10,7 @@ dependencies {
     // Core(module)
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
 
     // Data
     implementation "io.github.openfeign.querydsl:querydsl-jpa:7.1"
@@ -18,6 +19,15 @@ dependencies {
 
     // API Documentation
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.14'
+
+    // Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
     // Message Source
     implementation 'net.rakugakibox.util:yaml-resource-bundle:1.1'
@@ -32,6 +42,7 @@ dependencies {
     implementation 'io.micrometer:micrometer-registry-cloudwatch2'
 
     // Test
+    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
 }
 
