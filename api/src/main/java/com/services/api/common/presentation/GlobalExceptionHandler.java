@@ -4,8 +4,10 @@ import com.services.core.common.dto.BaseResponse;
 import com.services.core.common.exception.BadGatewayException;
 import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.exception.ForbiddenException;
 import com.services.core.common.exception.InternalServerException;
 import com.services.core.common.exception.NotFoundException;
+import com.services.core.common.exception.UnauthorizedException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -33,7 +37,15 @@ public class GlobalExceptionHandler {
 
     String message = messageSource.getMessage(errorCode.getMessageKey(), null, Locale.getDefault());
     BaseResponse<Void> response = BaseResponse.of(status, errorCode.getCode(), message);
-    log.error("Error Handled: {} - {}", errorCode.getCode(), message, e);
+    if (status.is4xxClientError()) {
+      log.warn(
+          "Error Handled (Client): {} - {} (Exception: {})",
+          errorCode.getCode(),
+          message,
+          e.getClass().getSimpleName());
+    } else {
+      log.error("Error Handled (Server): {} - {}", errorCode.getCode(), message, e);
+    }
     return new ResponseEntity<>(response, status);
   }
 
@@ -45,6 +57,21 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<BaseResponse<Void>> handleNotFoundException(NotFoundException e) {
     return createErrorResponse(e.getErrorCode(), HttpStatus.NOT_FOUND, e);
+  }
+
+  @ExceptionHandler(UnauthorizedException.class)
+  public ResponseEntity<BaseResponse<Void>> handleUnauthorizedException(UnauthorizedException e) {
+    return createErrorResponse(e.getErrorCode(), HttpStatus.UNAUTHORIZED, e);
+  }
+
+  @ExceptionHandler(ForbiddenException.class)
+  public ResponseEntity<BaseResponse<Void>> handleForbiddenException(ForbiddenException e) {
+    return createErrorResponse(e.getErrorCode(), HttpStatus.FORBIDDEN, e);
+  }
+
+  @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+  public ResponseEntity<BaseResponse<Void>> handleAccessDeniedException(Exception e) {
+    return createErrorResponse(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, e);
   }
 
   @ExceptionHandler(InternalServerException.class)
