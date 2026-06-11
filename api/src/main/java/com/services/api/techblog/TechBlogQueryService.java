@@ -10,7 +10,6 @@ import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.entity.QTechBlogPost;
 import com.services.core.techblog.entity.QTechBlogPostTag;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDateTime;
@@ -32,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class TechBlogQueryService {
 
   private final JPAQueryFactory queryFactory;
-  private final TechBlogPostStatRepository statRepository;
   private final CompanyRepository companyRepository;
   private final RedisDataStorage redisDataStorage;
   private final MeterRegistry registry;
@@ -94,11 +92,13 @@ public class TechBlogQueryService {
             .register(registry)
             .record(
                 () -> {
-                  var query = queryFactory.selectFrom(post).leftJoin(post.company).fetchJoin();
-
-                  if (tag != null && !tag.isBlank()) {
-                    query.leftJoin(post.tags, postTag);
-                  }
+                  var query =
+                      queryFactory
+                          .selectFrom(post)
+                          .leftJoin(post.company)
+                          .fetchJoin()
+                          .leftJoin(post.tags, postTag)
+                          .fetchJoin();
 
                   return query
                       .where(
@@ -107,6 +107,7 @@ public class TechBlogQueryService {
                           tagEq(tag, postTag))
                       .orderBy(post.publishedAt.desc(), post.id.desc())
                       .limit(limit + 1)
+                      .distinct()
                       .fetch();
                 });
 
@@ -132,12 +133,6 @@ public class TechBlogQueryService {
     redisDataStorage.setCache(cacheKey, response, CACHE_EXPIRATION_HOURS, TimeUnit.HOURS);
 
     return response;
-  }
-
-  @Transactional
-  public void incrementClickCount(Long postId) {
-    statRepository.incrementClickCount(postId);
-    registry.counter("techblog.post.click").increment();
   }
 
   public List<TechBlogCompanyResponse> getActiveCompanies() {
