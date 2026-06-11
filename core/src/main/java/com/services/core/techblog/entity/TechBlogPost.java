@@ -1,6 +1,6 @@
 package com.services.core.techblog.entity;
 
-import com.services.core.common.persistence.BaseEntity;
+import com.services.core.common.persistence.BaseSoftDeleteEntity;
 import com.services.core.common.persistence.entity.Company;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -28,14 +28,14 @@ import org.hibernate.annotations.SQLRestriction;
 @SQLRestriction("deleted = false")
 @SQLDelete(sql = "UPDATE techblog_post SET deleted = true WHERE id = ?")
 @Table(name = "techblog_post")
-public class TechBlogPost extends BaseEntity {
+public class TechBlogPost extends BaseSoftDeleteEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
   @ManyToOne(fetch = FetchType.LAZY)
-  @JoinColumn(name = "company_slug", nullable = false)
+  @JoinColumn(name = "company_slug", referencedColumnName = "slug", nullable = false)
   private Company company;
 
   @Column(name = "title", nullable = false, length = 1024)

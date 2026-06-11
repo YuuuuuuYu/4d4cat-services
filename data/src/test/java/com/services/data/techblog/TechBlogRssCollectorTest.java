@@ -11,7 +11,6 @@ import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.repository.TechBlogPostRepository;
-import com.services.core.techblog.repository.TechBlogPostStatRepository;
 import com.services.data.pixabay.PixabayMusicCollector;
 import com.services.data.pixabay.PixabayVideoCollector;
 import com.services.data.techblog.scheduler.TechBlogDataScheduler;
@@ -33,7 +32,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@SpringBootTest(properties = {"discord.webhook.url=${test.discord.webhook.url}"})
+@SpringBootTest
 @ActiveProfiles("test")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class TechBlogRssCollectorTest {
@@ -43,8 +42,6 @@ class TechBlogRssCollectorTest {
   @Autowired private CompanyRepository companyRepository;
 
   @Autowired private TechBlogPostRepository postRepository;
-
-  @Autowired private TechBlogPostStatRepository statRepository;
 
   @Autowired private TransactionTemplate transactionTemplate;
 
@@ -63,17 +60,16 @@ class TechBlogRssCollectorTest {
     transactionTemplate.executeWithoutResult(
         status -> {
           entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
-          entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
           entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
           entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
-          entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM company").executeUpdate();
           entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
         });
   }
 
   @Test
-  @DisplayName("RSS 피드 수집 - 성공 (포스트 및 통계 저장 확인)")
-  void collectFeeds_shouldSavePostsAndStats() throws Exception {
+  @DisplayName("RSS 피드 수집 - 성공 (포스트 저장 확인)")
+  void collectFeeds_shouldSavePosts() throws Exception {
     // Given
     Company company = TechBlogFixtures.createDefaultCompany();
     companyRepository.save(company);
@@ -106,12 +102,10 @@ class TechBlogRssCollectorTest {
 
     // Then
     long postCount = postRepository.count();
-    long statCount = statRepository.count();
 
     assertThat(result).isNotNull();
     assertThat(result.totalItems()).isEqualTo(1);
     assertThat(postCount).isEqualTo(1);
-    assertThat(statCount).isEqualTo(1);
 
     // Virtual Thread로 발송되는 디스코드 메시지가 완료될 때까지 대기 (데몬 스레드 종료 방지)
     Thread.sleep(2000);

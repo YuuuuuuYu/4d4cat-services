@@ -1,0 +1,3 @@
+[submodule "ApplyDays"]
+	path = ApplyDays
+	url = https://github.com/4catHub/ApplyDays.git

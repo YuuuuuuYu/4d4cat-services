@@ -21,11 +21,14 @@ spring:
     properties:
       hibernate:
         default_batch_fetch_size: 100
-    data:
-      web:
-        pageable:
-          default-page-size: 20
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 50MB
   data:
+    web:
+      pageable:
+        default-page-size: 20
     redis:
       host: ${REDIS_HOST:localhost}
       port: 6379
@@ -38,6 +41,16 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 2
       max-lifetime: 600000
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
 
 springdoc:
   api-docs:
@@ -53,8 +66,42 @@ cloud:
   aws:
     region:
       static: ${AWS_REGION:ap-northeast-2}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY_ID}
+      secret-key: ${AWS_SECRET_ACCESS_KEY}
     stack:
       auto: false
+
+applydays:
+  notification:
+    email:
+      trigger-queue: ${APPLYDAYS_TRIGGER_QUEUE}
+
+app:
+  woorimail:
+    server-url: ${WOORIMAIL_SERVER_URL}
+    ssl: ${WOORIMAIL_SSL}
+    ssl-port: ${WOORIMAIL_SSL_PORT}
+    authkey: ${WOORIMAIL_AUTHKEY}
+    domain: ${WOORIMAIL_DOMAIN}
+    type: ${WOORIMAIL_TYPE}
+    mid: ${WOORIMAIL_MID}
+    endpoint: ${WOORIMAIL_ENDPOINT}
+    act: ${WOORIMAIL_ACT}
+    sender-email: ${WOORIMAIL_SENDER_EMAIL}
+    sender-nickname: ${WOORIMAIL_SENDER_NICKNAME}
+    wms-domain: ${WOORIMAIL_WMS_DOMAIN}
+    wms-nick: ${WOORIMAIL_WMS_NICK}
+  oauth2:
+    redirect-uri: ${OAUTH2_REDIRECT_URI}
+  crypto:
+    key: ${CRYPTO_KEY}
+    iv: ${CRYPTO_IV}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
 
 management:
   endpoints:
@@ -70,11 +117,12 @@ management:
 
 cloudflare:
   r2:
-    token:
-    access-key:
-    secret-key:
-    endpoint:
-    bucket-name:
+    token: ${CLOUDFLARE_TOKEN}
+    access-key: ${CLOUDFLARE_R2_ACCESS_KEY}
+    secret-key: ${CLOUDFLARE_R2_SECRET_KEY}
+    endpoint: ${CLOUDFLARE_R2_ENDPOINT}
+    bucket-name: ${CLOUDFLARE_R2_BUCKET_NAME}
+    image-path: ${CLOUDFLARE_R2_IMAGE_PATH}
 
 logging:
   level:

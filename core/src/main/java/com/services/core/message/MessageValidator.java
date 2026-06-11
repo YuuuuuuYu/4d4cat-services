@@ -1,5 +1,6 @@
 package com.services.core.message;
 
+import java.lang.Character.UnicodeBlock;
 import java.util.regex.Pattern;
 
 public class MessageValidator {
@@ -25,9 +26,9 @@ public class MessageValidator {
     int count = 0;
     for (int i = 0; i < text.length(); i++) {
       char ch = text.charAt(i);
-      if (Character.UnicodeBlock.of(ch).equals(Character.UnicodeBlock.HANGUL_SYLLABLES)
-          || Character.UnicodeBlock.of(ch).equals(Character.UnicodeBlock.HANGUL_COMPATIBILITY_JAMO)
-          || Character.UnicodeBlock.of(ch).equals(Character.UnicodeBlock.HANGUL_JAMO)) {
+      if (UnicodeBlock.of(ch).equals(UnicodeBlock.HANGUL_SYLLABLES)
+          || UnicodeBlock.of(ch).equals(UnicodeBlock.HANGUL_COMPATIBILITY_JAMO)
+          || UnicodeBlock.of(ch).equals(UnicodeBlock.HANGUL_JAMO)) {
         count += 2;
       } else {
         count += 1;

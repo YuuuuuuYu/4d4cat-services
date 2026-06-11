@@ -4,14 +4,16 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
+import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.exception.InternalServerException;
 import com.services.core.common.notification.DataCollectionResult;
 import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.techblog.entity.TechBlogPost;
-import com.services.core.techblog.entity.TechBlogPostStat;
 import com.services.core.techblog.entity.TechBlogPostTag;
 import com.services.core.techblog.repository.TechBlogPostRepository;
-import com.services.core.techblog.repository.TechBlogPostStatRepository;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -39,7 +41,6 @@ public class TechBlogRssCollector {
 
   private final CompanyRepository companyRepository;
   private final TechBlogPostRepository postRepository;
-  private final TechBlogPostStatRepository statRepository;
   private final TransactionTemplate transactionTemplate;
   private final HttpClient httpClient;
 
@@ -106,23 +107,22 @@ public class TechBlogRssCollector {
               .GET()
               .build();
 
-      HttpResponse<java.io.InputStream> response =
+      HttpResponse<InputStream> response =
           httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 
       if (response.statusCode() != 200) {
-        throw new RuntimeException("Failed to fetch feed: HTTP " + response.statusCode());
+        throw new InternalServerException(ErrorCode.RSS_FETCH_FAILED);
       }
 
       // 유효하지 않은 XML 문자 제거 (예: Unicode 0x8)
-      String rawXml =
-          new String(response.body().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+      String rawXml = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
       String filteredXml = rawXml.replaceAll("[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]", "");
 
       SyndFeedInput input = new SyndFeedInput();
       SyndFeed feed =
           input.build(
               new XmlReader(
-                  new java.io.ByteArrayInputStream(filteredXml.getBytes(StandardCharsets.UTF_8))));
+                  new ByteArrayInputStream(filteredXml.getBytes(StandardCharsets.UTF_8))));
 
       List<Long> activePostIds = new ArrayList<>();
 
@@ -152,7 +152,6 @@ public class TechBlogRssCollector {
           }
 
           post = postRepository.save(post);
-          statRepository.save(new TechBlogPostStat(post.getId(), post.getTitle()));
           companyPostCount++;
         }
         activePostIds.add(post.getId());
@@ -166,7 +165,7 @@ public class TechBlogRssCollector {
 
     } catch (Exception e) {
       log.error("Failed to parse feed for company: {}", company.getSlug(), e);
-      throw new RuntimeException("Feed parsing failed", e);
+      throw new InternalServerException(ErrorCode.RSS_PARSE_FAILED);
     }
   }
 }

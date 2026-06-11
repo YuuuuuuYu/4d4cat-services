@@ -9,6 +9,7 @@ dependencies {
     // Web
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
 
     // Infra
     implementation 'io.micrometer:micrometer-registry-prometheus'
@@ -17,11 +18,15 @@ dependencies {
     // Utils
     implementation 'org.jsoup:jsoup:1.18.3'
 
+    // Batch & Data
+    implementation 'org.springframework.boot:spring-boot-starter-batch'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
     // Database
     runtimeOnly 'org.postgresql:postgresql'
 
     // Test
-    testRuntimeOnly 'com.h2database:h2'
+    runtimeOnly 'com.h2database:h2'
 }
 
 bootJar {

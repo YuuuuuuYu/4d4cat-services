@@ -1,26 +1,28 @@
 package com.services.core.common.dto;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
 
-public record BaseResponse<T>(int status, T data, ErrorResponse error, LocalDateTime timestamp) {
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class BaseResponse<T> implements Serializable {
 
-  static class ErrorResponse {
+  private int status;
+  private T data;
+  private ErrorResponse error;
+  private LocalDateTime timestamp;
+
+  @Getter
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class ErrorResponse implements Serializable {
     private String code;
     private String message;
-
-    public ErrorResponse(String code, String message) {
-      this.code = code;
-      this.message = message;
-    }
-
-    public String getCode() {
-      return code;
-    }
-
-    public String getMessage() {
-      return message;
-    }
   }
 
   public static <T> BaseResponse<T> of(HttpStatus status, T data) {

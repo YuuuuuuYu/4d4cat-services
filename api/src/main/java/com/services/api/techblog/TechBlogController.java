@@ -31,10 +31,4 @@ public class TechBlogController {
     List<TechBlogCompanyResponse> companies = queryService.getActiveCompanies();
     return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, companies));
   }
-
-  @PostMapping("/{id}/click")
-  public ResponseEntity<BaseResponse<Void>> incrementClickCount(@PathVariable Long id) {
-    queryService.incrementClickCount(id);
-    return ResponseEntity.ok(BaseResponse.of(HttpStatus.OK, null));
-  }
 }

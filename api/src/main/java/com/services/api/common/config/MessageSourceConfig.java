@@ -2,7 +2,7 @@ package com.services.api.common.config;
 
 import java.util.Locale;
 import java.util.ResourceBundle;
-import net.rakugakibox.util.YamlResourceBundle;
+import net.rakugakibox.util.YamlResourceBundle.Control;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +26,7 @@ public class MessageSourceConfig {
   private static class YamlMessageSource extends ResourceBundleMessageSource {
     @Override
     protected ResourceBundle doGetBundle(String basename, Locale locale) {
-      return ResourceBundle.getBundle(basename, locale, YamlResourceBundle.Control.INSTANCE);
+      return ResourceBundle.getBundle(basename, locale, Control.INSTANCE);
     }
   }
 }

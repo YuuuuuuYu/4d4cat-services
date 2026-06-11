@@ -1,6 +1,8 @@
 spring:
+  cache:
+    type: simple
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     username: sa
     password: ""
     driver-class-name: org.h2.Driver
@@ -10,10 +12,34 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+        default_batch_fetch_size: 100
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: dummy-client-id
+            client-secret: dummy-client-secret
+            scope:
+              - email
+              - profile
   data:
     redis:
       host: localhost
       port: 6379
+
+cloudflare:
+  r2:
+    token: dummy-token
+    access-key: dummy-access-key
+    secret-key: dummy-secret-key
+    endpoint: http://localhost:8080
+    bucket-name: dummy-bucket
+    image-path: dummy-image-path
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
 
 cors:
   allowed-origins: "http://localhost:8080"
@@ -21,3 +47,40 @@ cors:
 discord:
   webhook:
     url: http://dummy
+
+jwt:
+  secret: dummy-secret-very-long-string-for-hmac-sha-256-compliance
+  expiration: 360
+  refresh-expiration: 600
+
+app:
+  oauth2:
+    redirect-uri: "http://localhost:8080/login-success"
+  crypto:
+    key: "1234567890123456"
+    iv: "1234567890123456"
+  woorimail:
+    server-url: "dummy-server-url"
+    ssl: "N"
+    ssl-port: 80
+    authkey: "dummy-authkey"
+    domain: "dummy-domain"
+    type: "dummy-type"
+    mid: "dummy-mid"
+    endpoint: "dummy-endpoint"
+    act: "dummy-act"
+    sender-email: "dummy@dummy.com"
+    sender-nickname: "dummy-nickname"
+    wms-domain: "dummy-wms-domain"
+    wms-nick: "dummy-wms-nick"
+
+cloud:
+  aws:
+    credentials:
+      access-key: "dummy-access-key"
+      secret-key: "dummy-secret-key"
+
+applydays:
+  notification:
+    email:
+      trigger-queue: dummy-trigger-queue

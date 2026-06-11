@@ -133,10 +133,12 @@ public class DiscordNotifierAspect {
   private void sendWebhookNotification(
       String serviceName, String title, String description, int color) {
 
+    String formattedDescription = String.format("**Service:** `%s`\n%s", serviceName, description);
+
     Embed embed =
         Embed.builder()
             .title(title)
-            .description(description)
+            .description(formattedDescription)
             .color(color)
             .timestamp(Instant.now().toString())
             .build();

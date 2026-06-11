@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.services.api.common.config.MessageSourceConfig;
+import com.services.api.common.config.TestSecurityConfig;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.fixture.PixabayFixtures;
@@ -29,7 +30,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(PixabayController.class)
-@Import(MessageSourceConfig.class)
+@Import({MessageSourceConfig.class, TestSecurityConfig.class})
 @ActiveProfiles("test")
 class PixabayControllerTest {
 
