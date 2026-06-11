@@ -15,8 +15,7 @@ public class WoorimailDedicatedTest {
 
   @Test
   void sendTestEmail() {
-    System.out.println(
-        "Starting Woorimail Dedicated Test...");
+    System.out.println("Starting Woorimail Dedicated Test...");
     BaseResponse<String> response =
         woorimailClient.sendEmail(
             "dummy@dummy.com",
