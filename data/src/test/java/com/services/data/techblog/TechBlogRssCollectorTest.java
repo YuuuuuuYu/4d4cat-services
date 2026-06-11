@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-@SpringBootTest(properties = {"discord.webhook.url=${test.discord.webhook.url}"})
+@SpringBootTest
 @ActiveProfiles("test")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class TechBlogRssCollectorTest {
