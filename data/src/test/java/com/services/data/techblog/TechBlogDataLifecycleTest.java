@@ -49,10 +49,9 @@ class TechBlogDataLifecycleTest {
     transactionTemplate.executeWithoutResult(
         status -> {
           entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY FALSE").executeUpdate();
-          entityManager.createNativeQuery("DELETE FROM techblog_post_stat").executeUpdate();
           entityManager.createNativeQuery("DELETE FROM techblog_post_tag").executeUpdate();
           entityManager.createNativeQuery("DELETE FROM techblog_post").executeUpdate();
-          entityManager.createNativeQuery("DELETE FROM techblog_company").executeUpdate();
+          entityManager.createNativeQuery("DELETE FROM company").executeUpdate();
           entityManager.createNativeQuery("SET REFERENTIAL_INTEGRITY TRUE").executeUpdate();
         });
   }
