@@ -74,7 +74,9 @@ public class SecurityConfiguration {
                     .permitAll()
                     .requestMatchers(
                         "/",
+                        "/favicon.ico",
                         "/error",
+                        "/login-success",
                         "/auth/logout",
                         "/auth/refresh",
                         "/techblogs/**",
