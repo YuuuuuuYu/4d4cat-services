@@ -2,17 +2,8 @@ package com.services.api.applydays.service;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
-import com.services.core.applydays.dto.ApplicationDetailDto;
-import com.services.core.applydays.dto.ApplyDaysStatisticsDto;
-import com.services.core.applydays.dto.CompanyListResponse;
-import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
-import com.services.core.applydays.dto.PublicSummaryResponse;
-import com.services.core.applydays.dto.TimelineBasicResponse;
-import com.services.core.applydays.entity.Application;
-import com.services.core.applydays.entity.ApplyDaysStatistics;
-import com.services.core.applydays.entity.Category;
-import com.services.core.applydays.entity.VerificationRequest;
-import com.services.core.applydays.entity.VerificationStatus;
+import com.services.core.applydays.dto.*;
+import com.services.core.applydays.entity.*;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
@@ -28,23 +19,20 @@ import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +51,7 @@ public class ApplyDaysQueryService {
     if (authentication == null
         || !authentication.isAuthenticated()
         || (authentication instanceof AnonymousAuthenticationToken)) {
-      throw new ForbiddenException(ErrorCode.FORBIDDEN);
+      return new SliceImpl<>(List.of(), pageable, false);
     }
 
     Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
@@ -86,7 +74,7 @@ public class ApplyDaysQueryService {
       return applicationRepository.findTimelineBasicByCompanySlug(slug, pageable);
     }
 
-    throw new ForbiddenException(ErrorCode.FORBIDDEN);
+    return new SliceImpl<>(List.of(), pageable, false);
   }
 
   @Cacheable(value = "companySearch", key = "#query")
@@ -332,8 +320,7 @@ public class ApplyDaysQueryService {
   }
 
   private Map<Long, String> getCategoryMap() {
-    return categoryRepository.findAll().stream()
-        .collect(Collectors.toMap(Category::getId, Category::getName));
+    return getCategories().stream().collect(Collectors.toMap(Category::getId, Category::getName));
   }
 
   @Cacheable(value = "publicSummary")
