@@ -30,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Slf4j
 @Service
@@ -44,6 +45,7 @@ public class AdminApplyDaysCommandService {
   private final ApplyDaysWorkerService applyDaysWorkerService;
   private final NotificationQueueRepository notificationQueueRepository;
   private final MeterRegistry meterRegistry;
+  private final TransactionTemplate transactionTemplate;
 
   public void bulkApproveRequest(
       List<UUID> requestIds, String newSlug, Instant scheduledAt, String adminEmail) {
@@ -51,7 +53,8 @@ public class AdminApplyDaysCommandService {
         () -> {
           for (UUID id : requestIds) {
             try {
-              processApprove(id, newSlug, scheduledAt, adminEmail);
+              transactionTemplate.executeWithoutResult(
+                  status -> processApprove(id, newSlug, scheduledAt, adminEmail));
             } catch (Exception e) {
               log.error("Failed to bulk approve request: {}", id, e);
             }
@@ -66,7 +69,8 @@ public class AdminApplyDaysCommandService {
           if (details != null && !details.isEmpty()) {
             for (RejectionDetail detail : details) {
               try {
-                rejectRequest(detail.requestId(), detail.reason(), adminEmail);
+                transactionTemplate.executeWithoutResult(
+                    status -> rejectRequest(detail.requestId(), detail.reason(), adminEmail));
               } catch (Exception e) {
                 log.error("Failed to reject request: {}", detail.requestId(), e);
               }
@@ -74,7 +78,8 @@ public class AdminApplyDaysCommandService {
           } else if (requestIds != null) {
             for (UUID id : requestIds) {
               try {
-                rejectRequest(id, reason, adminEmail);
+                transactionTemplate.executeWithoutResult(
+                    status -> rejectRequest(id, reason, adminEmail));
               } catch (Exception e) {
                 log.error("Failed to bulk reject request: {}", id, e);
               }
@@ -88,7 +93,8 @@ public class AdminApplyDaysCommandService {
     CompletableFuture.runAsync(
         () -> {
           try {
-            approveRequest(requestId, newSlug, scheduledAt, adminEmail);
+            transactionTemplate.executeWithoutResult(
+                status -> approveRequest(requestId, newSlug, scheduledAt, adminEmail));
           } catch (Exception e) {
             log.error("Failed to async approve request: {}", requestId, e);
           }
@@ -99,7 +105,8 @@ public class AdminApplyDaysCommandService {
     CompletableFuture.runAsync(
         () -> {
           try {
-            rejectRequest(requestId, reason, adminEmail);
+            transactionTemplate.executeWithoutResult(
+                status -> rejectRequest(requestId, reason, adminEmail));
           } catch (Exception e) {
             log.error("Failed to async reject request: {}", requestId, e);
           }
