@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class AdminApplyDaysServiceTest {
@@ -36,6 +37,7 @@ class AdminApplyDaysServiceTest {
   @Mock private VerificationImageRepository verificationImageRepository;
   @Mock private ApplyDaysWorkerService applyDaysWorkerService;
   @Mock private NotificationQueueRepository notificationQueueRepository;
+  @Mock private TransactionTemplate transactionTemplate;
   private MeterRegistry meterRegistry;
 
   private AdminApplyDaysCommandService adminApplyDaysCommandService;
@@ -51,7 +53,8 @@ class AdminApplyDaysServiceTest {
             companyRepository,
             applyDaysWorkerService,
             notificationQueueRepository,
-            meterRegistry);
+            meterRegistry,
+            transactionTemplate);
   }
 
   @Test

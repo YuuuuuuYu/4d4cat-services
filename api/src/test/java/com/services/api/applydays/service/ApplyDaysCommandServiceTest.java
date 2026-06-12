@@ -113,15 +113,17 @@ class ApplyDaysCommandServiceTest {
     VerificationRequest vr =
         VerificationRequest.builder().applicationId(appId).memberId(memberId).build();
 
+    Application app = Application.builder().id(appId).build();
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
     when(verificationRequestRepository.findByApplicationIdIn(List.of(appId)))
         .thenReturn(List.of(vr));
+    when(applicationRepository.findAllById(List.of(appId))).thenReturn(List.of(app));
 
     // when
     applyDaysCommandService.deleteApplication(email, appId);
 
     // then
-    verify(applicationRepository).deleteAllByIdInBatch(List.of(appId));
+    verify(applicationRepository).deleteAll(List.of(app));
     assertThat(meterRegistry.find("applydays.applications.deleted").counter()).isNotNull();
     assertThat(meterRegistry.find("applydays.applications.deleted").counter().count()).isEqualTo(1);
   }
