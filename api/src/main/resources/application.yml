@@ -128,3 +128,4 @@ cloudflare:
 logging:
   level:
     com.services: INFO
+    org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver: ERROR

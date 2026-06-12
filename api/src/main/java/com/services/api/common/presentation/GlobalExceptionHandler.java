@@ -17,8 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -83,6 +87,31 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(BadGatewayException.class)
   public ResponseEntity<BaseResponse<Void>> handleBadGatewayException(BadGatewayException e) {
     return createErrorResponse(e.getErrorCode(), HttpStatus.BAD_GATEWAY, e);
+  }
+
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<BaseResponse<Void>> handleHttpRequestMethodNotSupportedException(
+      HttpRequestMethodNotSupportedException e) {
+    return createErrorResponse(ErrorCode.INVALID_REQUEST, HttpStatus.METHOD_NOT_ALLOWED, e);
+  }
+
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<BaseResponse<Void>> handleHttpMediaTypeNotSupportedException(
+      HttpMediaTypeNotSupportedException e) {
+    return createErrorResponse(ErrorCode.INVALID_REQUEST, HttpStatus.UNSUPPORTED_MEDIA_TYPE, e);
+  }
+
+  @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+  public ResponseEntity<Void> handleHttpMediaTypeNotAcceptableException(
+      HttpMediaTypeNotAcceptableException e) {
+    log.warn("Error Handled (Client): HttpMediaTypeNotAcceptableException - {}", e.getMessage());
+    return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
+  }
+
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<BaseResponse<Void>> handleNoResourceFoundException(
+      NoResourceFoundException e) {
+    return createErrorResponse(ErrorCode.INVALID_REQUEST, HttpStatus.NOT_FOUND, e);
   }
 
   @ExceptionHandler(Exception.class)
