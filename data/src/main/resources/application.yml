@@ -11,6 +11,8 @@ spring:
     jdbc:
       initialize-schema: ${BATCH_INIT_SCHEMA}
       isolation-level-for-create-lock: read_committed # 직렬화 에러 방지용 설정 추가
+    job:
+      enabled: false
   jpa:
     hibernate:
       ddl-auto: ${DB_DDL_AUTO:create-drop}
