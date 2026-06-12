@@ -161,7 +161,8 @@ public class ApplyDaysCommandService {
             .toList();
 
     if (!targetAppIds.isEmpty()) {
-      applicationRepository.deleteAllByIdInBatch(targetAppIds);
+      List<Application> apps = applicationRepository.findAllById(targetAppIds);
+      applicationRepository.deleteAll(apps);
       verificationImageRepository.softDeleteByApplicationIdIn(targetAppIds);
       targetAppIds.forEach(
           appId -> meterRegistry.counter("applydays.applications.deleted").increment());
