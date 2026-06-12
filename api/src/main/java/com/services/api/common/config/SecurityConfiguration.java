@@ -76,7 +76,6 @@ public class SecurityConfiguration {
                         "/",
                         "/favicon.ico",
                         "/error",
-                        "/login-success",
                         "/auth/logout",
                         "/auth/refresh",
                         "/techblogs/**",
