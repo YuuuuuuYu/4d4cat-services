@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,11 +12,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.ApplicationRequest;
+import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
 import com.services.api.common.security.handler.OAuth2SuccessHandler;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
+import com.services.core.applydays.dto.ApplicationDetailDto;
+import com.services.core.applydays.dto.ApplyDaysStatisticsDto;
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.ApplicationChannel;
 import com.services.core.common.infrastructure.RedisDataStorage;
@@ -84,5 +88,56 @@ class ApplyDaysControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(201))
         .andExpect(jsonPath("$.data").value(applicationId.toString()));
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  @DisplayName("회사 요약을 조회하면 DTO 형식으로 응답하며 stepStatistics는 마스킹된다")
+  void get_company_summary_success() throws Exception {
+    // given
+    String slug = "naver";
+    CompanySummaryResponse response =
+        CompanySummaryResponse.builder()
+            .slug(slug)
+            .name("Naver")
+            .companyStats(
+                ApplyDaysStatisticsDto.builder().reviewCount(10).stepStatistics(null).build())
+            .build();
+
+    given(applyDaysQueryService.getCompanySummary(any(), eq(slug))).willReturn(response);
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/companies/" + slug))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.companyStats.reviewCount").value(10))
+        .andExpect(jsonPath("$.data.companyStats.stepStatistics").isEmpty());
+  }
+
+  @Test
+  @WithMockUser(roles = "SUBSCRIBER")
+  @DisplayName("회사 상세를 조회하면 ApplicationDetailDto 리스트를 반환한다")
+  void get_company_details_success() throws Exception {
+    // given
+    String slug = "naver";
+    ApplicationDetailDto dto =
+        ApplicationDetailDto.builder()
+            .id(UUID.randomUUID())
+            .companySlug(slug)
+            .categoryName("Dev")
+            .positionDetail("Engineer")
+            .build();
+
+    given(applyDaysQueryService.getCompanyDetails(any(), eq(slug))).willReturn(List.of(dto));
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/companies/" + slug + "/details"))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].categoryName").value("Dev"))
+        .andExpect(jsonPath("$.data[0].positionDetail").value("Engineer"))
+        .andExpect(jsonPath("$.data[0].accessPassword").doesNotExist());
   }
 }

@@ -2,6 +2,8 @@ package com.services.api.applydays.service;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
+import com.services.core.applydays.dto.ApplicationDetailDto;
+import com.services.core.applydays.dto.ApplyDaysStatisticsDto;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
 import com.services.core.applydays.dto.PublicSummaryResponse;
@@ -182,7 +184,7 @@ public class ApplyDaysQueryService {
                 rejectionReasonMap.getOrDefault(app.getId(), null)));
   }
 
-  public Application viewApplication(String email, UUID id, String password) {
+  public ApplicationDetailDto viewApplication(String email, UUID id, String password) {
     if (!StringUtils.hasText(password)) {
       throw new BadRequestException(ErrorCode.INVALID_REQUEST);
     }
@@ -213,7 +215,10 @@ public class ApplyDaysQueryService {
 
     meterRegistry.counter("applydays.applications.viewed").increment();
 
-    return application;
+    Category category = categoryRepository.findById(application.getCategoryId()).orElse(null);
+    String categoryName = category != null ? category.getName() : null;
+
+    return ApplicationDetailDto.from(application, categoryName);
   }
 
   @Cacheable(
@@ -229,30 +234,61 @@ public class ApplyDaysQueryService {
 
     List<ApplyDaysStatistics> allStats = statisticsRepository.findAllByCompanySlug(companySlug);
 
-    ApplyDaysStatistics companyStats =
-        allStats.stream()
-            .filter(s -> "COMPANY".equals(s.getStatType()) && s.getCategoryId() == null)
-            .findFirst()
-            .orElse(null);
-
-    List<ApplyDaysStatistics> l1Stats = List.of();
-    List<ApplyDaysStatistics> l2Stats = List.of();
+    boolean isSubscriber = false;
+    boolean isReviewer = false;
+    boolean isUser = false;
 
     if (authentication != null
         && authentication.isAuthenticated()
         && !(authentication instanceof AnonymousAuthenticationToken)) {
 
       Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-      boolean isUser = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
-      boolean isReviewer =
-          authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_REVIEWER"));
+      isSubscriber =
+          authorities.stream()
+              .anyMatch(
+                  a ->
+                      a.getAuthority().equals("ROLE_SUBSCRIBER")
+                          || a.getAuthority().equals("ROLE_ADMIN"));
+      isReviewer = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_REVIEWER"));
+      isUser = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
+    }
 
-      if (isUser) {
-        l1Stats = allStats.stream().filter(s -> "CAT_L1".equals(s.getStatType())).toList();
-      }
-      if (isReviewer) {
-        l2Stats = allStats.stream().filter(s -> "CAT_L2".equals(s.getStatType())).toList();
-      }
+    final boolean includeDetails = isSubscriber;
+    Map<Long, String> categoryMap = getCategoryMap();
+
+    ApplyDaysStatistics companyEntity =
+        allStats.stream()
+            .filter(s -> "COMPANY".equals(s.getStatType()) && s.getCategoryId() == null)
+            .findFirst()
+            .orElse(null);
+
+    ApplyDaysStatisticsDto companyStats =
+        companyEntity != null
+            ? ApplyDaysStatisticsDto.from(companyEntity, null, includeDetails)
+            : null;
+
+    List<ApplyDaysStatisticsDto> l1Stats = List.of();
+    List<ApplyDaysStatisticsDto> l2Stats = List.of();
+
+    if (isUser || isReviewer || isSubscriber) {
+      l1Stats =
+          allStats.stream()
+              .filter(s -> "CAT_L1".equals(s.getStatType()))
+              .map(
+                  s ->
+                      ApplyDaysStatisticsDto.from(
+                          s, categoryMap.get(s.getCategoryId()), includeDetails))
+              .toList();
+    }
+    if (isReviewer || isSubscriber) {
+      l2Stats =
+          allStats.stream()
+              .filter(s -> "CAT_L2".equals(s.getStatType()))
+              .map(
+                  s ->
+                      ApplyDaysStatisticsDto.from(
+                          s, categoryMap.get(s.getCategoryId()), includeDetails))
+              .toList();
     }
 
     return CompanySummaryResponse.builder()
@@ -264,7 +300,8 @@ public class ApplyDaysQueryService {
         .build();
   }
 
-  public List<Application> getCompanyDetails(Authentication authentication, String companySlug) {
+  public List<ApplicationDetailDto> getCompanyDetails(
+      Authentication authentication, String companySlug) {
     if (authentication == null
         || !authentication.isAuthenticated()
         || (authentication instanceof AnonymousAuthenticationToken)) {
@@ -272,19 +309,31 @@ public class ApplyDaysQueryService {
     }
 
     Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-    boolean isSubscriberOrAdmin =
+    boolean isSubscriber =
         authorities.stream()
             .anyMatch(
                 a ->
                     a.getAuthority().equals("ROLE_SUBSCRIBER")
                         || a.getAuthority().equals("ROLE_ADMIN"));
 
-    if (!isSubscriberOrAdmin) {
+    if (!isSubscriber) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
     }
 
-    return applicationRepository.findAllByCompanySlugAndVerificationStatus(
-        companySlug, VerificationStatus.APPROVED);
+    List<Application> applications =
+        applicationRepository.findAllByCompanySlugAndVerificationStatus(
+            companySlug, VerificationStatus.APPROVED);
+
+    Map<Long, String> categoryMap = getCategoryMap();
+
+    return applications.stream()
+        .map(app -> ApplicationDetailDto.from(app, categoryMap.get(app.getCategoryId())))
+        .toList();
+  }
+
+  private Map<Long, String> getCategoryMap() {
+    return categoryRepository.findAll().stream()
+        .collect(Collectors.toMap(Category::getId, Category::getName));
   }
 
   @Cacheable(value = "publicSummary")

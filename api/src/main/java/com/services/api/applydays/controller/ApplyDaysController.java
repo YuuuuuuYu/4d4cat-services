@@ -8,11 +8,11 @@ import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
+import com.services.core.applydays.dto.ApplicationDetailDto;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
 import com.services.core.applydays.dto.PublicSummaryResponse;
 import com.services.core.applydays.dto.TimelineBasicResponse;
-import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.common.dto.BaseResponse;
@@ -110,7 +110,7 @@ public class ApplyDaysController {
   }
 
   @PostMapping("/applications/{id}/view")
-  public BaseResponse<Application> viewApplication(
+  public BaseResponse<ApplicationDetailDto> viewApplication(
       Authentication authentication,
       @PathVariable UUID id,
       @RequestBody ApplicationViewRequest request) {
@@ -127,7 +127,7 @@ public class ApplyDaysController {
   }
 
   @GetMapping("/companies/{companySlug}/details")
-  public BaseResponse<List<Application>> getCompanyDetails(
+  public BaseResponse<List<ApplicationDetailDto>> getCompanyDetails(
       Authentication authentication, @PathVariable String companySlug) {
     return BaseResponse.of(
         HttpStatus.OK, applyDaysQueryService.getCompanyDetails(authentication, companySlug));

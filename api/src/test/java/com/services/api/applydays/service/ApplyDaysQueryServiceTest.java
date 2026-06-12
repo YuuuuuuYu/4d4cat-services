@@ -6,10 +6,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
+import com.services.core.applydays.dto.ApplicationDetailDto;
 import com.services.core.applydays.dto.TimelineBasicResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
 import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.ApplyDaysStatistics;
+import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.repository.ApplicationRepository;
@@ -91,12 +93,15 @@ class ApplyDaysQueryServiceTest {
     when(applicationRepository.findById(appId)).thenReturn(Optional.of(application));
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
     when(verificationRequestRepository.findByApplicationId(appId)).thenReturn(Optional.of(vr));
+    when(categoryRepository.findById(1L))
+        .thenReturn(Optional.of(new Category("Developer", null, 1)));
 
     // when
-    Application result = applyDaysQueryService.viewApplication(email, appId, password);
+    ApplicationDetailDto result = applyDaysQueryService.viewApplication(email, appId, password);
 
     // then
     assertThat(result).isNotNull();
+    assertThat(result.getCategoryName()).isEqualTo("Developer");
     assertThat(meterRegistry.find("applydays.applications.viewed").counter()).isNotNull();
     assertThat(meterRegistry.find("applydays.applications.viewed").counter().count()).isEqualTo(1);
   }
@@ -119,7 +124,7 @@ class ApplyDaysQueryServiceTest {
   }
 
   @Test
-  @DisplayName("getCompanySummary는 로그인한 USER 권한일 때 COMPANY와 CAT_L1 통계를 가져온다")
+  @DisplayName("getCompanySummary는 로그인한 USER 권한일 때 COMPANY와 CAT_L1 통계를 가져오며 stepStatistics는 제외된다")
   void getCompanySummary_user() {
     // given
     String companySlug = "naver";
@@ -132,7 +137,7 @@ class ApplyDaysQueryServiceTest {
             .categoryId(null)
             .reviewCount(10)
             .ghostingCount(2)
-            .stepStatistics("{}")
+            .stepStatistics("{\"detail\": \"secret\"}")
             .build();
 
     ApplyDaysStatistics l1Stat =
@@ -142,7 +147,7 @@ class ApplyDaysQueryServiceTest {
             .categoryId(1L)
             .reviewCount(5)
             .ghostingCount(1)
-            .stepStatistics("{}")
+            .stepStatistics("{\"detail\": \"secret\"}")
             .build();
 
     ApplyDaysStatistics l2Stat =
@@ -152,12 +157,25 @@ class ApplyDaysQueryServiceTest {
             .categoryId(2L)
             .reviewCount(3)
             .ghostingCount(0)
-            .stepStatistics("{}")
+            .stepStatistics("{\"detail\": \"secret\"}")
             .build();
 
     when(companyRepository.findBySlug(companySlug)).thenReturn(Optional.of(company));
     when(statisticsRepository.findAllByCompanySlug(companySlug))
         .thenReturn(List.of(companyStat, l1Stat, l2Stat));
+    when(categoryRepository.findAll())
+        .thenReturn(
+            List.of(
+                new Category("L1 Cat", null, 1) {
+                  {
+                    ApplyDaysFixtures.setId(this, 1L);
+                  }
+                },
+                new Category("L2 Cat", 1L, 2) {
+                  {
+                    ApplyDaysFixtures.setId(this, 2L);
+                  }
+                }));
 
     Authentication auth = mock(Authentication.class);
     when(auth.isAuthenticated()).thenReturn(true);
@@ -170,9 +188,47 @@ class ApplyDaysQueryServiceTest {
     // then
     assertThat(response.getSlug()).isEqualTo(companySlug);
     assertThat(response.getName()).isEqualTo("Naver");
-    assertThat(response.getCompanyStats()).isEqualTo(companyStat);
-    assertThat(response.getCategoryL1Stats()).containsExactly(l1Stat);
+    assertThat(response.getCompanyStats().getReviewCount()).isEqualTo(10);
+    assertThat(response.getCompanyStats().getStepStatistics())
+        .isNull(); // Masked for non-subscribers
+    assertThat(response.getCategoryL1Stats()).hasSize(1);
+    assertThat(response.getCategoryL1Stats().get(0).getCategoryName()).isEqualTo("L1 Cat");
+    assertThat(response.getCategoryL1Stats().get(0).getStepStatistics()).isNull(); // Masked
     assertThat(response.getCategoryL2Stats()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("getCompanySummary는 SUBSCRIBER 권한일 때 모든 통계와 stepStatistics를 포함한다")
+  void getCompanySummary_subscriber() {
+    // given
+    String companySlug = "naver";
+    Company company = Company.builder().slug(companySlug).name("Naver").build();
+
+    ApplyDaysStatistics companyStat =
+        ApplyDaysStatistics.builder()
+            .companySlug(companySlug)
+            .statType("COMPANY")
+            .categoryId(null)
+            .reviewCount(10)
+            .ghostingCount(2)
+            .stepStatistics("{\"detail\": \"secret\"}")
+            .build();
+
+    when(companyRepository.findBySlug(companySlug)).thenReturn(Optional.of(company));
+    when(statisticsRepository.findAllByCompanySlug(companySlug)).thenReturn(List.of(companyStat));
+    when(categoryRepository.findAll()).thenReturn(List.of());
+
+    Authentication auth = mock(Authentication.class);
+    when(auth.isAuthenticated()).thenReturn(true);
+    GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_SUBSCRIBER");
+    when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
+
+    // when
+    CompanySummaryResponse response = applyDaysQueryService.getCompanySummary(auth, companySlug);
+
+    // then
+    assertThat(response.getCompanyStats().getStepStatistics())
+        .isEqualTo("{\"detail\": \"secret\"}");
   }
 
   @Test
@@ -215,7 +271,7 @@ class ApplyDaysQueryServiceTest {
   }
 
   @Test
-  @DisplayName("getCompanyDetails는 SUBSCRIBER 권한일 때 상세 정보를 반환한다")
+  @DisplayName("getCompanyDetails는 SUBSCRIBER 권한일 때 상세 정보를 DTO 형식으로 반환한다")
   void getCompanyDetails_subscriber() {
     // given
     String companySlug = "naver";
@@ -224,16 +280,26 @@ class ApplyDaysQueryServiceTest {
     GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_SUBSCRIBER");
     when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
 
-    List<Application> expected = List.of();
+    Application app = ApplyDaysFixtures.createApplication(companySlug, 1L);
     when(applicationRepository.findAllByCompanySlugAndVerificationStatus(
             companySlug, VerificationStatus.APPROVED))
-        .thenReturn(expected);
+        .thenReturn(List.of(app));
+    when(categoryRepository.findAll())
+        .thenReturn(
+            List.of(
+                new Category("Developer", null, 1) {
+                  {
+                    ApplyDaysFixtures.setId(this, 1L);
+                  }
+                }));
 
     // when
-    List<Application> result = applyDaysQueryService.getCompanyDetails(auth, companySlug);
+    List<ApplicationDetailDto> result = applyDaysQueryService.getCompanyDetails(auth, companySlug);
 
     // then
-    assertThat(result).isEqualTo(expected);
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getCategoryName()).isEqualTo("Developer");
+    assertThat(result.get(0).getCompanySlug()).isEqualTo(companySlug);
   }
 
   @Test
