@@ -1,5 +1,15 @@
 package com.services.api.applydays.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.CompanySummaryResponse;
@@ -25,16 +35,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ApplyDaysController.class)
 class ApplyDaysControllerTest {
@@ -96,11 +96,13 @@ class ApplyDaysControllerTest {
   void get_company_summary_success() throws Exception {
     // given
     String slug = "naver";
-    CompanySummaryResponse response = CompanySummaryResponse.builder()
-        .slug(slug)
-        .name("Naver")
-        .companyStats(ApplyDaysStatisticsDto.builder().reviewCount(10).stepStatistics(null).build())
-        .build();
+    CompanySummaryResponse response =
+        CompanySummaryResponse.builder()
+            .slug(slug)
+            .name("Naver")
+            .companyStats(
+                ApplyDaysStatisticsDto.builder().reviewCount(10).stepStatistics(null).build())
+            .build();
 
     given(applyDaysQueryService.getCompanySummary(any(), eq(slug))).willReturn(response);
 
@@ -119,12 +121,13 @@ class ApplyDaysControllerTest {
   void get_company_details_success() throws Exception {
     // given
     String slug = "naver";
-    ApplicationDetailDto dto = ApplicationDetailDto.builder()
-        .id(UUID.randomUUID())
-        .companySlug(slug)
-        .categoryName("Dev")
-        .positionDetail("Engineer")
-        .build();
+    ApplicationDetailDto dto =
+        ApplicationDetailDto.builder()
+            .id(UUID.randomUUID())
+            .companySlug(slug)
+            .categoryName("Dev")
+            .positionDetail("Engineer")
+            .build();
 
     given(applyDaysQueryService.getCompanyDetails(any(), eq(slug))).willReturn(List.of(dto));
 

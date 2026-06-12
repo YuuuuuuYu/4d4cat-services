@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.core.applydays.dto.ApplicationDetailDto;
-import com.services.core.applydays.dto.ApplyDaysStatisticsDto;
 import com.services.core.applydays.dto.TimelineBasicResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
 import com.services.core.applydays.entity.Application;
@@ -94,7 +93,8 @@ class ApplyDaysQueryServiceTest {
     when(applicationRepository.findById(appId)).thenReturn(Optional.of(application));
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
     when(verificationRequestRepository.findByApplicationId(appId)).thenReturn(Optional.of(vr));
-    when(categoryRepository.findById(1L)).thenReturn(Optional.of(new Category("Developer", null, 1)));
+    when(categoryRepository.findById(1L))
+        .thenReturn(Optional.of(new Category("Developer", null, 1)));
 
     // when
     ApplicationDetailDto result = applyDaysQueryService.viewApplication(email, appId, password);
@@ -163,10 +163,19 @@ class ApplyDaysQueryServiceTest {
     when(companyRepository.findBySlug(companySlug)).thenReturn(Optional.of(company));
     when(statisticsRepository.findAllByCompanySlug(companySlug))
         .thenReturn(List.of(companyStat, l1Stat, l2Stat));
-    when(categoryRepository.findAll()).thenReturn(List.of(
-        new Category("L1 Cat", null, 1) {{ ApplyDaysFixtures.setId(this, 1L); }},
-        new Category("L2 Cat", 1L, 2) {{ ApplyDaysFixtures.setId(this, 2L); }}
-    ));
+    when(categoryRepository.findAll())
+        .thenReturn(
+            List.of(
+                new Category("L1 Cat", null, 1) {
+                  {
+                    ApplyDaysFixtures.setId(this, 1L);
+                  }
+                },
+                new Category("L2 Cat", 1L, 2) {
+                  {
+                    ApplyDaysFixtures.setId(this, 2L);
+                  }
+                }));
 
     Authentication auth = mock(Authentication.class);
     when(auth.isAuthenticated()).thenReturn(true);
@@ -180,7 +189,8 @@ class ApplyDaysQueryServiceTest {
     assertThat(response.getSlug()).isEqualTo(companySlug);
     assertThat(response.getName()).isEqualTo("Naver");
     assertThat(response.getCompanyStats().getReviewCount()).isEqualTo(10);
-    assertThat(response.getCompanyStats().getStepStatistics()).isNull(); // Masked for non-subscribers
+    assertThat(response.getCompanyStats().getStepStatistics())
+        .isNull(); // Masked for non-subscribers
     assertThat(response.getCategoryL1Stats()).hasSize(1);
     assertThat(response.getCategoryL1Stats().get(0).getCategoryName()).isEqualTo("L1 Cat");
     assertThat(response.getCategoryL1Stats().get(0).getStepStatistics()).isNull(); // Masked
@@ -205,8 +215,7 @@ class ApplyDaysQueryServiceTest {
             .build();
 
     when(companyRepository.findBySlug(companySlug)).thenReturn(Optional.of(company));
-    when(statisticsRepository.findAllByCompanySlug(companySlug))
-        .thenReturn(List.of(companyStat));
+    when(statisticsRepository.findAllByCompanySlug(companySlug)).thenReturn(List.of(companyStat));
     when(categoryRepository.findAll()).thenReturn(List.of());
 
     Authentication auth = mock(Authentication.class);
@@ -218,7 +227,8 @@ class ApplyDaysQueryServiceTest {
     CompanySummaryResponse response = applyDaysQueryService.getCompanySummary(auth, companySlug);
 
     // then
-    assertThat(response.getCompanyStats().getStepStatistics()).isEqualTo("{\"detail\": \"secret\"}");
+    assertThat(response.getCompanyStats().getStepStatistics())
+        .isEqualTo("{\"detail\": \"secret\"}");
   }
 
   @Test
@@ -274,9 +284,14 @@ class ApplyDaysQueryServiceTest {
     when(applicationRepository.findAllByCompanySlugAndVerificationStatus(
             companySlug, VerificationStatus.APPROVED))
         .thenReturn(List.of(app));
-    when(categoryRepository.findAll()).thenReturn(List.of(
-        new Category("Developer", null, 1) {{ ApplyDaysFixtures.setId(this, 1L); }}
-    ));
+    when(categoryRepository.findAll())
+        .thenReturn(
+            List.of(
+                new Category("Developer", null, 1) {
+                  {
+                    ApplyDaysFixtures.setId(this, 1L);
+                  }
+                }));
 
     // when
     List<ApplicationDetailDto> result = applyDaysQueryService.getCompanyDetails(auth, companySlug);

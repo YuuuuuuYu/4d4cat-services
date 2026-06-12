@@ -23,7 +23,8 @@ public class ApplyDaysStatisticsDto implements Serializable {
   private String statType;
   private OffsetDateTime updatedAt;
 
-  public static ApplyDaysStatisticsDto from(ApplyDaysStatistics entity, String categoryName, boolean includeDetails) {
+  public static ApplyDaysStatisticsDto from(
+      ApplyDaysStatistics entity, String categoryName, boolean includeDetails) {
     return ApplyDaysStatisticsDto.builder()
         .id(entity.getId())
         .companySlug(entity.getCompanySlug())

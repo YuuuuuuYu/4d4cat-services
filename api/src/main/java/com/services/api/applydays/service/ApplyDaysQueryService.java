@@ -243,8 +243,12 @@ public class ApplyDaysQueryService {
         && !(authentication instanceof AnonymousAuthenticationToken)) {
 
       Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-      isSubscriber = authorities.stream()
-          .anyMatch(a -> a.getAuthority().equals("ROLE_SUBSCRIBER") || a.getAuthority().equals("ROLE_ADMIN"));
+      isSubscriber =
+          authorities.stream()
+              .anyMatch(
+                  a ->
+                      a.getAuthority().equals("ROLE_SUBSCRIBER")
+                          || a.getAuthority().equals("ROLE_ADMIN"));
       isReviewer = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_REVIEWER"));
       isUser = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
     }
@@ -258,24 +262,33 @@ public class ApplyDaysQueryService {
             .findFirst()
             .orElse(null);
 
-    ApplyDaysStatisticsDto companyStats = companyEntity != null
-        ? ApplyDaysStatisticsDto.from(companyEntity, null, includeDetails)
-        : null;
+    ApplyDaysStatisticsDto companyStats =
+        companyEntity != null
+            ? ApplyDaysStatisticsDto.from(companyEntity, null, includeDetails)
+            : null;
 
     List<ApplyDaysStatisticsDto> l1Stats = List.of();
     List<ApplyDaysStatisticsDto> l2Stats = List.of();
 
     if (isUser || isReviewer || isSubscriber) {
-      l1Stats = allStats.stream()
-          .filter(s -> "CAT_L1".equals(s.getStatType()))
-          .map(s -> ApplyDaysStatisticsDto.from(s, categoryMap.get(s.getCategoryId()), includeDetails))
-          .toList();
+      l1Stats =
+          allStats.stream()
+              .filter(s -> "CAT_L1".equals(s.getStatType()))
+              .map(
+                  s ->
+                      ApplyDaysStatisticsDto.from(
+                          s, categoryMap.get(s.getCategoryId()), includeDetails))
+              .toList();
     }
     if (isReviewer || isSubscriber) {
-      l2Stats = allStats.stream()
-          .filter(s -> "CAT_L2".equals(s.getStatType()))
-          .map(s -> ApplyDaysStatisticsDto.from(s, categoryMap.get(s.getCategoryId()), includeDetails))
-          .toList();
+      l2Stats =
+          allStats.stream()
+              .filter(s -> "CAT_L2".equals(s.getStatType()))
+              .map(
+                  s ->
+                      ApplyDaysStatisticsDto.from(
+                          s, categoryMap.get(s.getCategoryId()), includeDetails))
+              .toList();
     }
 
     return CompanySummaryResponse.builder()
@@ -287,7 +300,8 @@ public class ApplyDaysQueryService {
         .build();
   }
 
-  public List<ApplicationDetailDto> getCompanyDetails(Authentication authentication, String companySlug) {
+  public List<ApplicationDetailDto> getCompanyDetails(
+      Authentication authentication, String companySlug) {
     if (authentication == null
         || !authentication.isAuthenticated()
         || (authentication instanceof AnonymousAuthenticationToken)) {
@@ -306,8 +320,9 @@ public class ApplyDaysQueryService {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
     }
 
-    List<Application> applications = applicationRepository.findAllByCompanySlugAndVerificationStatus(
-        companySlug, VerificationStatus.APPROVED);
+    List<Application> applications =
+        applicationRepository.findAllByCompanySlugAndVerificationStatus(
+            companySlug, VerificationStatus.APPROVED);
 
     Map<Long, String> categoryMap = getCategoryMap();
 
