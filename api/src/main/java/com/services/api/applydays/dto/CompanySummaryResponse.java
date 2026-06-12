@@ -1,6 +1,6 @@
 package com.services.api.applydays.dto;
 
-import com.services.core.applydays.entity.ApplyDaysStatistics;
+import com.services.core.applydays.dto.ApplyDaysStatisticsDto;
 import java.io.Serializable;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 public class CompanySummaryResponse implements Serializable {
   private String slug;
   private String name;
-  private ApplyDaysStatistics companyStats;
-  private List<ApplyDaysStatistics> categoryL1Stats;
-  private List<ApplyDaysStatistics> categoryL2Stats;
+  private ApplyDaysStatisticsDto companyStats;
+  private List<ApplyDaysStatisticsDto> categoryL1Stats;
+  private List<ApplyDaysStatisticsDto> categoryL2Stats;
 }
