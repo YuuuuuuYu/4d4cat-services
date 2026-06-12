@@ -85,6 +85,7 @@ app:
       batch-cron: ${APPLYDAYS_EMAIL_CRON}
     sendpulse:
       api-key: ${SENDPULSE_API_KEY}
+      api-url: ${SENDPULSE_API_URL}
       sender-email: ${SENDPULSE_SENDER_EMAIL}
       sender-name: ${SENDPULSE_SENDER_NAME}
 
