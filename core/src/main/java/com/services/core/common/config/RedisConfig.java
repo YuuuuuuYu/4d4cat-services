@@ -66,9 +66,9 @@ public class RedisConfig {
   public RedisConnectionFactory redisConnectionFactory() {
     // 1. Connection Pool 설정
     GenericObjectPoolConfig<Object> poolConfig = new GenericObjectPoolConfig<>();
-    poolConfig.setMaxTotal(256);
-    poolConfig.setMaxIdle(128);
-    poolConfig.setMinIdle(64);
+    poolConfig.setMaxTotal(32);
+    poolConfig.setMaxIdle(16);
+    poolConfig.setMinIdle(8);
     poolConfig.setTestOnBorrow(false); // 성능 최적화를 위해 false로 설정 (순간 부하 시 PING 오버헤드 방지)
     poolConfig.setTestWhileIdle(true);
     poolConfig.setTimeBetweenEvictionRuns(Duration.ofSeconds(30));
