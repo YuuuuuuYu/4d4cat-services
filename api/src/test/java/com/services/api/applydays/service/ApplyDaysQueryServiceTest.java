@@ -191,10 +191,11 @@ class ApplyDaysQueryServiceTest {
     assertThat(response.getName()).isEqualTo("Naver");
     assertThat(response.getCompanyStats().getReviewCount()).isEqualTo(10);
     assertThat(response.getCompanyStats().getStepStatistics())
-        .isNull(); // Masked for non-subscribers
+        .isEqualTo("{\"detail\": \"secret\"}");
     assertThat(response.getCategoryL1Stats()).hasSize(1);
     assertThat(response.getCategoryL1Stats().get(0).getCategoryName()).isEqualTo("L1 Cat");
-    assertThat(response.getCategoryL1Stats().get(0).getStepStatistics()).isNull(); // Masked
+    assertThat(response.getCategoryL1Stats().get(0).getStepStatistics())
+        .isEqualTo("{\"detail\": \"secret\"}");
     assertThat(response.getCategoryL2Stats()).isEmpty();
   }
 

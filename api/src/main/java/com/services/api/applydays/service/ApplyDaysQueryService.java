@@ -202,8 +202,14 @@ public class ApplyDaysQueryService {
     List<ApplyDaysStatistics> allStats = statisticsRepository.findAllByCompanySlug(companySlug);
 
     String authorityKey = getAuthorityKey(authentication);
-    final boolean includeDetails = "SUBSCRIBER".equals(authorityKey);
     Map<Long, String> categoryMap = getCategoryMap();
+
+    boolean hasUserAccess =
+        "USER".equals(authorityKey)
+            || "REVIEWER".equals(authorityKey)
+            || "SUBSCRIBER".equals(authorityKey);
+    boolean hasReviewerAccess =
+        "REVIEWER".equals(authorityKey) || "SUBSCRIBER".equals(authorityKey);
 
     ApplyDaysStatistics companyEntity =
         allStats.stream()
@@ -213,18 +219,11 @@ public class ApplyDaysQueryService {
 
     ApplyDaysStatisticsResponse companyStats =
         companyEntity != null
-            ? ApplyDaysStatisticsResponse.from(companyEntity, null, includeDetails)
+            ? ApplyDaysStatisticsResponse.from(companyEntity, null, hasUserAccess)
             : null;
 
     List<ApplyDaysStatisticsResponse> l1Stats = List.of();
     List<ApplyDaysStatisticsResponse> l2Stats = List.of();
-
-    boolean hasUserAccess =
-        "USER".equals(authorityKey)
-            || "REVIEWER".equals(authorityKey)
-            || "SUBSCRIBER".equals(authorityKey);
-    boolean hasReviewerAccess =
-        "REVIEWER".equals(authorityKey) || "SUBSCRIBER".equals(authorityKey);
 
     if (hasUserAccess) {
       l1Stats =
@@ -233,7 +232,7 @@ public class ApplyDaysQueryService {
               .map(
                   s ->
                       ApplyDaysStatisticsResponse.from(
-                          s, categoryMap.get(s.getCategoryId()), includeDetails))
+                          s, categoryMap.get(s.getCategoryId()), hasUserAccess))
               .toList();
     }
     if (hasReviewerAccess) {
@@ -243,7 +242,7 @@ public class ApplyDaysQueryService {
               .map(
                   s ->
                       ApplyDaysStatisticsResponse.from(
-                          s, categoryMap.get(s.getCategoryId()), includeDetails))
+                          s, categoryMap.get(s.getCategoryId()), hasReviewerAccess))
               .toList();
     }
 
