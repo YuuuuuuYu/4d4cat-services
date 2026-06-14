@@ -1,5 +1,6 @@
 package com.services.core.applydays.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.services.core.applydays.entity.ApplyDaysStatistics;
 import java.io.Serializable;
 import java.time.OffsetDateTime;
@@ -12,7 +13,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApplyDaysStatisticsDto implements Serializable {
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class ApplyDaysStatisticsResponse implements Serializable {
   private Long id;
   private String companySlug;
   private Long categoryId;
@@ -23,9 +25,9 @@ public class ApplyDaysStatisticsDto implements Serializable {
   private String statType;
   private OffsetDateTime updatedAt;
 
-  public static ApplyDaysStatisticsDto from(
+  public static ApplyDaysStatisticsResponse from(
       ApplyDaysStatistics entity, String categoryName, boolean includeDetails) {
-    return ApplyDaysStatisticsDto.builder()
+    return ApplyDaysStatisticsResponse.builder()
         .id(entity.getId())
         .companySlug(entity.getCompanySlug())
         .categoryId(entity.getCategoryId())
