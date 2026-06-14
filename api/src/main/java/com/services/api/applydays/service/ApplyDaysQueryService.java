@@ -19,6 +19,11 @@ import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
@@ -27,12 +32,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,30 +47,10 @@ public class ApplyDaysQueryService {
 
   public Slice<? extends TimelineBasicResponse> getCompanyTimeline(
       Authentication authentication, String slug, Pageable pageable) {
-    if (authentication == null
-        || !authentication.isAuthenticated()
-        || (authentication instanceof AnonymousAuthenticationToken)) {
-      return new SliceImpl<>(List.of(), pageable, false);
-    }
+    String authorityKey = getAuthorityKey(authentication);
 
-    Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-
-    boolean isSubscriberOrAdmin =
-        authorities.stream()
-            .anyMatch(
-                a ->
-                    a.getAuthority().equals("ROLE_SUBSCRIBER")
-                        || a.getAuthority().equals("ROLE_ADMIN"));
-
-    boolean isReviewer =
-        authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_REVIEWER"));
-
-    if (isSubscriberOrAdmin) {
+    if ("SUBSCRIBER".equals(authorityKey)) {
       return applicationRepository.findTimelineDetailByCompanySlug(slug, pageable);
-    }
-
-    if (isReviewer) {
-      return applicationRepository.findTimelineBasicByCompanySlug(slug, pageable);
     }
 
     return new SliceImpl<>(List.of(), pageable, false);
@@ -172,7 +151,7 @@ public class ApplyDaysQueryService {
                 rejectionReasonMap.getOrDefault(app.getId(), null)));
   }
 
-  public ApplicationDetailDto viewApplication(String email, UUID id, String password) {
+  public ApplicationDetailResponse viewApplication(String email, UUID id, String password) {
     if (!StringUtils.hasText(password)) {
       throw new BadRequestException(ErrorCode.INVALID_REQUEST);
     }
@@ -206,13 +185,13 @@ public class ApplyDaysQueryService {
     Category category = categoryRepository.findById(application.getCategoryId()).orElse(null);
     String categoryName = category != null ? category.getName() : null;
 
-    return ApplicationDetailDto.from(application, categoryName);
+    return ApplicationDetailResponse.from(application, categoryName);
   }
 
   @Cacheable(
       value = "companySummary",
       key =
-          "#companySlug + '_' + (#authentication != null ? #authentication.authorities.toString() : 'ANONYMOUS')")
+          "#companySlug + '_' + T(com.services.api.applydays.service.ApplyDaysQueryService).getAuthorityKey(#authentication)")
   public CompanySummaryResponse getCompanySummary(
       Authentication authentication, String companySlug) {
     Company company =
@@ -222,26 +201,8 @@ public class ApplyDaysQueryService {
 
     List<ApplyDaysStatistics> allStats = statisticsRepository.findAllByCompanySlug(companySlug);
 
-    boolean isSubscriber = false;
-    boolean isReviewer = false;
-    boolean isUser = false;
-
-    if (authentication != null
-        && authentication.isAuthenticated()
-        && !(authentication instanceof AnonymousAuthenticationToken)) {
-
-      Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-      isSubscriber =
-          authorities.stream()
-              .anyMatch(
-                  a ->
-                      a.getAuthority().equals("ROLE_SUBSCRIBER")
-                          || a.getAuthority().equals("ROLE_ADMIN"));
-      isReviewer = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_REVIEWER"));
-      isUser = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
-    }
-
-    final boolean includeDetails = isSubscriber;
+    String authorityKey = getAuthorityKey(authentication);
+    final boolean includeDetails = "SUBSCRIBER".equals(authorityKey);
     Map<Long, String> categoryMap = getCategoryMap();
 
     ApplyDaysStatistics companyEntity =
@@ -250,31 +211,38 @@ public class ApplyDaysQueryService {
             .findFirst()
             .orElse(null);
 
-    ApplyDaysStatisticsDto companyStats =
+    ApplyDaysStatisticsResponse companyStats =
         companyEntity != null
-            ? ApplyDaysStatisticsDto.from(companyEntity, null, includeDetails)
+            ? ApplyDaysStatisticsResponse.from(companyEntity, null, includeDetails)
             : null;
 
-    List<ApplyDaysStatisticsDto> l1Stats = List.of();
-    List<ApplyDaysStatisticsDto> l2Stats = List.of();
+    List<ApplyDaysStatisticsResponse> l1Stats = List.of();
+    List<ApplyDaysStatisticsResponse> l2Stats = List.of();
 
-    if (isUser || isReviewer || isSubscriber) {
+    boolean hasUserAccess =
+        "USER".equals(authorityKey)
+            || "REVIEWER".equals(authorityKey)
+            || "SUBSCRIBER".equals(authorityKey);
+    boolean hasReviewerAccess =
+        "REVIEWER".equals(authorityKey) || "SUBSCRIBER".equals(authorityKey);
+
+    if (hasUserAccess) {
       l1Stats =
           allStats.stream()
               .filter(s -> "CAT_L1".equals(s.getStatType()))
               .map(
                   s ->
-                      ApplyDaysStatisticsDto.from(
+                      ApplyDaysStatisticsResponse.from(
                           s, categoryMap.get(s.getCategoryId()), includeDetails))
               .toList();
     }
-    if (isReviewer || isSubscriber) {
+    if (hasReviewerAccess) {
       l2Stats =
           allStats.stream()
               .filter(s -> "CAT_L2".equals(s.getStatType()))
               .map(
                   s ->
-                      ApplyDaysStatisticsDto.from(
+                      ApplyDaysStatisticsResponse.from(
                           s, categoryMap.get(s.getCategoryId()), includeDetails))
               .toList();
     }
@@ -288,23 +256,11 @@ public class ApplyDaysQueryService {
         .build();
   }
 
-  public List<ApplicationDetailDto> getCompanyDetails(
+  public List<ApplicationDetailResponse> getCompanyDetails(
       Authentication authentication, String companySlug) {
-    if (authentication == null
-        || !authentication.isAuthenticated()
-        || (authentication instanceof AnonymousAuthenticationToken)) {
-      throw new ForbiddenException(ErrorCode.FORBIDDEN);
-    }
+    String authorityKey = getAuthorityKey(authentication);
 
-    Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-    boolean isSubscriber =
-        authorities.stream()
-            .anyMatch(
-                a ->
-                    a.getAuthority().equals("ROLE_SUBSCRIBER")
-                        || a.getAuthority().equals("ROLE_ADMIN"));
-
-    if (!isSubscriber) {
+    if (!"SUBSCRIBER".equals(authorityKey)) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
     }
 
@@ -315,8 +271,36 @@ public class ApplyDaysQueryService {
     Map<Long, String> categoryMap = getCategoryMap();
 
     return applications.stream()
-        .map(app -> ApplicationDetailDto.from(app, categoryMap.get(app.getCategoryId())))
+        .map(app -> ApplicationDetailResponse.from(app, categoryMap.get(app.getCategoryId())))
         .toList();
+  }
+
+  public static String getAuthorityKey(Authentication authentication) {
+    if (authentication == null
+        || !authentication.isAuthenticated()
+        || (authentication instanceof AnonymousAuthenticationToken)) {
+      return "ANONYMOUS";
+    }
+    Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
+    boolean isSubscriber =
+        authorities.stream()
+            .anyMatch(
+                a ->
+                    a.getAuthority().equals("ROLE_SUBSCRIBER")
+                        || a.getAuthority().equals("ROLE_ADMIN"));
+    if (isSubscriber) {
+      return "SUBSCRIBER";
+    }
+    boolean isReviewer =
+        authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_REVIEWER"));
+    if (isReviewer) {
+      return "REVIEWER";
+    }
+    boolean isUser = authorities.stream().anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
+    if (isUser) {
+      return "USER";
+    }
+    return "AUTHENTICATED";
   }
 
   private Map<Long, String> getCategoryMap() {

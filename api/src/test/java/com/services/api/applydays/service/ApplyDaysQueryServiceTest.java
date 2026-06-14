@@ -6,7 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
-import com.services.core.applydays.dto.ApplicationDetailDto;
+import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.TimelineBasicResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
 import com.services.core.applydays.entity.Application;
@@ -97,11 +97,12 @@ class ApplyDaysQueryServiceTest {
         .thenReturn(Optional.of(new Category("Developer", null, 1)));
 
     // when
-    ApplicationDetailDto result = applyDaysQueryService.viewApplication(email, appId, password);
+    ApplicationDetailResponse result =
+        applyDaysQueryService.viewApplication(email, appId, password);
 
     // then
     assertThat(result).isNotNull();
-    assertThat(result.getCategoryName()).isEqualTo("Developer");
+    assertThat(result.categoryName()).isEqualTo("Developer");
     assertThat(meterRegistry.find("applydays.applications.viewed").counter()).isNotNull();
     assertThat(meterRegistry.find("applydays.applications.viewed").counter().count()).isEqualTo(1);
   }
@@ -255,8 +256,8 @@ class ApplyDaysQueryServiceTest {
   }
 
   @Test
-  @DisplayName("getCompanyTimeline은 USER 권한일 때 ForbiddenException이 발생한다")
-  void getCompanyTimeline_user_forbidden() {
+  @DisplayName("getCompanyTimeline은 USER 권한일 때 빈 슬라이스를 반환한다")
+  void getCompanyTimeline_user_empty() {
     // given
     String companySlug = "naver";
     Authentication auth = mock(Authentication.class);
@@ -265,9 +266,12 @@ class ApplyDaysQueryServiceTest {
     when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
     Pageable pageable = PageRequest.of(0, 10);
 
-    // when & then
-    assertThatThrownBy(() -> applyDaysQueryService.getCompanyTimeline(auth, companySlug, pageable))
-        .isInstanceOf(ForbiddenException.class);
+    // when
+    Slice<? extends TimelineBasicResponse> result =
+        applyDaysQueryService.getCompanyTimeline(auth, companySlug, pageable);
+
+    // then
+    assertThat(result.getContent()).isEmpty();
   }
 
   @Test
@@ -294,12 +298,13 @@ class ApplyDaysQueryServiceTest {
                 }));
 
     // when
-    List<ApplicationDetailDto> result = applyDaysQueryService.getCompanyDetails(auth, companySlug);
+    List<ApplicationDetailResponse> result =
+        applyDaysQueryService.getCompanyDetails(auth, companySlug);
 
     // then
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).getCategoryName()).isEqualTo("Developer");
-    assertThat(result.get(0).getCompanySlug()).isEqualTo(companySlug);
+    assertThat(result.get(0).categoryName()).isEqualTo("Developer");
+    assertThat(result.get(0).companySlug()).isEqualTo(companySlug);
   }
 
   @Test

@@ -18,8 +18,8 @@ import com.services.api.applydays.service.ApplyDaysQueryService;
 import com.services.api.common.security.handler.OAuth2SuccessHandler;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
-import com.services.core.applydays.dto.ApplicationDetailDto;
-import com.services.core.applydays.dto.ApplyDaysStatisticsDto;
+import com.services.core.applydays.dto.ApplicationDetailResponse;
+import com.services.core.applydays.dto.ApplyDaysStatisticsResponse;
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.ApplicationChannel;
 import com.services.core.common.infrastructure.RedisDataStorage;
@@ -101,7 +101,7 @@ class ApplyDaysControllerTest {
             .slug(slug)
             .name("Naver")
             .companyStats(
-                ApplyDaysStatisticsDto.builder().reviewCount(10).stepStatistics(null).build())
+                ApplyDaysStatisticsResponse.builder().reviewCount(10).stepStatistics(null).build())
             .build();
 
     given(applyDaysQueryService.getCompanySummary(any(), eq(slug))).willReturn(response);
@@ -112,22 +112,18 @@ class ApplyDaysControllerTest {
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.companyStats.reviewCount").value(10))
-        .andExpect(jsonPath("$.data.companyStats.stepStatistics").isEmpty());
+        .andExpect(jsonPath("$.data.companyStats.stepStatistics").doesNotExist());
   }
 
   @Test
   @WithMockUser(roles = "SUBSCRIBER")
-  @DisplayName("회사 상세를 조회하면 ApplicationDetailDto 리스트를 반환한다")
+  @DisplayName("회사 상세를 조회하면 ApplicationDetailResponse 리스트를 반환한다")
   void get_company_details_success() throws Exception {
     // given
     String slug = "naver";
-    ApplicationDetailDto dto =
-        ApplicationDetailDto.builder()
-            .id(UUID.randomUUID())
-            .companySlug(slug)
-            .categoryName("Dev")
-            .positionDetail("Engineer")
-            .build();
+    ApplicationDetailResponse dto =
+        new ApplicationDetailResponse(
+            UUID.randomUUID(), slug, null, "Dev", null, null, null, "Engineer", null);
 
     given(applyDaysQueryService.getCompanyDetails(any(), eq(slug))).willReturn(List.of(dto));
 
