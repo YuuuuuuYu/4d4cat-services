@@ -97,7 +97,8 @@ class ApplyDaysQueryServiceTest {
         .thenReturn(Optional.of(new Category("Developer", null, 1)));
 
     // when
-    ApplicationDetailResponse result = applyDaysQueryService.viewApplication(email, appId, password);
+    ApplicationDetailResponse result =
+        applyDaysQueryService.viewApplication(email, appId, password);
 
     // then
     assertThat(result).isNotNull();
@@ -297,7 +298,8 @@ class ApplyDaysQueryServiceTest {
                 }));
 
     // when
-    List<ApplicationDetailResponse> result = applyDaysQueryService.getCompanyDetails(auth, companySlug);
+    List<ApplicationDetailResponse> result =
+        applyDaysQueryService.getCompanyDetails(auth, companySlug);
 
     // then
     assertThat(result).hasSize(1);

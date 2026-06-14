@@ -17,8 +17,8 @@ public record ApplicationDetailResponse(
     List<HiringStepDetail> hiringProcess,
     VerificationStatus verificationStatus,
     String positionDetail,
-    ApplicationChannel channel
-) implements Serializable {
+    ApplicationChannel channel)
+    implements Serializable {
 
   public static ApplicationDetailResponse from(Application entity, String categoryName) {
     return new ApplicationDetailResponse(
@@ -30,7 +30,6 @@ public record ApplicationDetailResponse(
         entity.getHiringProcess(),
         entity.getVerificationStatus(),
         entity.getPositionDetail(),
-        entity.getChannel()
-    );
+        entity.getChannel());
   }
 }
