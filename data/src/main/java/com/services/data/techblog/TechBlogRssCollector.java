@@ -47,7 +47,7 @@ public class TechBlogRssCollector {
   public DataCollectionResult collectFeeds() {
     final String taskName = "기술 블로그 RSS 수집";
     long startTime = System.currentTimeMillis();
-    List<Company> companies = companyRepository.findAll();
+    List<Company> companies = companyRepository.findByFeedUrlIsNotNull();
     if (companies.isEmpty()) {
       log.info("No companies found to collect RSS feeds.");
       return new DataCollectionResult(taskName, 0, 0, 0, 0);
