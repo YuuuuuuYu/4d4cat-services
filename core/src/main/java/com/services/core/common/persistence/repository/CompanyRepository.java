@@ -23,4 +23,6 @@ public interface CompanyRepository extends JpaRepository<Company, UUID>, Company
   Slice<Company> findByStatus(CompanyStatus status, Pageable pageable);
 
   List<Company> findByNameChosungIsNull();
+
+  List<Company> findByFeedUrlIsNotNull();
 }
