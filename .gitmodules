@@ -1,3 +1,7 @@
 [submodule "ApplyDays"]
 	path = ApplyDays
 	url = https://github.com/4catHub/ApplyDays.git
+
+[submodule "config"]
+	path = config
+	url = https://github.com/YuuuuuuYu/4d4cat-properties.git
