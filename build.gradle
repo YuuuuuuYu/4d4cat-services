@@ -77,6 +77,27 @@ subprojects {
     tasks.named('test') {
         useJUnitPlatform()
     }
+
+    tasks.register('copyPrivateSettings', Copy) {
+        def sourceDir = file("${project.rootDir}/config/${project.name}")
+        if (sourceDir.exists()) {
+            from sourceDir
+            into "src/main/resources"
+            include "application*.yml"
+        }
+    }
+
+    tasks.register('copyPrivateTestSettings', Copy) {
+        def sourceDir = file("${project.rootDir}/config/${project.name}")
+        if (sourceDir.exists()) {
+            from sourceDir
+            into "src/test/resources"
+            include "application-test.yml"
+        }
+    }
+
+    processResources.dependsOn copyPrivateSettings
+    processTestResources.dependsOn copyPrivateTestSettings
 }
 
 sonar {
