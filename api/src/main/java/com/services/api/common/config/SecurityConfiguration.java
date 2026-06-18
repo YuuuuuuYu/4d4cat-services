@@ -157,6 +157,7 @@ public class SecurityConfiguration {
     configuration.setAllowedOrigins(origins);
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(Arrays.asList("*"));
+    configuration.setExposedHeaders(Arrays.asList("X-Token-Expired"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 

@@ -1,6 +1,7 @@
 package com.services.api.common.security.jwt;
 
 import com.services.core.common.infrastructure.RedisDataStorage;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,14 +36,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     String token = resolveToken(request);
 
-    if (StringUtils.hasText(token) && jwtProvider.validateToken(token)) {
-      if (isBlacklisted(token)) {
-        log.warn("Attempted access with blacklisted token");
-      } else {
-        Authentication auth = getAuthentication(token);
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(auth);
-        SecurityContextHolder.setContext(context);
+    if (StringUtils.hasText(token)) {
+      try {
+        jwtProvider.validateTokenWithException(token);
+        if (isBlacklisted(token)) {
+          log.warn("Attempted access with blacklisted token");
+        } else {
+          Authentication auth = getAuthentication(token);
+          SecurityContext context = SecurityContextHolder.createEmptyContext();
+          context.setAuthentication(auth);
+          SecurityContextHolder.setContext(context);
+        }
+      } catch (ExpiredJwtException e) {
+        log.warn("JWT token is expired: {}", e.getMessage());
+        response.setHeader("X-Token-Expired", "true");
+      } catch (Exception e) {
+        log.warn("JWT token validation failed: {}", e.getMessage());
       }
     }
 
