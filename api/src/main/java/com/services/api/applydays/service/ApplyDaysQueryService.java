@@ -61,8 +61,33 @@ public class ApplyDaysQueryService {
     return companyRepository.searchByNameOrChosung(query);
   }
 
+  public PageResponse<CompanyListResponse> getCompanies(
+      Authentication authentication, String query, Pageable pageable) {
+    PageResponse<CompanyListResponse> rawResponse = getRawCompanies(query, pageable);
+
+    String authorityKey = getAuthorityKey(authentication);
+    if ("ANONYMOUS".equals(authorityKey)) {
+      List<CompanyListResponse> maskedContent =
+          rawResponse.getContent().stream()
+              .map(
+                  company ->
+                      CompanyListResponse.builder()
+                          .slug(company.getSlug())
+                          .name(company.getName())
+                          .reviewCount(company.getReviewCount())
+                          .ghostingCount(null)
+                          .ghostingRate(null)
+                          .avgResponseTime(null)
+                          .build())
+              .toList();
+      return new PageResponse<>(maskedContent, rawResponse.isHasNext());
+    }
+
+    return rawResponse;
+  }
+
   @Cacheable(value = "companyList", key = "{#query, #pageable.pageNumber, #pageable.pageSize}")
-  public PageResponse<CompanyListResponse> getCompanies(String query, Pageable pageable) {
+  public PageResponse<CompanyListResponse> getRawCompanies(String query, Pageable pageable) {
     Pageable unsortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
     return PageResponse.of(companyRepository.findAllVerifiedWithStats(query, unsortedPageable));
   }

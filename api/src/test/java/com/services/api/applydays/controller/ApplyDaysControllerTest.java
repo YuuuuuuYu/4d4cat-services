@@ -3,6 +3,7 @@ package com.services.api.applydays.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,13 +16,16 @@ import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
+import com.services.api.common.config.SecurityConfiguration;
 import com.services.api.common.security.handler.OAuth2SuccessHandler;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.ApplyDaysStatisticsResponse;
+import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.ApplicationChannel;
+import com.services.core.common.dto.PageResponse;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.OffsetDateTime;
@@ -31,12 +35,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ApplyDaysController.class)
+@Import(SecurityConfiguration.class)
 class ApplyDaysControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -135,5 +143,75 @@ class ApplyDaysControllerTest {
         .andExpect(jsonPath("$.data[0].categoryName").value("Dev"))
         .andExpect(jsonPath("$.data[0].positionDetail").value("Engineer"))
         .andExpect(jsonPath("$.data[0].accessPassword").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("비로그인 상태에서 기업 목록을 조회하면 평균 응답속도와 무통보 관련 수치가 마스킹된다")
+  void get_companies_anonymous_masked() throws Exception {
+    // given
+    CompanyListResponse company =
+        CompanyListResponse.builder()
+            .slug("naver")
+            .name("Naver")
+            .reviewCount(10)
+            .ghostingCount(null)
+            .ghostingRate(null)
+            .avgResponseTime(null)
+            .build();
+    PageResponse<CompanyListResponse> response = new PageResponse<>(List.of(company), false);
+
+    given(applyDaysQueryService.getCompanies(any(), any(), any())).willReturn(response);
+
+    Authentication anonymousAuth =
+        new AnonymousAuthenticationToken(
+            "key",
+            "anonymousUser",
+            org.springframework.security.core.authority.AuthorityUtils.createAuthorityList(
+                "ROLE_ANONYMOUS"));
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/companies?page=0&size=10").with(authentication(anonymousAuth)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.content[0].slug").value("naver"))
+        .andExpect(jsonPath("$.data.content[0].name").value("Naver"))
+        .andExpect(jsonPath("$.data.content[0].reviewCount").value(10))
+        .andExpect(jsonPath("$.data.content[0].ghostingCount").doesNotExist())
+        .andExpect(jsonPath("$.data.content[0].ghostingRate").doesNotExist())
+        .andExpect(jsonPath("$.data.content[0].avgResponseTime").doesNotExist());
+  }
+
+  @Test
+  @WithMockUser(roles = "USER")
+  @DisplayName("로그인 상태에서 기업 목록을 조회하면 요약 통계 정보가 그대로 노출된다")
+  void get_companies_authenticated_full() throws Exception {
+    // given
+    CompanyListResponse company =
+        CompanyListResponse.builder()
+            .slug("naver")
+            .name("Naver")
+            .reviewCount(10)
+            .ghostingCount(2)
+            .ghostingRate(0.2)
+            .avgResponseTime("{\"DOCUMENT\":{\"avg\":5.2,\"count\":10}}")
+            .build();
+    PageResponse<CompanyListResponse> response = new PageResponse<>(List.of(company), false);
+
+    given(applyDaysQueryService.getCompanies(any(), any(), any())).willReturn(response);
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/companies?page=0&size=10"))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.content[0].slug").value("naver"))
+        .andExpect(jsonPath("$.data.content[0].name").value("Naver"))
+        .andExpect(jsonPath("$.data.content[0].reviewCount").value(10))
+        .andExpect(jsonPath("$.data.content[0].ghostingCount").value(2))
+        .andExpect(jsonPath("$.data.content[0].ghostingRate").value(0.2))
+        .andExpect(
+            jsonPath("$.data.content[0].avgResponseTime")
+                .value("{\"DOCUMENT\":{\"avg\":5.2,\"count\":10}}"));
   }
 }
