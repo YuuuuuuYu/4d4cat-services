@@ -94,7 +94,7 @@ public class ApplyDaysQueryService {
 
   @Cacheable(value = "categoryList")
   public List<Category> getCategories() {
-    return categoryRepository.findAll();
+    return categoryRepository.findAllByOrderByNameAsc();
   }
 
   public MyApplicationsSummaryResponse getMyApplicationsSummary(String email) {

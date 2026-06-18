@@ -168,7 +168,7 @@ class ApplyDaysQueryServiceTest {
     when(companyRepository.findBySlug(companySlug)).thenReturn(Optional.of(company));
     when(statisticsRepository.findAllByCompanySlug(companySlug))
         .thenReturn(List.of(companyStat, l1Stat, l2Stat));
-    when(categoryRepository.findAll())
+    when(categoryRepository.findAllByOrderByNameAsc())
         .thenReturn(
             List.of(
                 new Category("L1 Cat", null, 1) {
@@ -222,7 +222,7 @@ class ApplyDaysQueryServiceTest {
 
     when(companyRepository.findBySlug(companySlug)).thenReturn(Optional.of(company));
     when(statisticsRepository.findAllByCompanySlug(companySlug)).thenReturn(List.of(companyStat));
-    when(categoryRepository.findAll()).thenReturn(List.of());
+    when(categoryRepository.findAllByOrderByNameAsc()).thenReturn(List.of());
 
     Authentication auth = mock(Authentication.class);
     when(auth.isAuthenticated()).thenReturn(true);
@@ -293,7 +293,7 @@ class ApplyDaysQueryServiceTest {
     when(applicationRepository.findAllByCompanySlugAndVerificationStatus(
             companySlug, VerificationStatus.APPROVED))
         .thenReturn(List.of(app));
-    when(categoryRepository.findAll())
+    when(categoryRepository.findAllByOrderByNameAsc())
         .thenReturn(
             List.of(
                 new Category("Developer", null, 1) {
