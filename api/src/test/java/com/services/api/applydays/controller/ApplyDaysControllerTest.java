@@ -39,6 +39,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -51,6 +52,7 @@ class ApplyDaysControllerTest {
 
   @Autowired private ObjectMapper objectMapper;
 
+  @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;
   @MockitoBean private ApplyDaysCommandService applyDaysCommandService;
   @MockitoBean private ApplyDaysQueryService applyDaysQueryService;
 

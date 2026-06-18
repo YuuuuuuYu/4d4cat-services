@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +32,7 @@ class VerificationControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
+  @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;
   @MockitoBean private VerificationCommandService verificationCommandService;
   @MockitoBean private VerificationQueryService verificationQueryService;
 

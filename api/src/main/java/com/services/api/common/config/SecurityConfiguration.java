@@ -21,6 +21,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -40,6 +43,7 @@ public class SecurityConfiguration {
   private final OAuth2SuccessHandler oAuth2SuccessHandler;
   private final JwtProvider jwtProvider;
   private final RedisDataStorage redisDataStorage;
+  private final ClientRegistrationRepository clientRegistrationRepository;
 
   @Value("${cors.allowed-origins}")
   private String allowedOrigins;
@@ -113,6 +117,10 @@ public class SecurityConfiguration {
         .oauth2Login(
             oauth2 ->
                 oauth2
+                    .authorizationEndpoint(
+                        authorization ->
+                            authorization.authorizationRequestResolver(
+                                authorizationRequestResolver(clientRegistrationRepository)))
                     .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                     .successHandler(oAuth2SuccessHandler))
         .exceptionHandling(
@@ -157,11 +165,23 @@ public class SecurityConfiguration {
     configuration.setAllowedOrigins(origins);
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
     configuration.setAllowedHeaders(Arrays.asList("*"));
+    configuration.setExposedHeaders(Arrays.asList("X-Token-Expired"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;
+  }
+
+  private OAuth2AuthorizationRequestResolver authorizationRequestResolver(
+      ClientRegistrationRepository clientRegistrationRepository) {
+    DefaultOAuth2AuthorizationRequestResolver authorizationRequestResolver =
+        new DefaultOAuth2AuthorizationRequestResolver(
+            clientRegistrationRepository, "/oauth2/authorization");
+    authorizationRequestResolver.setAuthorizationRequestCustomizer(
+        customizer ->
+            customizer.additionalParameters(params -> params.put("prompt", "select_account")));
+    return authorizationRequestResolver;
   }
 }

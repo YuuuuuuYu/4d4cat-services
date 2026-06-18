@@ -88,6 +88,10 @@ public class JwtProvider {
     return false;
   }
 
+  public void validateTokenWithException(String token) {
+    Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+  }
+
   private Claims getClaims(String token) {
     return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
   }
