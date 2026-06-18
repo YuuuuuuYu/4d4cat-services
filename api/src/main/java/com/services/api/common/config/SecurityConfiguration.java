@@ -6,6 +6,9 @@ import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,7 @@ public class SecurityConfiguration {
   private final OAuth2SuccessHandler oAuth2SuccessHandler;
   private final JwtProvider jwtProvider;
   private final RedisDataStorage redisDataStorage;
+  private final ClientRegistrationRepository clientRegistrationRepository;
 
   @Value("${cors.allowed-origins}")
   private String allowedOrigins;
@@ -113,6 +117,10 @@ public class SecurityConfiguration {
         .oauth2Login(
             oauth2 ->
                 oauth2
+                    .authorizationEndpoint(
+                        authorization ->
+                            authorization.authorizationRequestResolver(
+                                authorizationRequestResolver(clientRegistrationRepository)))
                     .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                     .successHandler(oAuth2SuccessHandler))
         .exceptionHandling(
@@ -164,5 +172,15 @@ public class SecurityConfiguration {
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;
+  }
+
+  private OAuth2AuthorizationRequestResolver authorizationRequestResolver(
+      ClientRegistrationRepository clientRegistrationRepository) {
+    DefaultOAuth2AuthorizationRequestResolver authorizationRequestResolver =
+        new DefaultOAuth2AuthorizationRequestResolver(
+            clientRegistrationRepository, "/oauth2/authorization");
+    authorizationRequestResolver.setAuthorizationRequestCustomizer(
+        customizer -> customizer.additionalParameters(params -> params.put("prompt", "select_account")));
+    return authorizationRequestResolver;
   }
 }

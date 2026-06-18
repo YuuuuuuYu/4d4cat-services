@@ -26,6 +26,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.SliceImpl;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,6 +36,7 @@ class AdminApplyDaysControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
+  @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;
   @MockitoBean private AdminApplyDaysCommandService adminApplyDaysCommandService;
   @MockitoBean private AdminApplyDaysQueryService adminApplyDaysQueryService;
   @MockitoBean private VerificationImageRepository verificationImageRepository;
