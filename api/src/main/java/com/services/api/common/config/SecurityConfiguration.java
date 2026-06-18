@@ -6,9 +6,6 @@ import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
-import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +21,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -180,7 +180,8 @@ public class SecurityConfiguration {
         new DefaultOAuth2AuthorizationRequestResolver(
             clientRegistrationRepository, "/oauth2/authorization");
     authorizationRequestResolver.setAuthorizationRequestCustomizer(
-        customizer -> customizer.additionalParameters(params -> params.put("prompt", "select_account")));
+        customizer ->
+            customizer.additionalParameters(params -> params.put("prompt", "select_account")));
     return authorizationRequestResolver;
   }
 }
