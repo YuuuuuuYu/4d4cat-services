@@ -2,11 +2,14 @@ package com.services.api.applydays.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
+import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.TimelineBasicResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
 import com.services.core.applydays.entity.Application;
@@ -18,6 +21,7 @@ import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
+import com.services.core.common.dto.PageResponse;
 import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ForbiddenException;
 import com.services.core.common.persistence.entity.Company;
@@ -321,5 +325,83 @@ class ApplyDaysQueryServiceTest {
     // when & then
     assertThatThrownBy(() -> applyDaysQueryService.getCompanyDetails(auth, companySlug))
         .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  @DisplayName("getCompanies는 비로그인 상태일 때 요약 통계 정보를 마스킹하여 반환한다")
+  void getCompanies_anonymous_masked() {
+    // given
+    String query = "naver";
+    Pageable pageable = PageRequest.of(0, 10);
+    CompanyListResponse rawCompany =
+        CompanyListResponse.builder()
+            .slug("naver")
+            .name("Naver")
+            .reviewCount(5)
+            .ghostingCount(1)
+            .ghostingRate(0.2)
+            .avgResponseTime(
+                "{\"DOCUMENT\":{\"avg\":3.5,\"count\":2},\"CODING\":{\"avg\":5.0,\"count\":3}}")
+            .build();
+
+    Slice<CompanyListResponse> slice = new SliceImpl<>(List.of(rawCompany), pageable, false);
+    when(companyRepository.findAllVerifiedWithStats(eq(query), any(Pageable.class)))
+        .thenReturn(slice);
+
+    Authentication auth = mock(Authentication.class);
+    when(auth.isAuthenticated()).thenReturn(false);
+
+    // when
+    PageResponse<CompanyListResponse> response =
+        applyDaysQueryService.getCompanies(auth, query, pageable);
+
+    // then
+    assertThat(response.getContent()).hasSize(1);
+    CompanyListResponse masked = response.getContent().get(0);
+    assertThat(masked.getSlug()).isEqualTo("naver");
+    assertThat(masked.getName()).isEqualTo("Naver");
+    assertThat(masked.getReviewCount()).isEqualTo(5);
+    assertThat(masked.getGhostingCount()).isNull();
+    assertThat(masked.getGhostingRate()).isNull();
+    assertThat(masked.getAvgResponseTime()).isNull();
+  }
+
+  @Test
+  @DisplayName("getCompanies는 로그인 상태일 때 요약 통계 정보를 그대로 반환한다")
+  void getCompanies_authenticated_full() {
+    // given
+    String query = "naver";
+    Pageable pageable = PageRequest.of(0, 10);
+    CompanyListResponse rawCompany =
+        CompanyListResponse.builder()
+            .slug("naver")
+            .name("Naver")
+            .reviewCount(5)
+            .ghostingCount(1)
+            .ghostingRate(0.2)
+            .avgResponseTime("{\"DOCUMENT\":{\"avg\":3.5,\"count\":2}}")
+            .build();
+
+    Slice<CompanyListResponse> slice = new SliceImpl<>(List.of(rawCompany), pageable, false);
+    when(companyRepository.findAllVerifiedWithStats(eq(query), any(Pageable.class)))
+        .thenReturn(slice);
+
+    Authentication auth = mock(Authentication.class);
+    when(auth.isAuthenticated()).thenReturn(true);
+    GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_USER");
+    when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
+
+    // when
+    PageResponse<CompanyListResponse> response =
+        applyDaysQueryService.getCompanies(auth, query, pageable);
+
+    // then
+    assertThat(response.getContent()).hasSize(1);
+    CompanyListResponse full = response.getContent().get(0);
+    assertThat(full.getSlug()).isEqualTo("naver");
+    assertThat(full.getReviewCount()).isEqualTo(5);
+    assertThat(full.getGhostingCount()).isEqualTo(1);
+    assertThat(full.getGhostingRate()).isEqualTo(0.2);
+    assertThat(full.getAvgResponseTime()).contains("\"avg\":3.5");
   }
 }

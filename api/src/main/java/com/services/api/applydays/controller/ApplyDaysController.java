@@ -61,8 +61,11 @@ public class ApplyDaysController {
 
   @GetMapping("/companies")
   public BaseResponse<PageResponse<CompanyListResponse>> getCompanies(
-      @RequestParam(required = false) String query, Pageable pageable) {
-    return BaseResponse.of(HttpStatus.OK, applyDaysQueryService.getCompanies(query, pageable));
+      Authentication authentication,
+      @RequestParam(required = false) String query,
+      Pageable pageable) {
+    return BaseResponse.of(
+        HttpStatus.OK, applyDaysQueryService.getCompanies(authentication, query, pageable));
   }
 
   @GetMapping("/categories")
