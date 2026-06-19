@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
+import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
+import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.TimelineBasicResponse;
@@ -58,6 +60,7 @@ class ApplyDaysQueryServiceTest {
   @Mock private MemberRepository memberRepository;
   @Mock private VerificationRequestRepository verificationRequestRepository;
   @Mock private ApplyDaysStatisticsRepository statisticsRepository;
+  @Mock private MemberService memberService;
   private MeterRegistry meterRegistry;
 
   private ApplyDaysQueryService applyDaysQueryService;
@@ -73,7 +76,8 @@ class ApplyDaysQueryServiceTest {
             memberRepository,
             verificationRequestRepository,
             statisticsRepository,
-            meterRegistry);
+            meterRegistry,
+            memberService);
   }
 
   @Test
@@ -403,5 +407,41 @@ class ApplyDaysQueryServiceTest {
     assertThat(full.getGhostingCount()).isEqualTo(1);
     assertThat(full.getGhostingRate()).isEqualTo(0.2);
     assertThat(full.getAvgResponseTime()).contains("\"avg\":3.5");
+  }
+
+  @Test
+  @DisplayName("getMyApplicationsDashboard는 회원의 전체 대시보드 요약 및 상태별 목록을 반환한다")
+  void getMyApplicationsDashboard_success() {
+    // given
+    String email = "test@example.com";
+    UUID memberId = UUID.randomUUID();
+    Pageable pageable = PageRequest.of(0, 10);
+
+    when(memberService.getMemberIdByEmail(email)).thenReturn(memberId.toString());
+
+    // Mock countByVerificationStatusForMember
+    List<Object[]> summaryResults =
+        List.of(
+            new Object[] {VerificationStatus.PENDING, 2L},
+            new Object[] {VerificationStatus.APPROVED, 1L});
+    when(applicationRepository.countByVerificationStatusForMember(memberId))
+        .thenReturn(summaryResults);
+
+    // Mock findDashboardApplications
+    when(applicationRepository.findDashboardApplications(eq(memberId))).thenReturn(List.of());
+
+    // when
+    MyApplicationsDashboardResponse dashboard =
+        applyDaysQueryService.getMyApplicationsDashboard(email, pageable);
+
+    // then
+    assertThat(dashboard).isNotNull();
+    assertThat(dashboard.getSummary().totalCount()).isEqualTo(3L);
+    assertThat(dashboard.getSummary().pendingCount()).isEqualTo(2L);
+    assertThat(dashboard.getSummary().approvedCount()).isEqualTo(1L);
+    assertThat(dashboard.getSummary().rejectedCount()).isEqualTo(0L);
+    assertThat(dashboard.getPendingApplications().getContent()).isEmpty();
+    assertThat(dashboard.getApprovedApplications().getContent()).isEmpty();
+    assertThat(dashboard.getRejectedApplications().getContent()).isEmpty();
   }
 }

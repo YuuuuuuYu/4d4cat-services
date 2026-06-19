@@ -7,8 +7,11 @@ import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.entity.member.WithdrawLog;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import com.services.core.common.persistence.repository.member.WithdrawLogRepository;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +23,18 @@ public class MemberService {
   private final WithdrawLogRepository withdrawLogRepository;
   private final RedisDataStorage redisDataStorage;
 
+  @Cacheable(value = "memberId", key = "#email")
+  @Transactional(readOnly = true)
+  public String getMemberIdByEmail(String email) {
+    return memberRepository
+        .findByEmail(email)
+        .map(Member::getId)
+        .map(UUID::toString)
+        .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+  }
+
   @Transactional
+  @CacheEvict(value = "memberId", key = "#email")
   public void withdraw(String email, String reasonCategory, String reasonDetail) {
     Member member =
         memberRepository

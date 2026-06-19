@@ -6,6 +6,7 @@ import com.services.api.applydays.dto.BulkDeleteRequest;
 import com.services.api.applydays.dto.CommonMessageResponse;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
+import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
@@ -92,6 +93,14 @@ public class ApplyDaysController {
       Authentication authentication, @RequestBody BulkDeleteRequest request) {
     applyDaysCommandService.deleteApplications(authentication.getName(), request.ids());
     return BaseResponse.of(HttpStatus.OK, null);
+  }
+
+  @GetMapping("/my/dashboard")
+  public BaseResponse<MyApplicationsDashboardResponse> getMyApplicationsDashboard(
+      Authentication authentication, @PageableDefault(size = 10) Pageable pageable) {
+    return BaseResponse.of(
+        HttpStatus.OK,
+        applyDaysQueryService.getMyApplicationsDashboard(authentication.getName(), pageable));
   }
 
   @GetMapping("/my/summary")
