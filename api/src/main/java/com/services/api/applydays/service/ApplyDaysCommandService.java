@@ -168,8 +168,6 @@ public class ApplyDaysCommandService {
     List<UUID> targetAppIds =
         verificationRequests.stream().map(VerificationRequest::getApplicationId).toList();
 
-    verificationImageRepository.softDeleteByApplicationIdIn(targetAppIds);
-
     List<Application> apps = applicationRepository.findAllById(targetAppIds);
     if (apps.size() < targetAppIds.size()) {
       throw new NotFoundException(ErrorCode.APPLICATION_NOT_FOUND);

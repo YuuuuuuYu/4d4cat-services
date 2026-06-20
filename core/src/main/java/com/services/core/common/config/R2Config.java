@@ -1,4 +1,4 @@
-package com.services.api.applydays.config;
+package com.services.core.common.config;
 
 import java.net.URI;
 import org.springframework.beans.factory.annotation.Value;

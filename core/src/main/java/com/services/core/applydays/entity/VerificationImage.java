@@ -1,6 +1,6 @@
 package com.services.core.applydays.entity;
 
-import com.services.core.common.persistence.BaseSoftDeleteEntity;
+import com.services.core.common.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -12,16 +12,12 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@SQLRestriction("deleted = false")
-@SQLDelete(sql = "UPDATE verification_image SET deleted = true WHERE id = ?")
 @Table(name = "verification_image")
-public class VerificationImage extends BaseSoftDeleteEntity {
+public class VerificationImage extends BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)

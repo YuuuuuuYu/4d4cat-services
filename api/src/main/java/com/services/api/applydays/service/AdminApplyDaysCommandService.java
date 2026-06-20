@@ -241,7 +241,6 @@ public class AdminApplyDaysCommandService {
             .findById(id)
             .orElseThrow(() -> new NotFoundException(ErrorCode.APPLICATION_NOT_FOUND));
     applicationRepository.delete(application);
-    verificationImageRepository.softDeleteByApplicationId(id);
     log.info("Application {} soft deleted by admin.", id);
   }
 }
