@@ -15,6 +15,7 @@
 - `com.services.data.applydays.batch.ApplyDaysBatchConfiguration`: 매일 새벽 04:00에 실행되는 Spring Batch 로직. PostgreSQL 17.9 `JSON_TABLE` 기반 통계 집계. 계층형 통계(기업/L1/L2)를 산출합니다.
 - `com.services.data.config.QuerydslConfig`: `core` 모듈의 QueryDSL 리포지토리 지원을 위한 설정.
 - `com.services.data.applydays.worker.AggregatedNotificationScheduler`: DB 알림 큐를 조회하여 사용자별 통합 메일 발송 수행.
+- `com.services.data.applydays.worker.VerificationImageCleanupScheduler`: 매일 새벽 03:00에 실행되어 soft delete된 지원서(`Application`)에 연관된 증빙 이미지를 Cloudflare R2 스토리지에서 삭제하고 DB에서 완전 삭제(Physical Delete)하는 스케줄러.
 
 ### 2.2 api 모듈 (API 및 보안 로직)
 - `com.services.api.common.config.SecurityConfiguration`: Spring Security 및 Google OAuth2 설정. 백오피스(`/api/v1/admin/**`) 권한 제어(`ROLE_ADMIN`) 포함.
@@ -24,7 +25,6 @@
 - `com.services.api.applydays.controller.AdminApplyDaysController`: 백오피스용 증빙 요청 관리 담당.
 - `com.services.api.applydays.service.R2Service`: S3 호환 API를 이용한 파일 관리 및 presigned URL 생성 담당.
 - `com.services.api.applydays.service.AdminApplyDaysCommandService`: 백오피스용 증빙 요청 관리 및 **DB 기반 알림 큐(NotificationQueue)** 저장 담당.
-- `com.services.api.applydays.scheduler.VerificationImageCleanupScheduler`: soft delete된 증빙 이미지를 R2 스토리지에서 삭제하고 DB에서 정리하는 스케줄러.
 
 ### 2.3 core 모듈 (데이터 명세 및 영속성)
 - `com.services.core.common.persistence.entity.Company`: 기존 엔티티에 `brn`(사업자번호) 및 `status` 컬럼 추가.
@@ -32,6 +32,7 @@
 - `com.services.core.applydays.entity.Application`: 비정형 지원 데이터 보관. `hiringProcess`는 `HiringStepDetail` 객체 리스트로 타입 안전하게 관리됩니다.
 - `com.services.core.applydays.dto.HiringStepDetail`: 채용 전형 단계별 상세 정보 DTO.
 - `com.services.core.applydays.entity.VerificationRequest`: 증빙 승인을 위한 요청 엔티티. `rejection_reason`은 이 엔티티에서 전담 관리합니다.
+- `com.services.core.common.config.R2Config`: Cloudflare R2 연결을 위한 공통 S3 클라이언트 설정 라이브러리.
 
 ### 2.4 프론트엔드 (ApplyDays/ 디렉토리)
 - **Tech Stack:** React 18 (TypeScript), Vite 5, Tailwind CSS v4, Recharts, wouter, TanStack Query v5, React Hook Form, Zod.
@@ -58,7 +59,7 @@
 ### 3.4 이미지 처리 및 보안
 - **클라이언트 측 최적화:** 이미지 리사이징(1024px) 및 WebP 변환은 프론트엔드에서 수행하십시오.
 - **이미지 프록시 API:** 외부 경로 은닉을 위해 `/applydays/verification/images/{imageId}` 프록시 엔드포인트를 통해 이미지를 서빙하십시오.
-- **이미지 수명 주기 관리:** 지원 내역 삭제 시 연관 이미지를 반드시 soft delete 처리하고, `VerificationImageCleanupScheduler`를 통해 스토리지와 DB를 주기적으로 정리하십시오 (새벽 3시).
+- **이미지 수명 주기 관리:** 지원 내역 삭제(`deleted = true`) 시, `VerificationImage` 엔티티는 별도의 soft delete 처리 없이 `BaseEntity`를 상속받은 물리 삭제 대상입니다. `VerificationImageCleanupScheduler`가 스토리지(R2)에서 실제 파일을 삭제한 후 DB에서도 해당 레코드를 일괄적으로 물리 삭제(Physical Delete)합니다.
 - **비동기 후처리:** 승인 시 알림 등 무거운 작업은 `notification_queue` 테이블을 통해 Transactional Outbox 패턴으로 처리하십시오.
 - **Bulk Actions:** 다량의 요청을 처리할 때는 일괄 처리 메서드를 사용하십시오.
 
@@ -78,7 +79,7 @@
 - [ ] JPA Entity 간 직접적인 연관관계를 지양하고 ID/Slug 필드 참조를 하였는가?
 - [ ] `JSON_TABLE` 통계 쿼리에서 `GHOSTED` 데이터가 제외 처리되었는가?
 - [ ] 이미지 업로드 시 WebP 리사이징이 고려되었는가?
-- [ ] soft delete된 이미지를 정리할 스케줄러가 정상 작동하는가?
+- [ ] soft delete된 지원서의 연관 이미지를 R2와 DB에서 완전 삭제하는 스케줄러가 정상 작동하는가?
 - [ ] 승인 후처리 작업이 알림 큐(notification_queue)를 통해 비동기로 수행되는가?
 - [ ] 목록형 UI에서 `useInfiniteQuery`와 무한 스크롤이 적용되었는가?
 - [ ] 부모 컴포넌트 리렌더링 시 scroll jump를 막기 위해 리스트 렌더링 영역을 독립 컴포넌트로 분리했는가?
