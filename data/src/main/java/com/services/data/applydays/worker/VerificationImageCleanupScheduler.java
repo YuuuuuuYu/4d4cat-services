@@ -32,7 +32,8 @@ public class VerificationImageCleanupScheduler {
   private final RedisTemplate<String, Object> redisTemplate;
 
   public VerificationImageCleanupScheduler(
-      @Value("${app.scheduler.lock.verification-image-cleanup.key:lock:verification-image-cleanup}") String lockKey,
+      @Value("${app.scheduler.lock.verification-image-cleanup.key:lock:verification-image-cleanup}")
+          String lockKey,
       @Value("${app.scheduler.lock.verification-image-cleanup.duration:10m}") Duration lockDuration,
       @Value("${cloudflare.r2.bucket-name}") String bucketName,
       VerificationImageRepository verificationImageRepository,
@@ -52,7 +53,8 @@ public class VerificationImageCleanupScheduler {
   public void cleanupDeletedImages() {
     Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", lockDuration);
     if (acquired == null || !acquired) {
-      log.info("Another instance is already running Verification Image Cleanup. Skipping execution.");
+      log.info(
+          "Another instance is already running Verification Image Cleanup. Skipping execution.");
       return;
     }
 
@@ -66,7 +68,8 @@ public class VerificationImageCleanupScheduler {
       return;
     }
 
-    log.info("Found {} verification images of deleted applications to clean up.", deletedImages.size());
+    log.info(
+        "Found {} verification images of deleted applications to clean up.", deletedImages.size());
 
     for (DeletedImageProjection image : deletedImages) {
       try {
@@ -79,8 +82,7 @@ public class VerificationImageCleanupScheduler {
       }
     }
 
-    List<UUID> idsToHardDelete =
-        deletedImages.stream().map(DeletedImageProjection::getId).toList();
+    List<UUID> idsToHardDelete = deletedImages.stream().map(DeletedImageProjection::getId).toList();
 
     if (!idsToHardDelete.isEmpty()) {
       verificationImageRepository.deleteAllByIdInBatch(idsToHardDelete);
