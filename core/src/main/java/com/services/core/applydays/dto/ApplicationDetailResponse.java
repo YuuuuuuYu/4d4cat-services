@@ -32,4 +32,18 @@ public record ApplicationDetailResponse(
         entity.getPositionDetail(),
         entity.getChannel());
   }
+
+  public static ApplicationDetailResponse from(
+      com.services.core.applydays.repository.ApplicationSummary entity, String categoryName) {
+    return new ApplicationDetailResponse(
+        entity.getId(),
+        entity.getCompanySlug(),
+        entity.getCategoryId(),
+        categoryName,
+        entity.getAppliedAt(),
+        entity.getHiringProcess(),
+        entity.getVerificationStatus(),
+        entity.getPositionDetail(),
+        entity.getChannel());
+  }
 }

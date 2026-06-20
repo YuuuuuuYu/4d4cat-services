@@ -14,9 +14,13 @@ import org.springframework.data.repository.query.Param;
 public interface ApplicationRepository
     extends JpaRepository<Application, UUID>, ApplicationRepositoryCustom {
   @Query(
-      "SELECT a FROM Application a JOIN VerificationRequest vr ON a.id = vr.applicationId "
+      "SELECT a.id as id, a.companySlug as companySlug, a.categoryId as categoryId, "
+          + "a.appliedAt as appliedAt, a.hiringProcess as hiringProcess, "
+          + "a.verificationStatus as verificationStatus, a.positionDetail as positionDetail, "
+          + "a.channel as channel "
+          + "FROM Application a JOIN VerificationRequest vr ON a.id = vr.applicationId "
           + "WHERE vr.memberId = :memberId AND (:status IS NULL OR a.verificationStatus = :status)")
-  Page<Application> findByMemberIdAndStatus(
+  Page<ApplicationSummary> findByMemberIdAndStatus(
       @Param("memberId") UUID memberId,
       @Param("status") VerificationStatus status,
       Pageable pageable);
@@ -30,16 +34,22 @@ public interface ApplicationRepository
   @Query("UPDATE Application a SET a.companySlug = :newSlug WHERE a.companySlug = :oldSlug")
   void updateCompanySlug(@Param("oldSlug") String oldSlug, @Param("newSlug") String newSlug);
 
-  List<Application> findAllByCompanySlugAndVerificationStatus(
+  List<ApplicationSummary> findAllByCompanySlugAndVerificationStatus(
       String companySlug, VerificationStatus status);
 
   @Query(
       value =
-          "SELECT * FROM ( "
-              + "SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.verification_status ORDER BY a.applied_at DESC) as rn "
-              + "FROM application a JOIN verification_request vr ON a.id = vr.application_id "
-              + "WHERE vr.member_id = :memberId AND a.deleted = false "
+          "SELECT id, company_slug as companySlug, category_id as categoryId, "
+              + "applied_at as appliedAt, CAST(hiring_process AS text) as hiringProcess, "
+              + "verification_status as verificationStatus, position_detail as positionDetail, "
+              + "channel "
+              + "FROM ( "
+              + "  SELECT a.id, a.company_slug, a.category_id, a.applied_at, a.hiring_process, "
+              + "         a.verification_status, a.position_detail, a.channel, "
+              + "         ROW_NUMBER() OVER (PARTITION BY a.verification_status ORDER BY a.applied_at DESC) as rn "
+              + "  FROM application a JOIN verification_request vr ON a.id = vr.application_id "
+              + "  WHERE vr.member_id = :memberId AND a.deleted = false "
               + ") tmp WHERE rn <= 10",
       nativeQuery = true)
-  List<Application> findDashboardApplications(@Param("memberId") UUID memberId);
+  List<DashboardApplicationSummary> findDashboardApplications(@Param("memberId") UUID memberId);
 }

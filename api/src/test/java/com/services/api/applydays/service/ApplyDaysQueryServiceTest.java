@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.common.security.service.MemberService;
@@ -20,6 +21,7 @@ import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.repository.ApplicationRepository;
+import com.services.core.applydays.repository.ApplicationSummary;
 import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
@@ -77,7 +79,8 @@ class ApplyDaysQueryServiceTest {
             verificationRequestRepository,
             statisticsRepository,
             meterRegistry,
-            memberService);
+            memberService,
+            new ObjectMapper());
   }
 
   @Test
@@ -294,9 +297,19 @@ class ApplyDaysQueryServiceTest {
     when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
 
     Application app = ApplyDaysFixtures.createApplication(companySlug, 1L);
+    ApplicationSummary appProj = mock(ApplicationSummary.class);
+    when(appProj.getId()).thenReturn(app.getId());
+    when(appProj.getCompanySlug()).thenReturn(app.getCompanySlug());
+    when(appProj.getCategoryId()).thenReturn(app.getCategoryId());
+    when(appProj.getAppliedAt()).thenReturn(app.getAppliedAt());
+    when(appProj.getHiringProcess()).thenReturn(app.getHiringProcess());
+    when(appProj.getVerificationStatus()).thenReturn(app.getVerificationStatus());
+    when(appProj.getPositionDetail()).thenReturn(app.getPositionDetail());
+    when(appProj.getChannel()).thenReturn(app.getChannel());
+
     when(applicationRepository.findAllByCompanySlugAndVerificationStatus(
             companySlug, VerificationStatus.APPROVED))
-        .thenReturn(List.of(app));
+        .thenReturn(List.of(appProj));
     when(categoryRepository.findAllByOrderByNameAsc())
         .thenReturn(
             List.of(
