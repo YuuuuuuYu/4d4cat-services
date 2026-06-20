@@ -6,7 +6,9 @@ import com.services.core.common.notification.discord.NotifyDiscord;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,34 +20,25 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 @ConditionalOnProperty(
     name = "app.scheduler.enabled.verification-image-cleanup",
     havingValue = "true",
     matchIfMissing = true)
 public class VerificationImageCleanupScheduler {
 
-  private final String lockKey;
-  private final Duration lockDuration;
-  private final String bucketName;
+  @Value("${app.scheduler.lock.verification-image-cleanup.key:lock:verification-image-cleanup}")
+  private String lockKey;
+
+  @Value("${app.scheduler.lock.verification-image-cleanup.duration:10m}")
+  private Duration lockDuration;
+
+  @Value("${cloudflare.r2.bucket-name}")
+  private String bucketName;
+
   private final VerificationImageRepository verificationImageRepository;
   private final S3Client s3Client;
   private final RedisTemplate<String, Object> redisTemplate;
-
-  public VerificationImageCleanupScheduler(
-      @Value("${app.scheduler.lock.verification-image-cleanup.key:lock:verification-image-cleanup}")
-          String lockKey,
-      @Value("${app.scheduler.lock.verification-image-cleanup.duration:10m}") Duration lockDuration,
-      @Value("${cloudflare.r2.bucket-name}") String bucketName,
-      VerificationImageRepository verificationImageRepository,
-      S3Client s3Client,
-      RedisTemplate<String, Object> redisTemplate) {
-    this.lockKey = lockKey;
-    this.lockDuration = lockDuration;
-    this.bucketName = bucketName;
-    this.verificationImageRepository = verificationImageRepository;
-    this.s3Client = s3Client;
-    this.redisTemplate = redisTemplate;
-  }
 
   @Scheduled(cron = "0 0 3 * * *")
   @NotifyDiscord(taskName = "Verification Image Cleanup")
