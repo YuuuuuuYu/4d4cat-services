@@ -1,6 +1,7 @@
 package com.services.api.applydays.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,6 +15,8 @@ import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
+import com.services.core.common.exception.ForbiddenException;
+import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.entity.member.Role;
@@ -84,7 +87,12 @@ class ApplyDaysCommandServiceTest {
     when(companyRepository.findBySlug("naver")).thenReturn(Optional.of(company));
     when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
     when(applicationRepository.save(any(Application.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+        .thenAnswer(
+            invocation -> {
+              Application app = invocation.getArgument(0);
+              ApplyDaysFixtures.setId(app, UUID.randomUUID());
+              return app;
+            });
 
     // when
     UUID result = applyDaysCommandService.registerApplication(email, request);
@@ -126,5 +134,72 @@ class ApplyDaysCommandServiceTest {
     verify(applicationRepository).deleteAll(List.of(app));
     assertThat(meterRegistry.find("applydays.applications.deleted").counter()).isNotNull();
     assertThat(meterRegistry.find("applydays.applications.deleted").counter().count()).isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("삭제하려는 지원서의 증빙 요청이 존재하지 않으면 NotFoundException이 발생한다")
+  void deleteApplication_notFound() {
+    // given
+    String email = "test@example.com";
+    UUID appId = UUID.randomUUID();
+    UUID memberId = UUID.randomUUID();
+
+    Member member = ApplyDaysFixtures.createMember(email, Role.USER);
+    ApplyDaysFixtures.setId(member, memberId);
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(verificationRequestRepository.findByApplicationIdIn(List.of(appId))).thenReturn(List.of());
+
+    // when & then
+    assertThatThrownBy(() -> applyDaysCommandService.deleteApplication(email, appId))
+        .isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("타인의 지원서를 삭제하려고 하면 ForbiddenException이 발생한다")
+  void deleteApplication_forbidden() {
+    // given
+    String email = "test@example.com";
+    UUID appId = UUID.randomUUID();
+    UUID memberId = UUID.randomUUID();
+    UUID otherMemberId = UUID.randomUUID();
+
+    Member member = ApplyDaysFixtures.createMember(email, Role.USER);
+    ApplyDaysFixtures.setId(member, memberId);
+
+    VerificationRequest vr =
+        VerificationRequest.builder().applicationId(appId).memberId(otherMemberId).build();
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(verificationRequestRepository.findByApplicationIdIn(List.of(appId)))
+        .thenReturn(List.of(vr));
+
+    // when & then
+    assertThatThrownBy(() -> applyDaysCommandService.deleteApplication(email, appId))
+        .isInstanceOf(ForbiddenException.class);
+  }
+
+  @Test
+  @DisplayName("삭제하려는 지원서 엔티티가 실제로 DB에 존재하지 않거나 이미 삭제된 상태라면 NotFoundException이 발생한다")
+  void deleteApplication_applicationNotFound() {
+    // given
+    String email = "test@example.com";
+    UUID appId = UUID.randomUUID();
+    UUID memberId = UUID.randomUUID();
+
+    Member member = ApplyDaysFixtures.createMember(email, Role.USER);
+    ApplyDaysFixtures.setId(member, memberId);
+
+    VerificationRequest vr =
+        VerificationRequest.builder().applicationId(appId).memberId(memberId).build();
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(verificationRequestRepository.findByApplicationIdIn(List.of(appId)))
+        .thenReturn(List.of(vr));
+    when(applicationRepository.findAllById(List.of(appId))).thenReturn(List.of());
+
+    // when & then
+    assertThatThrownBy(() -> applyDaysCommandService.deleteApplication(email, appId))
+        .isInstanceOf(NotFoundException.class);
   }
 }

@@ -2,13 +2,16 @@ package com.services.data.common.notification;
 
 import com.services.core.common.dto.BaseResponse;
 import com.services.core.common.notification.email.woorimail.WoorimailClient;
+import com.services.data.config.TestRedisConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestRedisConfig.class)
 public class WoorimailDedicatedTest {
 
   @Autowired private WoorimailClient woorimailClient;

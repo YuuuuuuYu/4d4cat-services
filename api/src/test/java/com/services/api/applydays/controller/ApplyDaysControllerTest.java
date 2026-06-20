@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.CompanySummaryResponse;
+import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
 import com.services.api.common.config.SecurityConfiguration;
@@ -24,6 +25,7 @@ import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.ApplyDaysStatisticsResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.HiringStepDetail;
+import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
 import com.services.core.applydays.entity.ApplicationChannel;
 import com.services.core.common.dto.PageResponse;
 import com.services.core.common.infrastructure.RedisDataStorage;
@@ -215,5 +217,43 @@ class ApplyDaysControllerTest {
         .andExpect(
             jsonPath("$.data.content[0].avgResponseTime")
                 .value("{\"DOCUMENT\":{\"avg\":5.2,\"count\":10}}"));
+  }
+
+  @Test
+  @WithMockUser(username = "test@example.com", roles = "USER")
+  @DisplayName("대시보드 통합 정보를 조회한다")
+  void get_my_dashboard_success() throws Exception {
+    // given
+    MyApplicationsSummaryResponse summary =
+        MyApplicationsSummaryResponse.builder()
+            .totalCount(3L)
+            .pendingCount(1L)
+            .approvedCount(1L)
+            .rejectedCount(1L)
+            .build();
+
+    MyApplicationsDashboardResponse response =
+        MyApplicationsDashboardResponse.builder()
+            .summary(summary)
+            .pendingApplications(new PageResponse<>(List.of(), false))
+            .approvedApplications(new PageResponse<>(List.of(), false))
+            .rejectedApplications(new PageResponse<>(List.of(), false))
+            .build();
+
+    given(
+            applyDaysQueryService.getMyApplicationsDashboard(
+                eq("test@example.com"), any(org.springframework.data.domain.Pageable.class)))
+        .willReturn(response);
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/my/dashboard"))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.summary.totalCount").value(3))
+        .andExpect(jsonPath("$.data.summary.pendingCount").value(1))
+        .andExpect(jsonPath("$.data.pendingApplications.content").isEmpty())
+        .andExpect(jsonPath("$.data.approvedApplications.content").isEmpty())
+        .andExpect(jsonPath("$.data.rejectedApplications.content").isEmpty());
   }
 }

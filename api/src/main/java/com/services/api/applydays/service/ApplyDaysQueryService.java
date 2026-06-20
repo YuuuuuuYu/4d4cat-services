@@ -2,6 +2,8 @@ package com.services.api.applydays.service;
 
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
+import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
+import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.*;
 import com.services.core.applydays.entity.*;
 import com.services.core.applydays.repository.ApplicationRepository;
@@ -23,6 +25,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
@@ -44,6 +48,8 @@ public class ApplyDaysQueryService {
   private final VerificationRequestRepository verificationRequestRepository;
   private final ApplyDaysStatisticsRepository statisticsRepository;
   private final MeterRegistry meterRegistry;
+  private final MemberService memberService;
+  private final Executor virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
   public Slice<? extends TimelineBasicResponse> getCompanyTimeline(
       Authentication authentication, String slug, Pageable pageable) {
@@ -98,13 +104,12 @@ public class ApplyDaysQueryService {
   }
 
   public MyApplicationsSummaryResponse getMyApplicationsSummary(String email) {
-    Member member =
-        memberRepository
-            .findByEmail(email)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+    UUID memberId = UUID.fromString(memberService.getMemberIdByEmail(email));
+    return getMyApplicationsSummaryByMemberId(memberId);
+  }
 
-    List<Object[]> results =
-        applicationRepository.countByVerificationStatusForMember(member.getId());
+  private MyApplicationsSummaryResponse getMyApplicationsSummaryByMemberId(UUID memberId) {
+    List<Object[]> results = applicationRepository.countByVerificationStatusForMember(memberId);
 
     long totalCount = 0;
     long pendingCount = 0;
@@ -133,11 +138,12 @@ public class ApplyDaysQueryService {
 
   public Page<MyApplicationResponse> getMyApplications(
       String email, VerificationStatus status, Pageable pageable) {
-    Member member =
-        memberRepository
-            .findByEmail(email)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+    UUID memberId = UUID.fromString(memberService.getMemberIdByEmail(email));
+    return getMyApplicationsByMemberId(memberId, status, pageable);
+  }
 
+  private Page<MyApplicationResponse> getMyApplicationsByMemberId(
+      UUID memberId, VerificationStatus status, Pageable pageable) {
     Pageable sortedPageable = pageable;
     if (pageable.getSort().isUnsorted()) {
       sortedPageable =
@@ -146,7 +152,7 @@ public class ApplyDaysQueryService {
     }
 
     Page<Application> myAppsPage =
-        applicationRepository.findByMemberIdAndStatus(member.getId(), status, sortedPageable);
+        applicationRepository.findByMemberIdAndStatus(memberId, status, sortedPageable);
 
     List<String> slugs =
         myAppsPage.getContent().stream().map(Application::getCompanySlug).distinct().toList();
@@ -174,6 +180,93 @@ public class ApplyDaysQueryService {
                 app,
                 companyNameMap.get(app.getCompanySlug()),
                 rejectionReasonMap.getOrDefault(app.getId(), null)));
+  }
+
+  public MyApplicationsDashboardResponse getMyApplicationsDashboard(
+      String email, Pageable pageable) {
+    UUID memberId = UUID.fromString(memberService.getMemberIdByEmail(email));
+
+    Pageable sortedPageable = pageable;
+    if (pageable.getSort().isUnsorted()) {
+      sortedPageable =
+          PageRequest.of(
+              pageable.getPageNumber(), pageable.getPageSize(), Sort.by("appliedAt").descending());
+    }
+
+    // 1. 요약(summary) 조회 (1회 쿼리)
+    MyApplicationsSummaryResponse summary = getMyApplicationsSummaryByMemberId(memberId);
+
+    // 2. 대시보드 대상 애플리케이션 일괄 조회 (1회 쿼리 - 윈도우 함수 적용)
+    List<Application> dashboardApps = applicationRepository.findDashboardApplications(memberId);
+
+    // 3. 일괄 조회한 데이터에서 slugs와 applicationIds 추출
+    List<String> slugs =
+        dashboardApps.stream().map(Application::getCompanySlug).distinct().toList();
+    List<UUID> applicationIds = dashboardApps.stream().map(Application::getId).toList();
+
+    // 4. Company 및 VerificationRequest 일괄 In-Query 조회 (각 1회씩, 총 2회 쿼리)
+    Map<String, String> companyNameMap =
+        slugs.isEmpty()
+            ? Map.of()
+            : companyRepository.findBySlugIn(slugs).stream()
+                .collect(Collectors.toMap(Company::getSlug, Company::getName, (v1, v2) -> v1));
+
+    List<VerificationRequest> verificationRequests =
+        applicationIds.isEmpty()
+            ? List.of()
+            : verificationRequestRepository.findByApplicationIdIn(applicationIds);
+
+    Map<UUID, String> rejectionReasonMap =
+        verificationRequests.stream()
+            .filter(vr -> vr.getRejectionReason() != null)
+            .collect(
+                Collectors.toMap(
+                    VerificationRequest::getApplicationId,
+                    VerificationRequest::getRejectionReason,
+                    (v1, v2) -> v1));
+
+    // 5. MyApplicationResponse로 일괄 변환 및 상태별 필터링
+    List<MyApplicationResponse> allResponses =
+        dashboardApps.stream()
+            .map(
+                app ->
+                    MyApplicationResponse.of(
+                        app,
+                        companyNameMap.getOrDefault(app.getCompanySlug(), null),
+                        rejectionReasonMap.getOrDefault(app.getId(), null)))
+            .toList();
+
+    List<MyApplicationResponse> pendingList =
+        allResponses.stream()
+            .filter(app -> app.verificationStatus() == VerificationStatus.PENDING)
+            .toList();
+
+    List<MyApplicationResponse> approvedList =
+        allResponses.stream()
+            .filter(app -> app.verificationStatus() == VerificationStatus.APPROVED)
+            .toList();
+
+    List<MyApplicationResponse> rejectedList =
+        allResponses.stream()
+            .filter(app -> app.verificationStatus() == VerificationStatus.REJECTED)
+            .toList();
+
+    // 6. PageResponse 조립 (totalCount는 summary에서 가져옴)
+    Page<MyApplicationResponse> pendingPage =
+        new PageImpl<>(pendingList, sortedPageable, summary.pendingCount());
+
+    Page<MyApplicationResponse> approvedPage =
+        new PageImpl<>(approvedList, sortedPageable, summary.approvedCount());
+
+    Page<MyApplicationResponse> rejectedPage =
+        new PageImpl<>(rejectedList, sortedPageable, summary.rejectedCount());
+
+    return MyApplicationsDashboardResponse.builder()
+        .summary(summary)
+        .pendingApplications(PageResponse.of(pendingPage))
+        .approvedApplications(PageResponse.of(approvedPage))
+        .rejectedApplications(PageResponse.of(rejectedPage))
+        .build();
   }
 
   public ApplicationDetailResponse viewApplication(String email, UUID id, String password) {

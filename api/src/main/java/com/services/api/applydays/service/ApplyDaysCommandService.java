@@ -10,6 +10,7 @@ import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.common.exception.ErrorCode;
+import com.services.core.common.exception.ForbiddenException;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.entity.CompanyStatus;
@@ -154,27 +155,26 @@ public class ApplyDaysCommandService {
     List<VerificationRequest> verificationRequests =
         verificationRequestRepository.findByApplicationIdIn(ids);
 
+    if (verificationRequests.size() < ids.size()) {
+      throw new NotFoundException(ErrorCode.APPLICATION_NOT_FOUND);
+    }
+
+    boolean hasUnauthorized =
+        verificationRequests.stream().anyMatch(vr -> !vr.getMemberId().equals(member.getId()));
+    if (hasUnauthorized) {
+      throw new ForbiddenException(ErrorCode.UNAUTHORIZED_APPLICATION_ACCESS);
+    }
+
     List<UUID> targetAppIds =
-        verificationRequests.stream()
-            .filter(vr -> vr.getMemberId().equals(member.getId()))
-            .map(VerificationRequest::getApplicationId)
-            .toList();
+        verificationRequests.stream().map(VerificationRequest::getApplicationId).toList();
 
-    if (!targetAppIds.isEmpty()) {
-      List<Application> apps = applicationRepository.findAllById(targetAppIds);
-      applicationRepository.deleteAll(apps);
-      verificationImageRepository.softDeleteByApplicationIdIn(targetAppIds);
-      targetAppIds.forEach(
-          appId -> meterRegistry.counter("applydays.applications.deleted").increment());
+    List<Application> apps = applicationRepository.findAllById(targetAppIds);
+    if (apps.size() < targetAppIds.size()) {
+      throw new NotFoundException(ErrorCode.APPLICATION_NOT_FOUND);
     }
 
-    if (targetAppIds.size() < ids.size()) {
-      List<UUID> missingOrUnauthorized = new ArrayList<>(ids);
-      missingOrUnauthorized.removeAll(targetAppIds);
-      log.warn(
-          "Some applications were not found or unauthorized for deletion by user {}: {}",
-          email,
-          missingOrUnauthorized);
-    }
+    applicationRepository.deleteAll(apps);
+    targetAppIds.forEach(
+        appId -> meterRegistry.counter("applydays.applications.deleted").increment());
   }
 }

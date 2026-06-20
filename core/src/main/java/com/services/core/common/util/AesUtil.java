@@ -20,7 +20,7 @@ public class AesUtil {
   private final SecretKeySpec keySpec;
   private final IvParameterSpec ivSpec;
 
-  public AesUtil(@Value("${app.crypto.key}") String key, @Value("${app.crypto.iv") String iv) {
+  public AesUtil(@Value("${app.crypto.key}") String key, @Value("${app.crypto.iv}") String iv) {
     this.keySpec = new SecretKeySpec(prepareKey(key, 16), "AES");
     this.ivSpec = new IvParameterSpec(prepareKey(iv, 16));
   }

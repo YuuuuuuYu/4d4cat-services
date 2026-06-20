@@ -5,12 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.notification.DataCollectionResult;
 import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.TechBlogFixtures;
 import com.services.core.techblog.repository.TechBlogPostRepository;
+import com.services.data.config.TestRedisConfig;
 import com.services.data.pixabay.PixabayMusicCollector;
 import com.services.data.pixabay.PixabayVideoCollector;
 import com.services.data.techblog.scheduler.TechBlogDataScheduler;
@@ -26,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
@@ -34,6 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestRedisConfig.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class TechBlogRssCollectorTest {
 
@@ -46,8 +48,6 @@ class TechBlogRssCollectorTest {
   @Autowired private TransactionTemplate transactionTemplate;
 
   @Autowired private EntityManager entityManager;
-
-  @MockitoBean private RedisDataStorage redisDataStorage;
 
   @MockitoBean private PixabayVideoCollector pixabayVideoCollector;
 

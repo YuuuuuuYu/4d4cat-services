@@ -32,4 +32,14 @@ public interface ApplicationRepository
 
   List<Application> findAllByCompanySlugAndVerificationStatus(
       String companySlug, VerificationStatus status);
+
+  @Query(
+      value =
+          "SELECT * FROM ( "
+              + "SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.verification_status ORDER BY a.applied_at DESC) as rn "
+              + "FROM application a JOIN verification_request vr ON a.id = vr.application_id "
+              + "WHERE vr.member_id = :memberId AND a.deleted = false "
+              + ") tmp WHERE rn <= 10",
+      nativeQuery = true)
+  List<Application> findDashboardApplications(@Param("memberId") UUID memberId);
 }
