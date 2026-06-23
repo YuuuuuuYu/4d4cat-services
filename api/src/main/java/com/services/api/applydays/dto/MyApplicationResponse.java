@@ -36,4 +36,22 @@ public record MyApplicationResponse(
         .channel(application.getChannel())
         .build();
   }
+
+  public static MyApplicationResponse of(
+      com.services.core.applydays.repository.ApplicationSummary application,
+      String companyName,
+      String rejectionReason) {
+    return MyApplicationResponse.builder()
+        .id(application.getId())
+        .companySlug(application.getCompanySlug())
+        .companyName(companyName != null ? companyName : application.getCompanySlug())
+        .categoryId(application.getCategoryId())
+        .positionDetail(application.getPositionDetail())
+        .appliedAt(application.getAppliedAt())
+        .hiringProcess(application.getHiringProcess())
+        .verificationStatus(application.getVerificationStatus())
+        .rejectionReason(rejectionReason)
+        .channel(application.getChannel())
+        .build();
+  }
 }

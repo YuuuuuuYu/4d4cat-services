@@ -12,6 +12,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Collate;
 
 @Entity
 @Getter
@@ -26,6 +27,7 @@ public class Category extends BaseEntity implements Serializable {
   private Long id;
 
   @Column(nullable = false)
+  @Collate(value = "ko_KR.utf8")
   private String name;
 
   @Column(name = "parent_id")

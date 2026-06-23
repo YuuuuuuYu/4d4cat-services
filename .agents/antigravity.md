@@ -28,8 +28,8 @@ api-server (api) ────▶ core
 data-server (data) ──▶ core
 monitoring-server (monitoring) ──▶ (metrics from all servers)
 ```
-- **core (공통 라이브러리):** 모든 모듈의 공통 기반 (Exception, AOP, Redis Storage & Queue 등). 타 모듈에 대한 의존성 없음.
-- **data (데이터 수집/비동기 워커):** 외부 API 수집, Redis Result Listener, 알림 메일 발송 스케줄러.
+- **core (공통 라이브러리):** 모든 모듈의 공통 기반 (Exception, AOP, Redis Storage & Queue, Cloudflare R2 Config 등). 타 모듈에 대한 의존성 없음.
+- **data (데이터 수집/비동기 워커):** 외부 API 수집, Redis Result Listener, 알림 메일 발송 스케줄러, 지원서 이미지 삭제 스케줄러.
 - **api (API 제공/발행):** REST API 제공, Security/OAuth2, 비즈니스 요청 발행.
 - **monitoring (관측성):** Actuator, Prometheus 연동 및 지표 노출.
 
@@ -49,8 +49,10 @@ monitoring-server (monitoring) ──▶ (metrics from all servers)
 
 ### 3.2 JPA 삭제 전략 (Soft vs Physical Delete)
 - **Soft Delete (보존 데이터):** 게시글(`TechBlogPost`), 회사(`Company`), 지원서(`Application`) 등은 `BaseSoftDeleteEntity`를 상속받고 클래스 레벨에 `@SQLRestriction("deleted = false")`와 `@SQLDelete`를 선언합니다.
-- **Physical Delete (임시 데이터):** 통계 데이터, 알림 큐 등은 `BaseEntity`를 상속받습니다.
-- **삭제 처리:** 서비스 계층에서 Soft Delete 엔티티를 삭제할 때는 `repository.delete()`를 호출하면 자동으로 상태가 변경(`deleted = true`)됩니다.
+- **Physical Delete (임시 데이터 및 완전 삭제 대상):** 통계 데이터, 알림 큐 등은 `BaseEntity`를 상속받습니다. **특히 지원서 증빙 이미지(`VerificationImage`)는 개인정보 보호 및 스토리지 공간 절약을 위해 Soft Delete를 수행하지 않고 `BaseEntity`를 상속받아 Physical Delete를 사용합니다.**
+- **삭제 처리 & 비동기 정리:** 
+  - 서비스 계층에서 Soft Delete 엔티티를 삭제할 때는 `repository.delete()`를 호출하여 자동으로 상태를 변경(`deleted = true`)합니다.
+  - **지원서 삭제 후속 조치:** 지원서(`Application`)가 삭제되면, `data` 모듈의 `VerificationImageCleanupScheduler` 스케줄러(매일 새벽 3시 실행)가 연관된 `VerificationImage`를 데이터베이스에서 조회하여, Cloudflare R2에서 실제 이미지 파일을 삭제한 후 데이터베이스에서도 해당 이미지를 완전 삭제(Physical Delete)합니다.
 - **회원 탈퇴 및 익명화:** 탈퇴 처리 시 `email`, `name` 등 PII 데이터를 파기(Anonymize)하되, 지원 내역과 통계 데이터는 무결성을 위해 익명화 상태로 유지합니다.
 
 ### 3.3 RESTful API 네이밍 및 응답 형식
@@ -67,10 +69,15 @@ monitoring-server (monitoring) ──▶ (metrics from all servers)
 - **Test Fixtures:** 멀티모듈 환경에서 테스트 객체 생성 로직의 중복 방지를 위해 `core` 모듈의 Test Fixtures를 활용합니다 (`core/src/testFixtures/java/com/services/core/fixture/`).
 
 ### 4.2 Redis Mocking 설정 (TestRedisConfig)
-로컬에 Redis가 동작하지 않는 환경에서도 테스트가 가능하도록 `api` 및 `data` 테스트 패키지에 `TestRedisConfig`를 로드하여 `RedisDataStorage` 등을 Mock 빈으로 등록합니다.
+로컬이나 CI 환경(특히 Redis가 없는 headless CI 환경)에서도 테스트가 가능하도록 `api` 및 `data` 테스트 패키지에 `TestRedisConfig`를 로드하여 `RedisConnectionFactory`와 `RedisDataStorage` 등을 Mock 빈으로 등록합니다.
 ```java
 @TestConfiguration
 public class TestRedisConfig {
+    @Bean @Primary
+    public RedisConnectionFactory redisConnectionFactory() {
+        return Mockito.mock(RedisConnectionFactory.class);
+    }
+
     @Bean @Primary
     public RedisDataStorage redisDataStorage() {
         return Mockito.mock(RedisDataStorage.class);
@@ -90,6 +97,15 @@ public class TestRedisConfig {
 ### 5.2 CI/CD 및 환경 변수
 - **Secrets:** GitHub Actions 비밀값(`PIXABAY_KEY`, `DATA_SERVER_IP`, `MONITORING_SERVER_IP` 등)을 통해 이미지 빌드 및 SSH 배포가 제어됩니다.
 - **환경 변수 (.env):** API Key 및 DB 커넥션 정보는 하드코딩하지 않고 `.env` 또는 시스템 환경 변수로 참조합니다.
+
+### 5.3 로컬 CI/CD 테스트 (act)
+로컬 환경에서 GitHub Actions 워크플로우를 실행하고 디버깅하기 위해 `act` 도구를 활용할 수 있습니다.
+- **필수 조건:** Docker 데몬이 실행 중이어야 합니다.
+- **주요 명령어:**
+  - 전체 워크플로우 로컬 실행: `act`
+  - 특정 Job만 로컬 실행 (예: test): `act -j test`
+  - 이벤트 데이터를 JSON 파일로 전달하여 실행: `act -e event.json`
+  - 환경변수 및 Secrets 전달: `act --secret-file .env`
 
 ---
 

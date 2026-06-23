@@ -1,5 +1,8 @@
 package com.services.api.applydays.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
@@ -7,8 +10,10 @@ import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.*;
 import com.services.core.applydays.entity.*;
 import com.services.core.applydays.repository.ApplicationRepository;
+import com.services.core.applydays.repository.ApplicationSummary;
 import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
+import com.services.core.applydays.repository.DashboardApplicationSummary;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.common.dto.CompanyResponse;
 import com.services.core.common.dto.PageResponse;
@@ -25,10 +30,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.*;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -39,6 +43,7 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ApplyDaysQueryService {
 
   private final ApplicationRepository applicationRepository;
@@ -49,7 +54,7 @@ public class ApplyDaysQueryService {
   private final ApplyDaysStatisticsRepository statisticsRepository;
   private final MeterRegistry meterRegistry;
   private final MemberService memberService;
-  private final Executor virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
+  private final ObjectMapper objectMapper;
 
   public Slice<? extends TimelineBasicResponse> getCompanyTimeline(
       Authentication authentication, String slug, Pageable pageable) {
@@ -151,17 +156,21 @@ public class ApplyDaysQueryService {
               pageable.getPageNumber(), pageable.getPageSize(), Sort.by("appliedAt").descending());
     }
 
-    Page<Application> myAppsPage =
+    Page<ApplicationSummary> myAppsPage =
         applicationRepository.findByMemberIdAndStatus(memberId, status, sortedPageable);
 
     List<String> slugs =
-        myAppsPage.getContent().stream().map(Application::getCompanySlug).distinct().toList();
+        myAppsPage.getContent().stream()
+            .map(ApplicationSummary::getCompanySlug)
+            .distinct()
+            .toList();
 
     Map<String, String> companyNameMap =
         companyRepository.findBySlugIn(slugs).stream()
             .collect(Collectors.toMap(Company::getSlug, Company::getName));
 
-    List<UUID> applicationIds = myAppsPage.getContent().stream().map(Application::getId).toList();
+    List<UUID> applicationIds =
+        myAppsPage.getContent().stream().map(ApplicationSummary::getId).toList();
     List<VerificationRequest> verificationRequests =
         applicationIds.isEmpty()
             ? List.of()
@@ -197,12 +206,14 @@ public class ApplyDaysQueryService {
     MyApplicationsSummaryResponse summary = getMyApplicationsSummaryByMemberId(memberId);
 
     // 2. 대시보드 대상 애플리케이션 일괄 조회 (1회 쿼리 - 윈도우 함수 적용)
-    List<Application> dashboardApps = applicationRepository.findDashboardApplications(memberId);
+    List<DashboardApplicationSummary> dashboardApps =
+        applicationRepository.findDashboardApplications(memberId);
 
     // 3. 일괄 조회한 데이터에서 slugs와 applicationIds 추출
     List<String> slugs =
-        dashboardApps.stream().map(Application::getCompanySlug).distinct().toList();
-    List<UUID> applicationIds = dashboardApps.stream().map(Application::getId).toList();
+        dashboardApps.stream().map(DashboardApplicationSummary::getCompanySlug).distinct().toList();
+    List<UUID> applicationIds =
+        dashboardApps.stream().map(DashboardApplicationSummary::getId).toList();
 
     // 4. Company 및 VerificationRequest 일괄 In-Query 조회 (각 1회씩, 총 2회 쿼리)
     Map<String, String> companyNameMap =
@@ -229,11 +240,35 @@ public class ApplyDaysQueryService {
     List<MyApplicationResponse> allResponses =
         dashboardApps.stream()
             .map(
-                app ->
-                    MyApplicationResponse.of(
-                        app,
-                        companyNameMap.getOrDefault(app.getCompanySlug(), null),
-                        rejectionReasonMap.getOrDefault(app.getId(), null)))
+                app -> {
+                  List<HiringStepDetail> hiringSteps = List.of();
+                  if (StringUtils.hasText(app.getHiringProcess())) {
+                    try {
+                      hiringSteps =
+                          objectMapper.readValue(
+                              app.getHiringProcess(),
+                              new TypeReference<List<HiringStepDetail>>() {});
+                    } catch (JsonProcessingException e) {
+                      log.error(
+                          "Failed to parse hiring process JSON for application ID: {}",
+                          app.getId(),
+                          e);
+                    }
+                  }
+                  String companyName = companyNameMap.getOrDefault(app.getCompanySlug(), null);
+                  return MyApplicationResponse.builder()
+                      .id(app.getId())
+                      .companySlug(app.getCompanySlug())
+                      .companyName(companyName != null ? companyName : app.getCompanySlug())
+                      .categoryId(app.getCategoryId())
+                      .positionDetail(app.getPositionDetail())
+                      .appliedAt(app.getAppliedAt())
+                      .hiringProcess(hiringSteps)
+                      .verificationStatus(app.getVerificationStatus())
+                      .rejectionReason(rejectionReasonMap.getOrDefault(app.getId(), null))
+                      .channel(app.getChannel())
+                      .build();
+                })
             .toList();
 
     List<MyApplicationResponse> pendingList =
@@ -381,7 +416,7 @@ public class ApplyDaysQueryService {
       throw new ForbiddenException(ErrorCode.FORBIDDEN);
     }
 
-    List<Application> applications =
+    List<ApplicationSummary> applications =
         applicationRepository.findAllByCompanySlugAndVerificationStatus(
             companySlug, VerificationStatus.APPROVED);
 
