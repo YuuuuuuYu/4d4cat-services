@@ -2,6 +2,7 @@ package com.services.core.applydays.repository;
 
 import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.VerificationStatus;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface ApplicationRepository
     extends JpaRepository<Application, UUID>, ApplicationRepositoryCustom {
+
+  long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+  @Query(
+      "SELECT a.channel, COUNT(a) FROM Application a WHERE a.createdAt BETWEEN :start AND :end GROUP BY a.channel")
+  List<Object[]> countByChannelAndCreatedAtBetween(
+      @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
   @Query(
       "SELECT a.id as id, a.companySlug as companySlug, a.categoryId as categoryId, "
           + "a.appliedAt as appliedAt, a.hiringProcess as hiringProcess, "

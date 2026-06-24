@@ -27,3 +27,15 @@
 - **적용:** 모든 기능 구현 후 비즈니스 로직 테스트 및 QueryDSL 쿼리 검증.
 - **프롬프트 프리셋:**
   > 귀하는 백엔드 QA 엔지니어입니다. 구현된 기능에 대해 경계 조건 및 엣지 케이스를 포함한 JUnit 5 테스트 코드를 작성하고 동작 안정성을 증명하십시오.
+
+## 공통 개발 규칙 (Common Development Rules)
+
+### 1. **환경 설정 파일 수정 (Configuration Files)**
+- **규칙:** 각 모듈(`api`, `data` 등) 소스 디렉토리 내의 `application.yml` 등의 설정 파일은 빌드 및 배포 과정에서 복사되는 임시 파일입니다.
+- **적용:** 환경설정을 변경하거나 새로 추가해야 하는 경우, 모듈 내부의 파일이 아닌 프로젝트 루트의 [config](../config) 폴더 내 원본 설정 파일들을 수정해야 합니다.
+
+### 2. **디스코드 다중 채널 알림 연동 (Discord Notification)**
+- **규칙:** 새로 추가하는 기능이나 스케줄러에 `@NotifyDiscord` 어노테이션을 적용할 때, 작업의 성격에 맞게 `channel` 속성(`DiscordChannel`)을 명시하여 알림의 혼선을 피해야 합니다.
+  - 데이터 수집 및 연동 작업: `DiscordChannel.DATA`
+  - 상태 체크, 이미지 클린업, 데이터 정리 등 헬스케어 작업: `DiscordChannel.MONITORING`
+  - 일반 비즈니스 이벤트/일반 에러: `DiscordChannel.DEFAULT` (기본값)

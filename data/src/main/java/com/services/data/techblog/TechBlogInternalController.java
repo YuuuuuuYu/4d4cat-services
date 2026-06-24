@@ -2,6 +2,7 @@ package com.services.data.techblog;
 
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,7 @@ public class TechBlogInternalController {
   private final RedisDataStorage redisDataStorage;
 
   @PostMapping("/collect")
-  @NotifyDiscord(taskName = "기술 블로그 RSS 수집 (수동)")
+  @NotifyDiscord(taskName = "기술 블로그 RSS 수집 (수동)", channel = DiscordChannel.DATA)
   public DataCollectionResult triggerCollection() {
     log.info("Starting manual RSS feed collection.");
     DataCollectionResult result = rssCollector.collectFeeds();

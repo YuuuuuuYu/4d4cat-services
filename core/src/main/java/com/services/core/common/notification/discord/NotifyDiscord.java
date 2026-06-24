@@ -13,4 +13,6 @@ public @interface NotifyDiscord {
   String startLog() default "";
 
   String errorLog() default "";
+
+  DiscordChannel channel() default DiscordChannel.DEFAULT;
 }

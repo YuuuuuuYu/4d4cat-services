@@ -2,6 +2,7 @@ package com.services.data.applydays.worker;
 
 import com.services.core.applydays.repository.DeletedImageProjection;
 import com.services.core.applydays.repository.VerificationImageRepository;
+import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import java.time.Duration;
 import java.util.List;
@@ -40,7 +41,7 @@ public class VerificationImageCleanupScheduler {
   private final RedisTemplate<String, Object> redisTemplate;
 
   @Scheduled(cron = "0 0 3 * * *")
-  @NotifyDiscord(taskName = "Verification Image Cleanup")
+  @NotifyDiscord(taskName = "Verification Image Cleanup", channel = DiscordChannel.MONITORING)
   @Transactional
   public void cleanupDeletedImages() {
     Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", lockDuration);

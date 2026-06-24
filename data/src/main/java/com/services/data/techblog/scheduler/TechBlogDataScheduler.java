@@ -2,6 +2,7 @@ package com.services.data.techblog.scheduler;
 
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import com.services.core.techblog.repository.TechBlogPostRepository;
 import com.services.data.techblog.TechBlogRssCollector;
@@ -21,7 +22,7 @@ public class TechBlogDataScheduler {
   private final RedisDataStorage redisDataStorage;
 
   @Scheduled(cron = "0 0 8,13,22 * * *")
-  @NotifyDiscord(taskName = "기술 블로그 RSS 수집")
+  @NotifyDiscord(taskName = "기술 블로그 RSS 수집", channel = DiscordChannel.DATA)
   public DataCollectionResult collectTechBlogFeeds() {
     log.info("Starting scheduled RSS feed collection.");
     DataCollectionResult result = rssCollector.collectFeeds();
@@ -34,7 +35,7 @@ public class TechBlogDataScheduler {
   }
 
   @Scheduled(cron = "0 5 0 * * *")
-  @NotifyDiscord(taskName = "Clean Unexposed posts")
+  @NotifyDiscord(taskName = "기술 블로그 색인 갱신", channel = DiscordChannel.MONITORING)
   @Transactional
   public void cleanupUnexposedPosts() {
     log.info("Starting scheduled cleanup of unexposed posts.");
