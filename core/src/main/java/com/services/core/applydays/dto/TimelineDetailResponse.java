@@ -2,6 +2,7 @@ package com.services.core.applydays.dto;
 
 import com.services.core.applydays.entity.ApplicationChannel;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import lombok.Getter;
 
@@ -9,6 +10,7 @@ import lombok.Getter;
 public class TimelineDetailResponse extends TimelineBasicResponse {
   private final String positionDetail;
   private final ApplicationChannel channel;
+  private final List<HiringStepDetail> hiringProcess;
 
   public TimelineDetailResponse(
       UUID id,
@@ -17,9 +19,11 @@ public class TimelineDetailResponse extends TimelineBasicResponse {
       LocalDateTime appliedAt,
       LocalDateTime createdAt,
       String positionDetail,
-      ApplicationChannel channel) {
+      ApplicationChannel channel,
+      List<HiringStepDetail> hiringProcess) {
     super(id, categoryL1Name, categoryL2Name, appliedAt, createdAt);
     this.positionDetail = positionDetail;
     this.channel = channel;
+    this.hiringProcess = hiringProcess;
   }
 }

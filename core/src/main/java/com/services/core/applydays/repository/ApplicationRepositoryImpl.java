@@ -2,6 +2,7 @@ package com.services.core.applydays.repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.services.core.applydays.dto.AdminApplicationDetailResponse;
 import com.services.core.applydays.dto.AdminApplicationResponse;
@@ -13,6 +14,7 @@ import com.services.core.applydays.entity.QVerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.common.persistence.entity.QCompany;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -119,86 +121,111 @@ public class ApplicationRepositoryImpl implements ApplicationRepositoryCustom {
   }
 
   @Override
-  public Slice<TimelineBasicResponse> findTimelineBasicByCompanySlug(
-      String companySlug, Pageable pageable) {
+  public List<TimelineBasicResponse> findTimelineBasicByCompanySlug(
+      String companySlug, String cursor, int limit) {
     QApplication application = QApplication.application;
     QCategory cat = new QCategory("cat");
     QCategory parentCat = new QCategory("parentCat");
 
-    List<TimelineBasicResponse> content =
-        queryFactory
-            .select(
-                Projections.constructor(
-                    TimelineBasicResponse.class,
-                    application.id,
-                    parentCat.name,
-                    cat.name,
-                    application.appliedAt,
-                    application.createdAt))
-            .from(application)
-            .leftJoin(cat)
-            .on(application.categoryId.eq(cat.id))
-            .leftJoin(parentCat)
-            .on(cat.parentId.eq(parentCat.id))
-            .where(
-                application
-                    .companySlug
-                    .eq(companySlug)
-                    .and(application.verificationStatus.eq(VerificationStatus.APPROVED)))
-            .orderBy(application.createdAt.desc())
-            .offset(pageable.getOffset())
-            .limit(pageable.getPageSize() + 1)
-            .fetch();
+    LocalDateTime cursorCreatedAt = null;
+    UUID cursorId = null;
 
-    boolean hasNext = false;
-    if (content.size() > pageable.getPageSize()) {
-      content.remove(pageable.getPageSize());
-      hasNext = true;
+    if (cursor != null && !cursor.isBlank()) {
+      try {
+        String[] parts = cursor.split("_");
+        if (parts.length == 2) {
+          cursorCreatedAt = LocalDateTime.parse(parts[0]).truncatedTo(ChronoUnit.MICROS);
+          cursorId = UUID.fromString(parts[1]);
+        }
+      } catch (Exception e) {
+
+      }
     }
 
-    return new SliceImpl<>(content, pageable, hasNext);
+    return queryFactory
+        .select(
+            Projections.constructor(
+                TimelineBasicResponse.class,
+                application.id,
+                parentCat.name,
+                cat.name,
+                application.appliedAt,
+                application.createdAt))
+        .from(application)
+        .leftJoin(cat)
+        .on(application.categoryId.eq(cat.id))
+        .leftJoin(parentCat)
+        .on(cat.parentId.eq(parentCat.id))
+        .where(
+            application
+                .companySlug
+                .eq(companySlug)
+                .and(application.verificationStatus.eq(VerificationStatus.APPROVED))
+                .and(cursorCondition(cursorCreatedAt, cursorId, application)))
+        .orderBy(application.createdAt.desc(), application.id.desc())
+        .limit(limit + 1)
+        .fetch();
   }
 
   @Override
-  public Slice<TimelineDetailResponse> findTimelineDetailByCompanySlug(
-      String companySlug, Pageable pageable) {
+  public List<TimelineDetailResponse> findTimelineDetailByCompanySlug(
+      String companySlug, String cursor, int limit) {
     QApplication application = QApplication.application;
     QCategory cat = new QCategory("cat");
     QCategory parentCat = new QCategory("parentCat");
 
-    List<TimelineDetailResponse> content =
-        queryFactory
-            .select(
-                Projections.constructor(
-                    TimelineDetailResponse.class,
-                    application.id,
-                    parentCat.name,
-                    cat.name,
-                    application.appliedAt,
-                    application.createdAt,
-                    application.positionDetail,
-                    application.channel))
-            .from(application)
-            .leftJoin(cat)
-            .on(application.categoryId.eq(cat.id))
-            .leftJoin(parentCat)
-            .on(cat.parentId.eq(parentCat.id))
-            .where(
-                application
-                    .companySlug
-                    .eq(companySlug)
-                    .and(application.verificationStatus.eq(VerificationStatus.APPROVED)))
-            .orderBy(application.createdAt.desc())
-            .offset(pageable.getOffset())
-            .limit(pageable.getPageSize() + 1)
-            .fetch();
+    LocalDateTime cursorCreatedAt = null;
+    UUID cursorId = null;
 
-    boolean hasNext = false;
-    if (content.size() > pageable.getPageSize()) {
-      content.remove(pageable.getPageSize());
-      hasNext = true;
+    if (cursor != null && !cursor.isBlank()) {
+      try {
+        String[] parts = cursor.split("_");
+        if (parts.length == 2) {
+          cursorCreatedAt = LocalDateTime.parse(parts[0]).truncatedTo(ChronoUnit.MICROS);
+          cursorId = UUID.fromString(parts[1]);
+        }
+      } catch (Exception e) {
+        // ignore invalid cursor
+      }
     }
 
-    return new SliceImpl<>(content, pageable, hasNext);
+    return queryFactory
+        .select(
+            Projections.constructor(
+                TimelineDetailResponse.class,
+                application.id,
+                parentCat.name,
+                cat.name,
+                application.appliedAt,
+                application.createdAt,
+                application.positionDetail,
+                application.channel,
+                application.hiringProcess))
+        .from(application)
+        .leftJoin(cat)
+        .on(application.categoryId.eq(cat.id))
+        .leftJoin(parentCat)
+        .on(cat.parentId.eq(parentCat.id))
+        .where(
+            application
+                .companySlug
+                .eq(companySlug)
+                .and(application.verificationStatus.eq(VerificationStatus.APPROVED))
+                .and(cursorCondition(cursorCreatedAt, cursorId, application)))
+        .orderBy(application.createdAt.desc(), application.id.desc())
+        .limit(limit + 1)
+        .fetch();
+  }
+
+  private BooleanExpression cursorCondition(
+      LocalDateTime cursorCreatedAt, UUID cursorId, QApplication application) {
+    if (cursorCreatedAt == null || cursorId == null) {
+      return null;
+    }
+
+    return application
+        .createdAt
+        .lt(cursorCreatedAt)
+        .or(application.createdAt.eq(cursorCreatedAt).and(application.id.lt(cursorId)));
   }
 }

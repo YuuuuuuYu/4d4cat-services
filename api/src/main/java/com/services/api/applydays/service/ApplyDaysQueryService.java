@@ -26,6 +26,7 @@ import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -56,15 +57,33 @@ public class ApplyDaysQueryService {
   private final MemberService memberService;
   private final ObjectMapper objectMapper;
 
-  public Slice<? extends TimelineBasicResponse> getCompanyTimeline(
-      Authentication authentication, String slug, Pageable pageable) {
+  public TimelineListResponse getCompanyTimeline(
+      Authentication authentication, String slug, String cursor, int limit) {
     String authorityKey = getAuthorityKey(authentication);
 
     if ("SUBSCRIBER".equals(authorityKey)) {
-      return applicationRepository.findTimelineDetailByCompanySlug(slug, pageable);
+      List<TimelineDetailResponse> content =
+          applicationRepository.findTimelineDetailByCompanySlug(slug, cursor, limit);
+
+      boolean hasNext = content.size() > limit;
+      if (hasNext) {
+        content = new java.util.ArrayList<>(content);
+        content.remove(limit);
+      }
+
+      String nextCursor = null;
+      if (!content.isEmpty() && hasNext) {
+        TimelineDetailResponse lastItem = content.get(content.size() - 1);
+        nextCursor =
+            lastItem.getCreatedAt().truncatedTo(ChronoUnit.MICROS).toString()
+                + "_"
+                + lastItem.getId();
+      }
+
+      return new TimelineListResponse(content, nextCursor, hasNext);
     }
 
-    return new SliceImpl<>(List.of(), pageable, false);
+    return new TimelineListResponse(List.of(), null, false);
   }
 
   @Cacheable(value = "companySearch", key = "#query")
