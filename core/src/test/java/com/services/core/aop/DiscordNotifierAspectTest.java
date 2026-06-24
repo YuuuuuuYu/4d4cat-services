@@ -56,6 +56,6 @@ class DiscordNotifierAspectTest {
     testComponent.annotatedMethod();
 
     // Then
-    verify(discordWebhookService).sendMessageAsync(any());
+    verify(discordWebhookService).sendMessageAsync(any(), any());
   }
 }

@@ -3,6 +3,7 @@ package com.services.core.common.aop;
 import com.services.core.common.exception.CustomException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.DiscordWebhookPayload;
 import com.services.core.common.notification.discord.DiscordWebhookService;
 import com.services.core.common.notification.discord.Embed;
@@ -42,6 +43,7 @@ public class DiscordNotifierAspect {
       throws Throwable {
     String serviceName = joinPoint.getSignature().getDeclaringType().getSimpleName();
     String taskName = notifyDiscord.taskName();
+    DiscordChannel channel = notifyDiscord.channel();
 
     log.info("Starting task: '{}' in {}", taskName, serviceName);
 
@@ -61,7 +63,7 @@ public class DiscordNotifierAspect {
 
       registry.counter("task.execution.total", "task", taskName, "status", "success").increment();
 
-      sendSuccessWebhook(serviceName, taskName, duration, result);
+      sendSuccessWebhook(serviceName, taskName, duration, result, channel);
 
       return result;
 
@@ -76,13 +78,17 @@ public class DiscordNotifierAspect {
       log.error("Task '{}' in {} failed.", taskName, serviceName, e);
       registry.counter("task.execution.total", "task", taskName, "status", "failure").increment();
 
-      sendErrorWebhook(serviceName, taskName, e);
+      sendErrorWebhook(serviceName, taskName, e, channel);
       throw e;
     }
   }
 
   private void sendSuccessWebhook(
-      String serviceName, String taskName, Duration duration, Object result) {
+      String serviceName,
+      String taskName,
+      Duration duration,
+      Object result,
+      DiscordChannel channel) {
     String title = String.format("✅ %s 성공", taskName);
     String description;
     int color = DISCORD_COLOR_SUCCESS;
@@ -102,10 +108,11 @@ public class DiscordNotifierAspect {
       description = String.format("작업이 %.2f초 만에 성공적으로 완료되었습니다.", duration.toSeconds() / 1000.0);
     }
 
-    sendWebhookNotification(serviceName, title, description, color);
+    sendWebhookNotification(serviceName, title, description, color, channel);
   }
 
-  private void sendErrorWebhook(String serviceName, String taskName, Throwable exception) {
+  private void sendErrorWebhook(
+      String serviceName, String taskName, Throwable exception, DiscordChannel channel) {
     String title = String.format("❌ %s 실패", taskName);
     ErrorCode errorCode =
         (exception instanceof CustomException customException)
@@ -122,16 +129,17 @@ public class DiscordNotifierAspect {
           String localizedTitle =
               ms.getMessage(
                   "discord.failure.title", new Object[] {taskName}, title, Locale.getDefault());
-          sendWebhookNotification(serviceName, localizedTitle, description, DISCORD_COLOR_ERROR);
+          sendWebhookNotification(
+              serviceName, localizedTitle, description, DISCORD_COLOR_ERROR, channel);
         });
 
     if (messageSource.isEmpty()) {
-      sendWebhookNotification(serviceName, title, description, DISCORD_COLOR_ERROR);
+      sendWebhookNotification(serviceName, title, description, DISCORD_COLOR_ERROR, channel);
     }
   }
 
   private void sendWebhookNotification(
-      String serviceName, String title, String description, int color) {
+      String serviceName, String title, String description, int color, DiscordChannel channel) {
 
     String formattedDescription = String.format("**Service:** `%s`\n%s", serviceName, description);
 
@@ -146,6 +154,6 @@ public class DiscordNotifierAspect {
     DiscordWebhookPayload payload =
         DiscordWebhookPayload.builder().username(BOT_USERNAME).embeds(List.of(embed)).build();
 
-    discordWebhookService.sendMessageAsync(payload);
+    discordWebhookService.sendMessageAsync(payload, channel);
   }
 }

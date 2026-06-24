@@ -3,6 +3,7 @@ package com.services.data.pixabay;
 import com.services.core.common.infrastructure.ApiMetadata;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import com.services.core.pixabay.PixabayResponse;
 import com.services.core.pixabay.PixabayVideoResult;
@@ -54,7 +55,7 @@ public class PixabayVideoCollector
   }
 
   @Override
-  @NotifyDiscord(taskName = "Pixabay 비디오 수집")
+  @NotifyDiscord(taskName = "Pixabay 비디오 수집", channel = DiscordChannel.DATA)
   public DataCollectionResult collectAndStore() {
     return super.collectAndStore();
   }

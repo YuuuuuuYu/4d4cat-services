@@ -1,5 +1,6 @@
 package com.services.data.scheduler;
 
+import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +22,7 @@ public class DatabaseKeepAliveScheduler {
   }
 
   @Scheduled(cron = "0 0 1,5,9,13,17,21 * * *")
-  @NotifyDiscord(taskName = "Database Keep-alive")
+  @NotifyDiscord(taskName = "Database Keep-alive", channel = DiscordChannel.MONITORING)
   public void keepAlive() {
     jdbcTemplate.execute("SELECT 1");
     log.info("Executed keep-alive dummy query to prevent database from sleeping.");
