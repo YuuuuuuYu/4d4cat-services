@@ -12,4 +12,11 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "discord")
 public class DiscordProperties {
   private Map<String, String> webhooks;
+  private Lifecycle lifecycle = new Lifecycle();
+
+  @Getter
+  @Setter
+  public static class Lifecycle {
+    private boolean enabled = false;
+  }
 }

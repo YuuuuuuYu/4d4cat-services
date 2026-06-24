@@ -39,6 +39,7 @@ class DiscordWebhookServiceTest {
     responseSpec = mock(RestClient.ResponseSpec.class);
 
     when(restClientBuilder.baseUrl(anyString())).thenReturn(restClientBuilder);
+    when(restClientBuilder.requestFactory(any())).thenReturn(restClientBuilder);
     when(restClientBuilder.defaultStatusHandler(any(), any())).thenReturn(restClientBuilder);
     when(restClientBuilder.build()).thenReturn(restClient);
 

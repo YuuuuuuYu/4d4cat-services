@@ -9,6 +9,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -31,28 +32,25 @@ public class DiscordWebhookService {
             : Collections.emptyMap();
 
     String defaultUrl = webhooks.get("default");
-    if (defaultUrl == null || defaultUrl.isBlank()) {
-      log.warn("Default Discord webhook URL is not configured or blank.");
-      defaultUrl = "";
-    }
 
     Map<String, RestClient> tempClients = new HashMap<>();
+
+    SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+    requestFactory.setConnectTimeout(5000);
+    requestFactory.setReadTimeout(5000);
 
     for (DiscordChannel channel : DiscordChannel.values()) {
       String channelName = channel.getValue();
       String url = webhooks.get(channelName);
 
       if (url == null || url.isBlank()) {
-        log.info(
-            "Webhook URL for channel '{}' is not configured. Falling back to 'default' channel URL.",
-            channelName);
         url = defaultUrl;
       }
 
-      final String finalUrl = url;
       RestClient client =
           restClientBuilder
-              .baseUrl(finalUrl)
+              .baseUrl(url)
+              .requestFactory(requestFactory)
               .defaultStatusHandler(
                   HttpStatusCode::isError,
                   (request, response) -> {
@@ -78,10 +76,6 @@ public class DiscordWebhookService {
     String channelName = channel.getValue();
     try {
       RestClient client = restClients.get(channelName);
-      if (client == null) {
-        log.error("Unconfigured channel: {}", channelName);
-        return;
-      }
       client
           .post()
           .contentType(MediaType.APPLICATION_JSON)
