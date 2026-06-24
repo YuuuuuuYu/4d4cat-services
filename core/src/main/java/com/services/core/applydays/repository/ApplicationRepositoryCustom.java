@@ -5,6 +5,7 @@ import com.services.core.applydays.dto.AdminApplicationResponse;
 import com.services.core.applydays.dto.TimelineBasicResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -16,9 +17,9 @@ public interface ApplicationRepositoryCustom {
 
   Optional<AdminApplicationDetailResponse> findApplicationDetailById(UUID id);
 
-  Slice<TimelineBasicResponse> findTimelineBasicByCompanySlug(
-      String companySlug, Pageable pageable);
+  List<TimelineBasicResponse> findTimelineBasicByCompanySlug(
+      String companySlug, String cursor, int limit);
 
-  Slice<TimelineDetailResponse> findTimelineDetailByCompanySlug(
-      String companySlug, Pageable pageable);
+  List<TimelineDetailResponse> findTimelineDetailByCompanySlug(
+      String companySlug, String cursor, int limit);
 }

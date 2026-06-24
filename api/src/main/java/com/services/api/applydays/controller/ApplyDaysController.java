@@ -13,7 +13,7 @@ import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
 import com.services.core.applydays.dto.PublicSummaryResponse;
-import com.services.core.applydays.dto.TimelineBasicResponse;
+import com.services.core.applydays.dto.TimelineListResponse;
 import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.common.dto.BaseResponse;
@@ -46,13 +46,14 @@ public class ApplyDaysController {
   private final ApplyDaysQueryService applyDaysQueryService;
 
   @GetMapping("/companies/{slug}/timeline")
-  public BaseResponse<PageResponse<? extends TimelineBasicResponse>> getCompanyTimeline(
+  public BaseResponse<TimelineListResponse> getCompanyTimeline(
       Authentication authentication,
       @PathVariable String slug,
-      @PageableDefault(size = 10) Pageable pageable) {
+      @RequestParam(required = false) String cursor,
+      @RequestParam(defaultValue = "10") int limit) {
     return BaseResponse.of(
         HttpStatus.OK,
-        PageResponse.of(applyDaysQueryService.getCompanyTimeline(authentication, slug, pageable)));
+        applyDaysQueryService.getCompanyTimeline(authentication, slug, cursor, limit));
   }
 
   @GetMapping("/companies/search")

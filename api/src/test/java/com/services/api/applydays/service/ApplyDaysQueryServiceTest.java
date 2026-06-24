@@ -13,8 +13,8 @@ import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
-import com.services.core.applydays.dto.TimelineBasicResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
+import com.services.core.applydays.dto.TimelineListResponse;
 import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.ApplyDaysStatistics;
 import com.services.core.applydays.entity.Category;
@@ -36,6 +36,7 @@ import com.services.core.common.persistence.repository.member.MemberRepository;
 import com.services.core.fixture.ApplyDaysFixtures;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -253,22 +254,92 @@ class ApplyDaysQueryServiceTest {
     when(auth.isAuthenticated()).thenReturn(true);
     GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_SUBSCRIBER");
     when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
-    Pageable pageable = PageRequest.of(0, 10);
+    String cursor = null;
+    int limit = 10;
 
-    Slice<TimelineDetailResponse> expected = new SliceImpl<>(List.of(), pageable, false);
-    when(applicationRepository.findTimelineDetailByCompanySlug(companySlug, pageable))
-        .thenReturn(expected);
+    UUID appId1 = UUID.randomUUID();
+    LocalDateTime now = LocalDateTime.now();
+    TimelineDetailResponse item =
+        new TimelineDetailResponse(
+            appId1,
+            "L1",
+            "L2",
+            now,
+            now,
+            "Developer",
+            com.services.core.applydays.entity.ApplicationChannel.WANTED,
+            List.of());
+
+    when(applicationRepository.findTimelineDetailByCompanySlug(companySlug, cursor, limit))
+        .thenReturn(List.of(item));
 
     // when
-    Slice<? extends TimelineBasicResponse> result =
-        applyDaysQueryService.getCompanyTimeline(auth, companySlug, pageable);
+    TimelineListResponse result =
+        applyDaysQueryService.getCompanyTimeline(auth, companySlug, cursor, limit);
 
     // then
-    assertThat(result).isEqualTo(expected);
+    assertThat(result.items()).hasSize(1);
+    assertThat(result.items().get(0)).isEqualTo(item);
+    assertThat(result.nextCursor()).isNull();
+    assertThat(result.hasNext()).isFalse();
   }
 
   @Test
-  @DisplayName("getCompanyTimeline은 USER 권한일 때 빈 슬라이스를 반환한다")
+  @DisplayName("getCompanyTimeline은 다음 페이지가 존재할 때 nextCursor를 올바르게 생성한다")
+  void getCompanyTimeline_subscriber_withNextPage() {
+    // given
+    String companySlug = "naver";
+    Authentication auth = mock(Authentication.class);
+    when(auth.isAuthenticated()).thenReturn(true);
+    GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_SUBSCRIBER");
+    when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
+    String cursor = null;
+    int limit = 1;
+
+    UUID appId1 = UUID.randomUUID();
+    UUID appId2 = UUID.randomUUID();
+    LocalDateTime time1 = LocalDateTime.of(2026, 6, 24, 12, 0, 0, 123000000);
+    LocalDateTime time2 = LocalDateTime.of(2026, 6, 24, 11, 0, 0, 456000000);
+
+    TimelineDetailResponse item1 =
+        new TimelineDetailResponse(
+            appId1,
+            "L1",
+            "L2",
+            time1,
+            time1,
+            "Developer 1",
+            com.services.core.applydays.entity.ApplicationChannel.WANTED,
+            List.of());
+    TimelineDetailResponse item2 =
+        new TimelineDetailResponse(
+            appId2,
+            "L1",
+            "L2",
+            time2,
+            time2,
+            "Developer 2",
+            com.services.core.applydays.entity.ApplicationChannel.WANTED,
+            List.of());
+
+    when(applicationRepository.findTimelineDetailByCompanySlug(companySlug, cursor, limit))
+        .thenReturn(List.of(item1, item2));
+
+    // when
+    TimelineListResponse result =
+        applyDaysQueryService.getCompanyTimeline(auth, companySlug, cursor, limit);
+
+    // then
+    assertThat(result.items()).hasSize(1);
+    assertThat(result.items().get(0)).isEqualTo(item1);
+    assertThat(result.hasNext()).isTrue();
+    String expectedNextCursor =
+        time1.truncatedTo(java.time.temporal.ChronoUnit.MICROS).toString() + "_" + appId1;
+    assertThat(result.nextCursor()).isEqualTo(expectedNextCursor);
+  }
+
+  @Test
+  @DisplayName("getCompanyTimeline은 USER 권한일 때 빈 리스트를 반환한다")
   void getCompanyTimeline_user_empty() {
     // given
     String companySlug = "naver";
@@ -276,14 +347,17 @@ class ApplyDaysQueryServiceTest {
     when(auth.isAuthenticated()).thenReturn(true);
     GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_USER");
     when(auth.getAuthorities()).thenAnswer(invocation -> List.of(authority));
-    Pageable pageable = PageRequest.of(0, 10);
+    String cursor = null;
+    int limit = 10;
 
     // when
-    Slice<? extends TimelineBasicResponse> result =
-        applyDaysQueryService.getCompanyTimeline(auth, companySlug, pageable);
+    TimelineListResponse result =
+        applyDaysQueryService.getCompanyTimeline(auth, companySlug, cursor, limit);
 
     // then
-    assertThat(result.getContent()).isEmpty();
+    assertThat(result.items()).isEmpty();
+    assertThat(result.nextCursor()).isNull();
+    assertThat(result.hasNext()).isFalse();
   }
 
   @Test
