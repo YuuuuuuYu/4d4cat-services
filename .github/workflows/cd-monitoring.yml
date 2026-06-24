@@ -8,6 +8,7 @@ on:
       - 'core/**'
       - 'monitoring/**'
       - '.github/workflows/cd-monitoring.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:
