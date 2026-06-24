@@ -8,6 +8,7 @@ on:
       - 'core/**'
       - 'data/**'
       - '.github/workflows/cd-data.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:
