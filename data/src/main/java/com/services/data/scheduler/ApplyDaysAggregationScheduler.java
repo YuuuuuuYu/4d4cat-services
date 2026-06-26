@@ -26,7 +26,7 @@ public class ApplyDaysAggregationScheduler {
   private final CacheManager cacheManager;
 
   @Scheduled(cron = "0 10 1 * * *", zone = "Asia/Seoul")
-  @NotifyDiscord(taskName = "ApplyDays Statistics Aggregation", channel = DiscordChannel.DATA)
+  @NotifyDiscord(taskName = "ApplyDays Statistics Aggregation", channel = DiscordChannel.STATISTICS)
   public void runAggregationJob() {
     log.info("Scheduled trigger: Starting statistics refresh job.");
 
