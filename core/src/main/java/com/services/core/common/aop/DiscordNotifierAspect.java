@@ -10,6 +10,7 @@ import com.services.core.common.notification.discord.Embed;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -20,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 
@@ -44,6 +46,7 @@ public class DiscordNotifierAspect {
     String serviceName = joinPoint.getSignature().getDeclaringType().getSimpleName();
     String taskName = notifyDiscord.taskName();
     DiscordChannel channel = notifyDiscord.channel();
+    String emoji = determineEmoji(notifyDiscord, joinPoint);
 
     log.info("Starting task: '{}' in {}", taskName, serviceName);
 
@@ -63,7 +66,7 @@ public class DiscordNotifierAspect {
 
       registry.counter("task.execution.total", "task", taskName, "status", "success").increment();
 
-      sendSuccessWebhook(serviceName, taskName, duration, result, channel);
+      sendSuccessWebhook(serviceName, taskName, duration, result, channel, emoji);
 
       return result;
 
@@ -78,9 +81,36 @@ public class DiscordNotifierAspect {
       log.error("Task '{}' in {} failed.", taskName, serviceName, e);
       registry.counter("task.execution.total", "task", taskName, "status", "failure").increment();
 
-      sendErrorWebhook(serviceName, taskName, e, channel);
+      sendErrorWebhook(serviceName, taskName, e, channel, emoji);
       throw e;
     }
+  }
+
+  private String determineEmoji(NotifyDiscord notifyDiscord, ProceedingJoinPoint joinPoint) {
+    if (notifyDiscord.emoji() != null && !notifyDiscord.emoji().isBlank()) {
+      return notifyDiscord.emoji();
+    }
+
+    if (notifyDiscord.channel() == DiscordChannel.STATISTICS
+        || notifyDiscord.taskName().toLowerCase().contains("statistics")
+        || notifyDiscord.taskName().contains("통계")) {
+      return "📊";
+    }
+
+    if (joinPoint.getSignature() instanceof MethodSignature methodSignature) {
+      Method method = methodSignature.getMethod();
+      if (method.isAnnotationPresent(org.springframework.scheduling.annotation.Scheduled.class)) {
+        return "⏰";
+      }
+    }
+
+    if (notifyDiscord.channel() == DiscordChannel.MONITORING) {
+      return "🔍";
+    } else if (notifyDiscord.channel() == DiscordChannel.DATA) {
+      return "💾";
+    }
+
+    return "🔔";
   }
 
   private void sendSuccessWebhook(
@@ -88,8 +118,9 @@ public class DiscordNotifierAspect {
       String taskName,
       Duration duration,
       Object result,
-      DiscordChannel channel) {
-    String title = String.format("✅ %s 성공", taskName);
+      DiscordChannel channel,
+      String emoji) {
+    String title = String.format("%s ✅ %s 성공", emoji, taskName);
     String description;
     int color = DISCORD_COLOR_SUCCESS;
 
@@ -112,8 +143,12 @@ public class DiscordNotifierAspect {
   }
 
   private void sendErrorWebhook(
-      String serviceName, String taskName, Throwable exception, DiscordChannel channel) {
-    String title = String.format("❌ %s 실패", taskName);
+      String serviceName,
+      String taskName,
+      Throwable exception,
+      DiscordChannel channel,
+      String emoji) {
+    String title = String.format("🚨 %s ❌ %s 실패", emoji, taskName);
     ErrorCode errorCode =
         (exception instanceof CustomException customException)
             ? customException.getErrorCode()

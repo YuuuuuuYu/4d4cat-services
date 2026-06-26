@@ -15,4 +15,6 @@ public @interface NotifyDiscord {
   String errorLog() default "";
 
   DiscordChannel channel() default DiscordChannel.DEFAULT;
+
+  String emoji() default "";
 }
