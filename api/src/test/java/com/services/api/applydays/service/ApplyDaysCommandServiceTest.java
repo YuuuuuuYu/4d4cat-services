@@ -121,7 +121,7 @@ class ApplyDaysCommandServiceTest {
     VerificationRequest vr =
         VerificationRequest.builder().applicationId(appId).memberId(memberId).build();
 
-    Application app = Application.builder().id(appId).build();
+    Application app = Application.builder().id(appId).positionDetail("Developer").build();
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
     when(verificationRequestRepository.findByApplicationIdIn(List.of(appId)))
         .thenReturn(List.of(vr));
