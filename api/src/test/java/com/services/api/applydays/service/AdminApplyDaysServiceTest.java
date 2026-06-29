@@ -10,7 +10,6 @@ import com.services.core.applydays.entity.VerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.NotificationQueueRepository;
-import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysWorkerService;
 import com.services.core.common.persistence.entity.Company;
@@ -34,7 +33,6 @@ class AdminApplyDaysServiceTest {
   @Mock private ApplicationRepository applicationRepository;
   @Mock private VerificationRequestRepository verificationRequestRepository;
   @Mock private CompanyRepository companyRepository;
-  @Mock private VerificationImageRepository verificationImageRepository;
   @Mock private ApplyDaysWorkerService applyDaysWorkerService;
   @Mock private NotificationQueueRepository notificationQueueRepository;
   @Mock private TransactionTemplate transactionTemplate;
@@ -49,7 +47,6 @@ class AdminApplyDaysServiceTest {
         new AdminApplyDaysCommandService(
             applicationRepository,
             verificationRequestRepository,
-            verificationImageRepository,
             companyRepository,
             applyDaysWorkerService,
             notificationQueueRepository,
@@ -78,7 +75,7 @@ class AdminApplyDaysServiceTest {
     when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
     // when
-    adminApplyDaysCommandService.approveRequest(requestId, null, null, adminEmail);
+    adminApplyDaysCommandService.approveRequest(requestId, null, null);
 
     // then
     verify(applyDaysWorkerService).processApproval(applicationId);
@@ -113,7 +110,7 @@ class AdminApplyDaysServiceTest {
     when(companyRepository.findBySlug(oldSlug)).thenReturn(Optional.of(company));
 
     // when
-    adminApplyDaysCommandService.approveRequest(requestId, newSlug, null, adminEmail);
+    adminApplyDaysCommandService.approveRequest(requestId, newSlug, null);
 
     // then
     verify(applicationRepository).updateCompanySlug(oldSlug, newSlug);
@@ -141,7 +138,7 @@ class AdminApplyDaysServiceTest {
     when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
 
     // when
-    adminApplyDaysCommandService.rejectRequest(requestId, reason, adminEmail);
+    adminApplyDaysCommandService.rejectRequest(requestId, reason);
 
     // then
     assertThat(request.getStatus()).isEqualTo(VerificationStatus.REJECTED);
