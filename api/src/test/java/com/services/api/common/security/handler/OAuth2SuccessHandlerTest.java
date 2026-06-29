@@ -66,12 +66,14 @@ class OAuth2SuccessHandlerTest {
     oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
 
     // Then
+    verify(response).addHeader(eq("Set-Cookie"), anyString());
+
     ArgumentCaptor<String> urlCaptor = ArgumentCaptor.forClass(String.class);
     verify(redirectStrategy).sendRedirect(eq(request), eq(response), urlCaptor.capture());
 
     String redirectedUrl = urlCaptor.getValue();
     assertThat(redirectedUrl).contains("/login-success");
     assertThat(redirectedUrl).contains("accessToken=" + accessToken);
-    assertThat(redirectedUrl).contains("refreshToken=" + refreshToken);
+    assertThat(redirectedUrl).doesNotContain("refreshToken=");
   }
 }
