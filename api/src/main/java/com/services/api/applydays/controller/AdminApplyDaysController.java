@@ -1,6 +1,6 @@
 package com.services.api.applydays.controller;
 
-import com.services.api.applydays.dto.ApplicationUpdateRequest;
+import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.ApprovalRequest;
 import com.services.api.applydays.dto.BulkApproveRequest;
 import com.services.api.applydays.dto.BulkRejectRequest;
@@ -14,6 +14,7 @@ import com.services.core.applydays.dto.AdminApplicationResponse;
 import com.services.core.applydays.dto.AdminPendingRequestResponse;
 import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.common.dto.BaseResponse;
+import jakarta.validation.Valid;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -77,7 +78,7 @@ public class AdminApplyDaysController {
 
   @PutMapping("/applications/{id}")
   public BaseResponse<Void> updateApplication(
-      @PathVariable UUID id, @RequestBody ApplicationUpdateRequest request) {
+      @PathVariable UUID id, @Valid @RequestBody ApplicationRequest request) {
     adminApplyDaysCommandService.updateApplication(id, request);
     return BaseResponse.of(HttpStatus.OK, null);
   }

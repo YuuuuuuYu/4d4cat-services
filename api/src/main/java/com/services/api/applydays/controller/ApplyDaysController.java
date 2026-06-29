@@ -19,6 +19,7 @@ import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.common.dto.BaseResponse;
 import com.services.core.common.dto.CompanyResponse;
 import com.services.core.common.dto.PageResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -77,7 +78,7 @@ public class ApplyDaysController {
 
   @PostMapping("/applications")
   public BaseResponse<UUID> registerApplication(
-      Authentication authentication, @RequestBody ApplicationRequest request) {
+      Authentication authentication, @Valid @RequestBody ApplicationRequest request) {
     UUID appId = applyDaysCommandService.registerApplication(authentication.getName(), request);
     return BaseResponse.of(HttpStatus.CREATED, appId);
   }
