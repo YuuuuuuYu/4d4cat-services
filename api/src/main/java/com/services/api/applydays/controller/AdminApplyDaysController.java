@@ -23,7 +23,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -94,21 +93,17 @@ public class AdminApplyDaysController {
 
   @PostMapping("/requests/{id}/approve")
   public BaseResponse<Void> approveRequest(
-      @PathVariable UUID id,
-      @RequestBody(required = false) ApprovalRequest request,
-      Authentication authentication) {
-    String email = authentication.getName();
+      @PathVariable UUID id, @RequestBody(required = false) ApprovalRequest request) {
     String newSlug = (request != null) ? request.newSlug() : null;
     Instant scheduledAt = (request != null) ? request.scheduledAt() : null;
-    adminApplyDaysCommandService.asyncApproveRequest(id, newSlug, scheduledAt, email);
+    adminApplyDaysCommandService.asyncApproveRequest(id, newSlug, scheduledAt);
     return BaseResponse.of(HttpStatus.ACCEPTED, null);
   }
 
   @PostMapping("/requests/{id}/reject")
   public BaseResponse<Void> rejectRequest(
-      @PathVariable UUID id, @RequestBody RejectionRequest request, Authentication authentication) {
-    String email = authentication.getName();
-    adminApplyDaysCommandService.asyncRejectRequest(id, request.reason(), email);
+      @PathVariable UUID id, @RequestBody RejectionRequest request) {
+    adminApplyDaysCommandService.asyncRejectRequest(id, request.reason());
     return BaseResponse.of(HttpStatus.ACCEPTED, null);
   }
 
@@ -119,18 +114,16 @@ public class AdminApplyDaysController {
   }
 
   @PostMapping("/requests/bulk-approve")
-  public BaseResponse<Void> bulkApproveRequest(
-      @RequestBody BulkApproveRequest request, Authentication authentication) {
+  public BaseResponse<Void> bulkApproveRequest(@RequestBody BulkApproveRequest request) {
     adminApplyDaysCommandService.bulkApproveRequest(
-        request.requestIds(), request.newSlug(), request.scheduledAt(), authentication.getName());
+        request.requestIds(), request.newSlug(), request.scheduledAt());
     return BaseResponse.of(HttpStatus.ACCEPTED, null);
   }
 
   @PostMapping("/requests/bulk-reject")
-  public BaseResponse<Void> bulkRejectRequest(
-      @RequestBody BulkRejectRequest request, Authentication authentication) {
+  public BaseResponse<Void> bulkRejectRequest(@RequestBody BulkRejectRequest request) {
     adminApplyDaysCommandService.bulkRejectRequest(
-        request.requestIds(), request.reason(), request.details(), authentication.getName());
+        request.requestIds(), request.reason(), request.details());
     return BaseResponse.of(HttpStatus.ACCEPTED, null);
   }
 }

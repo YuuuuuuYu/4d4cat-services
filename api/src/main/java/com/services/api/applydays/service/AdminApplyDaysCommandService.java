@@ -9,7 +9,6 @@ import com.services.core.applydays.entity.VerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.NotificationQueueRepository;
-import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysWorkerService;
 import com.services.core.common.exception.ErrorCode;
@@ -26,6 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,37 +41,37 @@ public class AdminApplyDaysCommandService {
 
   private final ApplicationRepository applicationRepository;
   private final VerificationRequestRepository verificationRequestRepository;
-  private final VerificationImageRepository verificationImageRepository;
   private final CompanyRepository companyRepository;
   private final ApplyDaysWorkerService applyDaysWorkerService;
   private final NotificationQueueRepository notificationQueueRepository;
   private final MeterRegistry meterRegistry;
   private final TransactionTemplate transactionTemplate;
+  private final ExecutorService dbTaskExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
-  public void bulkApproveRequest(
-      List<UUID> requestIds, String newSlug, Instant scheduledAt, String adminEmail) {
+  public void bulkApproveRequest(List<UUID> requestIds, String newSlug, Instant scheduledAt) {
     CompletableFuture.runAsync(
         () -> {
           for (UUID id : requestIds) {
             try {
               transactionTemplate.executeWithoutResult(
-                  status -> processApprove(id, newSlug, scheduledAt, adminEmail));
+                  status -> processApprove(id, newSlug, scheduledAt));
             } catch (Exception e) {
               log.error("Failed to bulk approve request: {}", id, e);
             }
           }
-        });
+        },
+        dbTaskExecutor);
   }
 
   public void bulkRejectRequest(
-      List<UUID> requestIds, String reason, List<RejectionDetail> details, String adminEmail) {
+      List<UUID> requestIds, String reason, List<RejectionDetail> details) {
     CompletableFuture.runAsync(
         () -> {
           if (details != null && !details.isEmpty()) {
             for (RejectionDetail detail : details) {
               try {
                 transactionTemplate.executeWithoutResult(
-                    status -> rejectRequest(detail.requestId(), detail.reason(), adminEmail));
+                    status -> rejectRequest(detail.requestId(), detail.reason()));
               } catch (Exception e) {
                 log.error("Failed to reject request: {}", detail.requestId(), e);
               }
@@ -78,39 +79,39 @@ public class AdminApplyDaysCommandService {
           } else if (requestIds != null) {
             for (UUID id : requestIds) {
               try {
-                transactionTemplate.executeWithoutResult(
-                    status -> rejectRequest(id, reason, adminEmail));
+                transactionTemplate.executeWithoutResult(status -> rejectRequest(id, reason));
               } catch (Exception e) {
                 log.error("Failed to bulk reject request: {}", id, e);
               }
             }
           }
-        });
+        },
+        dbTaskExecutor);
   }
 
-  public void asyncApproveRequest(
-      UUID requestId, String newSlug, Instant scheduledAt, String adminEmail) {
+  public void asyncApproveRequest(UUID requestId, String newSlug, Instant scheduledAt) {
     CompletableFuture.runAsync(
         () -> {
           try {
             transactionTemplate.executeWithoutResult(
-                status -> approveRequest(requestId, newSlug, scheduledAt, adminEmail));
+                status -> approveRequest(requestId, newSlug, scheduledAt));
           } catch (Exception e) {
             log.error("Failed to async approve request: {}", requestId, e);
           }
-        });
+        },
+        dbTaskExecutor);
   }
 
-  public void asyncRejectRequest(UUID requestId, String reason, String adminEmail) {
+  public void asyncRejectRequest(UUID requestId, String reason) {
     CompletableFuture.runAsync(
         () -> {
           try {
-            transactionTemplate.executeWithoutResult(
-                status -> rejectRequest(requestId, reason, adminEmail));
+            transactionTemplate.executeWithoutResult(status -> rejectRequest(requestId, reason));
           } catch (Exception e) {
             log.error("Failed to async reject request: {}", requestId, e);
           }
-        });
+        },
+        dbTaskExecutor);
   }
 
   public void updateApplication(UUID id, ApplicationUpdateRequest request) {
@@ -155,14 +156,12 @@ public class AdminApplyDaysCommandService {
         request.channel());
   }
 
-  public void approveRequest(
-      UUID requestId, String newSlug, Instant scheduledAt, String adminEmail) {
-    processApprove(requestId, newSlug, scheduledAt, adminEmail);
+  public void approveRequest(UUID requestId, String newSlug, Instant scheduledAt) {
+    processApprove(requestId, newSlug, scheduledAt);
     log.info("Request {} approved and notification queued in DB.", requestId);
   }
 
-  public void processApprove(
-      UUID requestId, String newSlug, Instant scheduledAt, String adminEmail) {
+  public void processApprove(UUID requestId, String newSlug, Instant scheduledAt) {
     VerificationRequest request =
         verificationRequestRepository
             .findById(requestId)
@@ -215,7 +214,7 @@ public class AdminApplyDaysCommandService {
     meterRegistry.counter("applydays.applications.approved").increment();
   }
 
-  public void rejectRequest(UUID requestId, String reason, String adminEmail) {
+  public void rejectRequest(UUID requestId, String reason) {
     VerificationRequest request =
         verificationRequestRepository
             .findById(requestId)
