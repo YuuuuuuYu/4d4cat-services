@@ -73,7 +73,7 @@ public class Application extends BaseSoftDeleteEntity implements Persistable<UUI
     this.id = id;
     this.companySlug = companySlug;
     this.categoryId = categoryId;
-    this.positionDetail = positionDetail;
+    this.positionDetail = positionDetail.strip();
     this.appliedAt = appliedAt;
     this.hiringProcess = hiringProcess;
     this.channel = channel;
@@ -94,7 +94,7 @@ public class Application extends BaseSoftDeleteEntity implements Persistable<UUI
       ApplicationChannel channel) {
     this.companySlug = companySlug;
     this.categoryId = categoryId;
-    this.positionDetail = positionDetail;
+    this.positionDetail = positionDetail.strip();
     this.appliedAt = appliedAt;
     this.hiringProcess = hiringProcess;
     this.channel = channel;

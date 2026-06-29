@@ -1,6 +1,6 @@
 package com.services.api.applydays.service;
 
-import com.services.api.applydays.dto.ApplicationUpdateRequest;
+import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.RejectionDetail;
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.Application;
@@ -114,7 +114,7 @@ public class AdminApplyDaysCommandService {
         dbTaskExecutor);
   }
 
-  public void updateApplication(UUID id, ApplicationUpdateRequest request) {
+  public void updateApplication(UUID id, ApplicationRequest request) {
     Application application =
         applicationRepository
             .findById(id)

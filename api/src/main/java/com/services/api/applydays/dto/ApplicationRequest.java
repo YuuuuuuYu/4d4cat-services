@@ -2,6 +2,7 @@ package com.services.api.applydays.dto;
 
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.ApplicationChannel;
+import jakarta.validation.constraints.NotBlank;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -9,7 +10,12 @@ public record ApplicationRequest(
     String companySlug,
     String companyName,
     Long categoryId,
-    String positionDetail,
+    @NotBlank String positionDetail,
     OffsetDateTime appliedAt,
     List<HiringStepDetail> hiringProcess,
-    ApplicationChannel channel) {}
+    ApplicationChannel channel) {
+
+  public ApplicationRequest {
+    positionDetail = positionDetail.strip();
+  }
+}
