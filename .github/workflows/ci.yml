@@ -41,7 +41,7 @@ jobs:
       env:
         PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      run: ./gradlew build jacocoTestReport sonar --info
+      run: ./gradlew clean build jacocoTestReport sonar --info
 
     - name: Publish Test Report
       uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386

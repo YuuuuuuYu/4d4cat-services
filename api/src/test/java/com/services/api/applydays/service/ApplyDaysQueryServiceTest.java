@@ -13,9 +13,11 @@ import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
+import com.services.core.applydays.dto.PublicSummaryResponse;
 import com.services.core.applydays.dto.TimelineDetailResponse;
 import com.services.core.applydays.dto.TimelineListResponse;
 import com.services.core.applydays.entity.Application;
+import com.services.core.applydays.entity.ApplicationChannel;
 import com.services.core.applydays.entity.ApplyDaysStatistics;
 import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationRequest;
@@ -37,6 +39,7 @@ import com.services.core.fixture.ApplyDaysFixtures;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -261,14 +264,7 @@ class ApplyDaysQueryServiceTest {
     LocalDateTime now = LocalDateTime.now();
     TimelineDetailResponse item =
         new TimelineDetailResponse(
-            appId1,
-            "L1",
-            "L2",
-            now,
-            now,
-            "Developer",
-            com.services.core.applydays.entity.ApplicationChannel.WANTED,
-            List.of());
+            appId1, "L1", "L2", now, now, "Developer", ApplicationChannel.WANTED, List.of());
 
     when(applicationRepository.findTimelineDetailByCompanySlug(companySlug, cursor, limit))
         .thenReturn(List.of(item));
@@ -303,24 +299,10 @@ class ApplyDaysQueryServiceTest {
 
     TimelineDetailResponse item1 =
         new TimelineDetailResponse(
-            appId1,
-            "L1",
-            "L2",
-            time1,
-            time1,
-            "Developer 1",
-            com.services.core.applydays.entity.ApplicationChannel.WANTED,
-            List.of());
+            appId1, "L1", "L2", time1, time1, "Developer 1", ApplicationChannel.WANTED, List.of());
     TimelineDetailResponse item2 =
         new TimelineDetailResponse(
-            appId2,
-            "L1",
-            "L2",
-            time2,
-            time2,
-            "Developer 2",
-            com.services.core.applydays.entity.ApplicationChannel.WANTED,
-            List.of());
+            appId2, "L1", "L2", time2, time2, "Developer 2", ApplicationChannel.WANTED, List.of());
 
     when(applicationRepository.findTimelineDetailByCompanySlug(companySlug, cursor, limit))
         .thenReturn(List.of(item1, item2));
@@ -333,8 +315,7 @@ class ApplyDaysQueryServiceTest {
     assertThat(result.items()).hasSize(1);
     assertThat(result.items().get(0)).isEqualTo(item1);
     assertThat(result.hasNext()).isTrue();
-    String expectedNextCursor =
-        time1.truncatedTo(java.time.temporal.ChronoUnit.MICROS).toString() + "_" + appId1;
+    String expectedNextCursor = time1.truncatedTo(ChronoUnit.MICROS).toString() + "_" + appId1;
     assertThat(result.nextCursor()).isEqualTo(expectedNextCursor);
   }
 
@@ -530,5 +511,37 @@ class ApplyDaysQueryServiceTest {
     assertThat(dashboard.getPendingApplications().getContent()).isEmpty();
     assertThat(dashboard.getApprovedApplications().getContent()).isEmpty();
     assertThat(dashboard.getRejectedApplications().getContent()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("getPublicSummary는 전체 지원서 수와 전체 회사 수를 성공적으로 반환한다")
+  void getPublicSummary_success() {
+    // given
+    when(applicationRepository.count()).thenReturn(150L);
+    when(companyRepository.count()).thenReturn(45L);
+
+    // when
+    PublicSummaryResponse response = applyDaysQueryService.getPublicSummary();
+
+    // then
+    assertThat(response).isNotNull();
+    assertThat(response.getTotalReviews()).isEqualTo(150L);
+    assertThat(response.getTotalCompanies()).isEqualTo(45L);
+  }
+
+  @Test
+  @DisplayName("getPublicSummary는 데이터가 0건일 때도 정상 처리된다 (Edge Case)")
+  void getPublicSummary_zeroCount_edgeCase() {
+    // given
+    when(applicationRepository.count()).thenReturn(0L);
+    when(companyRepository.count()).thenReturn(0L);
+
+    // when
+    PublicSummaryResponse response = applyDaysQueryService.getPublicSummary();
+
+    // then
+    assertThat(response).isNotNull();
+    assertThat(response.getTotalReviews()).isZero();
+    assertThat(response.getTotalCompanies()).isZero();
   }
 }

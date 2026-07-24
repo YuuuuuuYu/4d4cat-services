@@ -8,6 +8,8 @@ import com.services.api.applydays.dto.RejectionRequest;
 import com.services.api.applydays.dto.VerificationImageResponse;
 import com.services.api.applydays.service.AdminApplyDaysCommandService;
 import com.services.api.applydays.service.AdminApplyDaysQueryService;
+import com.services.api.common.annotation.AuditAction;
+import com.services.api.common.annotation.AuditLog;
 import com.services.api.common.infrastructure.external.redis.RedisMessagePublisher;
 import com.services.core.applydays.dto.AdminApplicationDetailResponse;
 import com.services.core.applydays.dto.AdminApplicationResponse;
@@ -76,6 +78,7 @@ public class AdminApplyDaysController {
     return BaseResponse.of(HttpStatus.OK, adminApplyDaysQueryService.getApplicationDetail(id));
   }
 
+  @AuditLog(action = AuditAction.UPDATE_APPLICATION, target = "#id")
   @PutMapping("/applications/{id}")
   public BaseResponse<Void> updateApplication(
       @PathVariable UUID id, @Valid @RequestBody ApplicationRequest request) {

@@ -7,7 +7,8 @@ public enum DiscordChannel {
   DEFAULT("default"),
   DATA("data"),
   MONITORING("monitoring"),
-  STATISTICS("statistics");
+  STATISTICS("statistics"),
+  BILLING("billing");
 
   private final String value;
 

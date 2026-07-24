@@ -3,6 +3,7 @@ package com.services.core.applydays.dto;
 import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.ApplicationChannel;
 import com.services.core.applydays.entity.VerificationStatus;
+import com.services.core.applydays.repository.ApplicationSummary;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,8 +34,7 @@ public record ApplicationDetailResponse(
         entity.getChannel());
   }
 
-  public static ApplicationDetailResponse from(
-      com.services.core.applydays.repository.ApplicationSummary entity, String categoryName) {
+  public static ApplicationDetailResponse from(ApplicationSummary entity, String categoryName) {
     return new ApplicationDetailResponse(
         entity.getId(),
         entity.getCompanySlug(),

@@ -9,6 +9,8 @@ import com.services.api.applydays.dto.MyApplicationResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
+import com.services.api.common.annotation.AuditAction;
+import com.services.api.common.annotation.AuditLog;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
@@ -57,6 +59,7 @@ public class ApplyDaysController {
         applyDaysQueryService.getCompanyTimeline(authentication, slug, cursor, limit));
   }
 
+  @AuditLog(action = AuditAction.SEARCH_COMPANY)
   @GetMapping("/companies/search")
   public BaseResponse<List<CompanyResponse>> searchCompanies(@RequestParam String query) {
     return BaseResponse.of(HttpStatus.OK, applyDaysQueryService.searchCompanies(query));
@@ -76,6 +79,7 @@ public class ApplyDaysController {
     return BaseResponse.of(HttpStatus.OK, applyDaysQueryService.getCategories());
   }
 
+  @AuditLog(action = AuditAction.CREATE_APPLICATION)
   @PostMapping("/applications")
   public BaseResponse<UUID> registerApplication(
       Authentication authentication, @Valid @RequestBody ApplicationRequest request) {
@@ -83,6 +87,7 @@ public class ApplyDaysController {
     return BaseResponse.of(HttpStatus.CREATED, appId);
   }
 
+  @AuditLog(action = AuditAction.DELETE_APPLICATION, target = "#id")
   @DeleteMapping("/applications/{id}")
   public BaseResponse<Void> deleteApplication(
       Authentication authentication, @PathVariable UUID id) {
@@ -112,6 +117,7 @@ public class ApplyDaysController {
         HttpStatus.OK, applyDaysQueryService.getMyApplicationsSummary(authentication.getName()));
   }
 
+  @AuditLog(action = AuditAction.VIEW_MY_APPLICATIONS)
   @GetMapping("/my/applications")
   public BaseResponse<PageResponse<MyApplicationResponse>> getMyApplications(
       Authentication authentication,
@@ -133,6 +139,7 @@ public class ApplyDaysController {
         applyDaysQueryService.viewApplication(authentication.getName(), id, request.password()));
   }
 
+  @AuditLog(action = AuditAction.VIEW_COMPANY_STAT, target = "#companySlug")
   @GetMapping("/companies/{companySlug}")
   public BaseResponse<CompanySummaryResponse> getCompanySummary(
       Authentication authentication, @PathVariable String companySlug) {

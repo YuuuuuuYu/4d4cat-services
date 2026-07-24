@@ -26,6 +26,7 @@ import com.services.core.applydays.dto.ApplyDaysStatisticsResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
+import com.services.core.applydays.dto.PublicSummaryResponse;
 import com.services.core.applydays.entity.ApplicationChannel;
 import com.services.core.common.dto.PageResponse;
 import com.services.core.common.infrastructure.RedisDataStorage;
@@ -38,9 +39,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -168,10 +171,7 @@ class ApplyDaysControllerTest {
 
     Authentication anonymousAuth =
         new AnonymousAuthenticationToken(
-            "key",
-            "anonymousUser",
-            org.springframework.security.core.authority.AuthorityUtils.createAuthorityList(
-                "ROLE_ANONYMOUS"));
+            "key", "anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
     // when & then
     mockMvc
@@ -242,7 +242,7 @@ class ApplyDaysControllerTest {
 
     given(
             applyDaysQueryService.getMyApplicationsDashboard(
-                eq("test@example.com"), any(org.springframework.data.domain.Pageable.class)))
+                eq("test@example.com"), any(Pageable.class)))
         .willReturn(response);
 
     // when & then
@@ -255,5 +255,25 @@ class ApplyDaysControllerTest {
         .andExpect(jsonPath("$.data.pendingApplications.content").isEmpty())
         .andExpect(jsonPath("$.data.approvedApplications.content").isEmpty())
         .andExpect(jsonPath("$.data.rejectedApplications.content").isEmpty());
+  }
+
+  @Test
+  @DisplayName("공개 통계 요약 정보를 성공적으로 조회한다")
+  void get_public_summary_success() throws Exception {
+    // given
+    PublicSummaryResponse summaryResponse =
+        PublicSummaryResponse.builder().totalReviews(1250L).totalCompanies(80L).build();
+
+    given(applyDaysQueryService.getPublicSummary()).willReturn(summaryResponse);
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/statistics/summary"))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(200))
+        .andExpect(jsonPath("$.data.totalReviews").value(1250))
+        .andExpect(jsonPath("$.data.totalCompanies").value(80))
+        .andExpect(jsonPath("$.data.message").value("ApplyDays platform overview statistics"));
   }
 }
