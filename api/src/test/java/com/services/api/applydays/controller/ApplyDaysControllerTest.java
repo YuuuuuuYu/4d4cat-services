@@ -262,10 +262,7 @@ class ApplyDaysControllerTest {
   void get_public_summary_success() throws Exception {
     // given
     PublicSummaryResponse summaryResponse =
-        PublicSummaryResponse.builder()
-            .totalReviews(1250L)
-            .totalCompanies(80L)
-            .build();
+        PublicSummaryResponse.builder().totalReviews(1250L).totalCompanies(80L).build();
 
     given(applyDaysQueryService.getPublicSummary()).willReturn(summaryResponse);
 
