@@ -14,9 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
+import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -91,7 +92,10 @@ public class UserAuditAspect {
       Method method = signature.getMethod();
       Object[] args = joinPoint.getArgs();
 
-      StandardEvaluationContext context = new StandardEvaluationContext();
+      SimpleEvaluationContext.Builder contextBuilder =
+          SimpleEvaluationContext.forReadOnlyDataBinding();
+      EvaluationContext context = contextBuilder.build();
+
       String[] paramNames = parameterNameDiscoverer.getParameterNames(method);
       if (paramNames != null) {
         for (int i = 0; i < paramNames.length; i++) {
