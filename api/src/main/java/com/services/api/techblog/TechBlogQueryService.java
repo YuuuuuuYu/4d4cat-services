@@ -79,6 +79,7 @@ public class TechBlogQueryService {
         log.warn("Failed to parse date from cursor: {}", cursor, e);
       } catch (NumberFormatException e) {
         log.warn("Failed to parse ID from cursor: {}", cursor, e);
+        cursorPublishedAt = null; // 날짜만 파싱된 반쪽 상태 방지
       } catch (Exception e) {
         log.error("Unexpected error parsing cursor: {}", cursor, e);
       }
