@@ -4,6 +4,8 @@ import com.services.api.common.annotation.AuditLog;
 import com.services.api.common.security.dto.SessionUser;
 import com.services.api.common.security.service.MemberService;
 import java.lang.reflect.Method;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -15,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.SimpleEvaluationContext;
@@ -36,6 +39,8 @@ public class UserAuditAspect {
   private final ParameterNameDiscoverer parameterNameDiscoverer =
       new DefaultParameterNameDiscoverer();
   private final ExpressionParser expressionParser = new SpelExpressionParser();
+
+  private final Map<String, Expression> expressionCache = new ConcurrentHashMap<>();
 
   @Around("@annotation(auditLog)")
   public Object logUserAudit(ProceedingJoinPoint joinPoint, AuditLog auditLog) throws Throwable {
@@ -92,18 +97,20 @@ public class UserAuditAspect {
       Method method = signature.getMethod();
       Object[] args = joinPoint.getArgs();
 
-      SimpleEvaluationContext.Builder contextBuilder =
-          SimpleEvaluationContext.forReadOnlyDataBinding();
-      EvaluationContext context = contextBuilder.build();
+      EvaluationContext context = SimpleEvaluationContext.forReadOnlyDataBinding().build();
 
       String[] paramNames = parameterNameDiscoverer.getParameterNames(method);
-      if (paramNames != null) {
-        for (int i = 0; i < paramNames.length; i++) {
+      if (paramNames != null && args != null) {
+        int length = Math.min(paramNames.length, args.length);
+        for (int i = 0; i < length; i++) {
           context.setVariable(paramNames[i], args[i]);
         }
       }
 
-      Object value = expressionParser.parseExpression(expressionStr).getValue(context);
+      Expression expression =
+          expressionCache.computeIfAbsent(expressionStr, expressionParser::parseExpression);
+
+      Object value = expression.getValue(context);
       return value != null ? value.toString() : "";
     } catch (Exception e) {
       log.debug("Failed to evaluate SpEL expression: {}", expressionStr, e);
