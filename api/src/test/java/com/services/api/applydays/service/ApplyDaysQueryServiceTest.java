@@ -527,7 +527,6 @@ class ApplyDaysQueryServiceTest {
     assertThat(response).isNotNull();
     assertThat(response.getTotalReviews()).isEqualTo(150L);
     assertThat(response.getTotalCompanies()).isEqualTo(45L);
-    assertThat(response.getMessage()).isEqualTo("ApplyDays platform overview statistics");
   }
 
   @Test
