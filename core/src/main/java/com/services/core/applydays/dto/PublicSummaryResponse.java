@@ -11,7 +11,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PublicSummaryResponse implements Serializable {
+
+  private static final long serialVersionUID = 1L;
+
   private long totalReviews;
   private long totalCompanies;
-  private String message;
 }

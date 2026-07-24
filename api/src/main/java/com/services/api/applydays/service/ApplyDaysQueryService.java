@@ -7,8 +7,19 @@ import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
 import com.services.api.common.security.service.MemberService;
-import com.services.core.applydays.dto.*;
-import com.services.core.applydays.entity.*;
+import com.services.core.applydays.dto.ApplicationDetailResponse;
+import com.services.core.applydays.dto.ApplyDaysStatisticsResponse;
+import com.services.core.applydays.dto.CompanyListResponse;
+import com.services.core.applydays.dto.HiringStepDetail;
+import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
+import com.services.core.applydays.dto.PublicSummaryResponse;
+import com.services.core.applydays.dto.TimelineDetailResponse;
+import com.services.core.applydays.dto.TimelineListResponse;
+import com.services.core.applydays.entity.Application;
+import com.services.core.applydays.entity.ApplyDaysStatistics;
+import com.services.core.applydays.entity.Category;
+import com.services.core.applydays.entity.VerificationRequest;
+import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.ApplicationSummary;
 import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
@@ -27,6 +38,7 @@ import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -35,16 +47,22 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class ApplyDaysQueryService {
 
   private final ApplicationRepository applicationRepository;
@@ -67,7 +85,7 @@ public class ApplyDaysQueryService {
 
       boolean hasNext = content.size() > limit;
       if (hasNext) {
-        content = new java.util.ArrayList<>(content);
+        content = new ArrayList<>(content);
         content.remove(limit);
       }
 
@@ -485,7 +503,6 @@ public class ApplyDaysQueryService {
     return PublicSummaryResponse.builder()
         .totalReviews(totalReviews)
         .totalCompanies(totalCompanies)
-        .message("ApplyDays platform overview statistics")
         .build();
   }
 }
