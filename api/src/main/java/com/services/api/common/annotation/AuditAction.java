@@ -1,0 +1,12 @@
+package com.services.api.common.annotation;
+
+public enum AuditAction {
+  VIEW_COMPANY_STAT,
+  SEARCH_COMPANY,
+  VIEW_MY_APPLICATIONS,
+  CREATE_APPLICATION,
+  UPDATE_APPLICATION,
+  DELETE_APPLICATION,
+  REQUEST_VERIFICATION,
+  LOGIN_SUCCESS
+}

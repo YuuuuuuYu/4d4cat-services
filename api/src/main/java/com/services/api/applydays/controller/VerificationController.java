@@ -3,6 +3,8 @@ package com.services.api.applydays.controller;
 import com.services.api.applydays.dto.PresignedUrlResponse;
 import com.services.api.applydays.service.VerificationCommandService;
 import com.services.api.applydays.service.VerificationQueryService;
+import com.services.api.common.annotation.AuditAction;
+import com.services.api.common.annotation.AuditLog;
 import com.services.core.common.dto.BaseResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class VerificationController {
   private final VerificationCommandService verificationCommandService;
   private final VerificationQueryService verificationQueryService;
 
+  @AuditLog(action = AuditAction.REQUEST_VERIFICATION, target = "#applicationId")
   @PostMapping("/applications/{applicationId}/images/presigned-url")
   public BaseResponse<PresignedUrlResponse> getPresignedUrl(
       Authentication authentication,
@@ -39,6 +42,7 @@ public class VerificationController {
     return BaseResponse.of(HttpStatus.OK, response);
   }
 
+  @AuditLog(action = AuditAction.REQUEST_VERIFICATION, target = "#applicationId")
   @PostMapping("/applications/{applicationId}/images")
   public BaseResponse<UUID> uploadImage(
       Authentication authentication,

@@ -19,16 +19,46 @@
         <discardingThreshold>0</discardingThreshold>
     </appender>
 
+    <!-- USER_AUDIT_LOGGER Dedicated Appenders -->
+    <appender name="USER_AUDIT_CLOUD_WATCH" class="ca.pjer.logback.AwsLogsAppender">
+        <logGroupName>/4d4cat/user-audit-logs</logGroupName>
+        <logStreamUuidPrefix>user-audit-api-</logStreamUuidPrefix>
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS, Asia/Seoul} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </layout>
+        <maxBatchLogEvents>50</maxBatchLogEvents>
+        <maxFlushTimeMillis>5000</maxFlushTimeMillis>
+    </appender>
+
+    <appender name="ASYNC_USER_AUDIT_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="CONSOLE" />
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
+    <appender name="ASYNC_USER_AUDIT_CLOUD_WATCH" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="USER_AUDIT_CLOUD_WATCH" />
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+    </appender>
+
     <springProfile name="prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
             <appender-ref ref="ASYNC_PROD_CLOUD_WATCH" />
         </root>
+        <logger name="USER_AUDIT_LOGGER" level="INFO" additivity="false">
+            <appender-ref ref="ASYNC_USER_AUDIT_CONSOLE" />
+            <appender-ref ref="ASYNC_USER_AUDIT_CLOUD_WATCH" />
+        </logger>
     </springProfile>
 
     <springProfile name="!prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE" />
         </root>
+        <logger name="USER_AUDIT_LOGGER" level="INFO" additivity="false">
+            <appender-ref ref="ASYNC_USER_AUDIT_CONSOLE" />
+        </logger>
     </springProfile>
 </configuration>
