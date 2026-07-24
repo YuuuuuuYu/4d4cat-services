@@ -265,7 +265,6 @@ class ApplyDaysControllerTest {
         PublicSummaryResponse.builder()
             .totalReviews(1250L)
             .totalCompanies(80L)
-            .message("ApplyDays platform overview statistics")
             .build();
 
     given(applyDaysQueryService.getPublicSummary()).willReturn(summaryResponse);
