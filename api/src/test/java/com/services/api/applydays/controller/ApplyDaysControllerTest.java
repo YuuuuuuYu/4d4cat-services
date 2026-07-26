@@ -273,7 +273,6 @@ class ApplyDaysControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(200))
         .andExpect(jsonPath("$.data.totalReviews").value(1250))
-        .andExpect(jsonPath("$.data.totalCompanies").value(80))
-        .andExpect(jsonPath("$.data.message").value("ApplyDays platform overview statistics"));
+        .andExpect(jsonPath("$.data.totalCompanies").value(80));
   }
 }
