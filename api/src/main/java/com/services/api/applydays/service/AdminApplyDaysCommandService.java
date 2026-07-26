@@ -4,11 +4,11 @@ import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.RejectionDetail;
 import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.Application;
-import com.services.core.applydays.entity.NotificationQueue;
 import com.services.core.applydays.entity.VerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
+import com.services.core.applydays.event.ApplicationApprovedEvent;
+import com.services.core.applydays.event.ApplicationRejectedEvent;
 import com.services.core.applydays.repository.ApplicationRepository;
-import com.services.core.applydays.repository.NotificationQueueRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysWorkerService;
 import com.services.core.common.exception.ErrorCode;
@@ -19,7 +19,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -43,7 +43,7 @@ public class AdminApplyDaysCommandService {
   private final VerificationRequestRepository verificationRequestRepository;
   private final CompanyRepository companyRepository;
   private final ApplyDaysWorkerService applyDaysWorkerService;
-  private final NotificationQueueRepository notificationQueueRepository;
+  private final ApplicationEventPublisher eventPublisher;
   private final MeterRegistry meterRegistry;
   private final TransactionTemplate transactionTemplate;
   private final ExecutorService dbTaskExecutor = Executors.newVirtualThreadPerTaskExecutor();
@@ -200,16 +200,9 @@ public class AdminApplyDaysCommandService {
 
     applyDaysWorkerService.processApproval(request.getApplicationId());
 
-    notificationQueueRepository.save(
-        NotificationQueue.builder()
-            .memberId(request.getMemberId())
-            .applicationId(request.getApplicationId())
-            .notificationType("APPROVAL")
-            .scheduledAt(
-                scheduledAt != null
-                    ? LocalDateTime.ofInstant(scheduledAt, ZoneId.systemDefault())
-                    : null)
-            .build());
+    eventPublisher.publishEvent(
+        new ApplicationApprovedEvent(
+            requestId, request.getMemberId(), request.getApplicationId(), newSlug, scheduledAt));
 
     meterRegistry.counter("applydays.applications.approved").increment();
   }
@@ -224,12 +217,9 @@ public class AdminApplyDaysCommandService {
 
     applicationRepository.findById(request.getApplicationId()).ifPresent(Application::reject);
 
-    notificationQueueRepository.save(
-        NotificationQueue.builder()
-            .memberId(request.getMemberId())
-            .applicationId(request.getApplicationId())
-            .notificationType("REJECTION")
-            .build());
+    eventPublisher.publishEvent(
+        new ApplicationRejectedEvent(
+            requestId, request.getMemberId(), request.getApplicationId(), reason));
 
     meterRegistry.counter("applydays.applications.rejected").increment();
   }
