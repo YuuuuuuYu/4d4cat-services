@@ -32,7 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.multipart.MultipartFile;
 
 @ExtendWith(MockitoExtension.class)
-class VerificationServiceTest {
+class VerificationCommandServiceTest {
 
   @Mock private ApplicationRepository applicationRepository;
   @Mock private VerificationImageRepository verificationImageRepository;
