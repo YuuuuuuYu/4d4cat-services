@@ -70,4 +70,8 @@ public class Member extends BaseSoftDeleteEntity {
   public void promoteToReviewer() {
     this.role = Role.REVIEWER;
   }
+
+  public void updateRole(Role role) {
+    this.role = role;
+  }
 }

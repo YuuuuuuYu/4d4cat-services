@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
+import com.services.api.applydays.dto.MySummaryResponse;
 import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
@@ -22,11 +23,14 @@ import com.services.core.applydays.entity.ApplyDaysStatistics;
 import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationRequest;
 import com.services.core.applydays.entity.VerificationStatus;
+import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.ApplicationSummary;
 import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
+import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
+import com.services.core.applydays.service.ApplyDaysSubscriptionQueryService;
 import com.services.core.common.dto.PageResponse;
 import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ForbiddenException;
@@ -67,6 +71,8 @@ class ApplyDaysQueryServiceTest {
   @Mock private VerificationRequestRepository verificationRequestRepository;
   @Mock private ApplyDaysStatisticsRepository statisticsRepository;
   @Mock private MemberService memberService;
+  @Mock private ApplyDaysSubscriptionQueryService subscriptionQueryService;
+  @Mock private ApplyDaysPaymentMethodQueryService paymentMethodQueryService;
   private MeterRegistry meterRegistry;
 
   private ApplyDaysQueryService applyDaysQueryService;
@@ -84,7 +90,9 @@ class ApplyDaysQueryServiceTest {
             statisticsRepository,
             meterRegistry,
             memberService,
-            new ObjectMapper());
+            new ObjectMapper(),
+            subscriptionQueryService,
+            paymentMethodQueryService);
   }
 
   @Test
@@ -511,6 +519,40 @@ class ApplyDaysQueryServiceTest {
     assertThat(dashboard.getPendingApplications().getContent()).isEmpty();
     assertThat(dashboard.getApprovedApplications().getContent()).isEmpty();
     assertThat(dashboard.getRejectedApplications().getContent()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("getMySummary는 회원의 지원서 통계 및 구독 정보를 포함하여 반환한다")
+  void getMySummary_success() {
+    // given
+    String email = "test@example.com";
+    UUID memberId = UUID.randomUUID();
+
+    when(memberService.getMemberIdByEmail(email)).thenReturn(memberId.toString());
+
+    List<Object[]> summaryResults =
+        List.of(
+            new Object[] {VerificationStatus.PENDING, 2L},
+            new Object[] {VerificationStatus.APPROVED, 1L});
+    when(applicationRepository.countByVerificationStatusForMember(memberId))
+        .thenReturn(summaryResults);
+
+    ApplyDaysSubscription subscription = ApplyDaysSubscription.builder().memberId(memberId).build();
+    when(paymentMethodQueryService.hasPaymentMethod(memberId)).thenReturn(true);
+    when(subscriptionQueryService.getSubscriptionByMemberId(memberId))
+        .thenReturn(Optional.of(subscription));
+
+    // when
+    MySummaryResponse result = applyDaysQueryService.getMySummary(email);
+
+    // then
+    assertThat(result).isNotNull();
+    assertThat(result.totalCount()).isEqualTo(3L);
+    assertThat(result.pendingCount()).isEqualTo(2L);
+    assertThat(result.approvedCount()).isEqualTo(1L);
+    assertThat(result.rejectedCount()).isEqualTo(0L);
+    assertThat(result.subscription()).isNotNull();
+    assertThat(result.subscription().hasBillingKey()).isTrue();
   }
 
   @Test

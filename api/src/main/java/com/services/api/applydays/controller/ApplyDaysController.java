@@ -7,13 +7,13 @@ import com.services.api.applydays.dto.CommonMessageResponse;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
+import com.services.api.applydays.dto.MySummaryResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
 import com.services.api.common.annotation.AuditAction;
 import com.services.api.common.annotation.AuditLog;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.CompanyListResponse;
-import com.services.core.applydays.dto.MyApplicationsSummaryResponse;
 import com.services.core.applydays.dto.PublicSummaryResponse;
 import com.services.core.applydays.dto.TimelineListResponse;
 import com.services.core.applydays.entity.Category;
@@ -111,10 +111,9 @@ public class ApplyDaysController {
   }
 
   @GetMapping("/my/summary")
-  public BaseResponse<MyApplicationsSummaryResponse> getMyApplicationsSummary(
-      Authentication authentication) {
+  public BaseResponse<MySummaryResponse> getMySummary(Authentication authentication) {
     return BaseResponse.of(
-        HttpStatus.OK, applyDaysQueryService.getMyApplicationsSummary(authentication.getName()));
+        HttpStatus.OK, applyDaysQueryService.getMySummary(authentication.getName()));
   }
 
   @AuditLog(action = AuditAction.VIEW_MY_APPLICATIONS)

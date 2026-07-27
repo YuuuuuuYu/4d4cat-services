@@ -10,4 +10,12 @@ public abstract class BaseSoftDeleteEntity extends BaseEntity {
 
   @Column(nullable = false)
   private boolean deleted = false;
+
+  public void delete() {
+    this.deleted = true;
+  }
+
+  public void restore() {
+    this.deleted = false;
+  }
 }

@@ -13,6 +13,7 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -65,7 +66,13 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(UnauthorizedException.class)
   public ResponseEntity<BaseResponse<Void>> handleUnauthorizedException(UnauthorizedException e) {
-    return createErrorResponse(e.getErrorCode(), HttpStatus.UNAUTHORIZED, e);
+    String message =
+        messageSource.getMessage(e.getErrorCode().getMessageKey(), null, Locale.getDefault());
+    BaseResponse<Void> response =
+        BaseResponse.of(HttpStatus.UNAUTHORIZED, e.getErrorCode().getCode(), message);
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+        .body(response);
   }
 
   @ExceptionHandler(ForbiddenException.class)
