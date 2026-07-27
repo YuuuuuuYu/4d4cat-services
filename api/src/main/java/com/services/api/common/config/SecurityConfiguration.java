@@ -94,14 +94,15 @@ public class SecurityConfiguration {
                         "/applydays/categories",
                         "/actuator/**",
                         "/swagger-ui/**",
-                        "/v3/api-docs/**")
+                        "/v3/api-docs/**",
+                        "/applydays/subscriptions/webhook")
                     .permitAll()
                     .requestMatchers(
                         AntPathRequestMatcher.antMatcher(
                             HttpMethod.POST, "/applydays/applications"),
                         AntPathRequestMatcher.antMatcher(
                             HttpMethod.POST, "/applydays/verification/**"),
-                        AntPathRequestMatcher.antMatcher("/api/v1/applydays/subscriptions/**"),
+                        AntPathRequestMatcher.antMatcher("/applydays/subscriptions/**"),
                         AntPathRequestMatcher.antMatcher(
                             HttpMethod.GET, "/applydays/verification/images/**"),
                         AntPathRequestMatcher.antMatcher("/applydays/statistics/category"))

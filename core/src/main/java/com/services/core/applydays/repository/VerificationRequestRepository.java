@@ -1,6 +1,7 @@
 package com.services.core.applydays.repository;
 
 import com.services.core.applydays.entity.VerificationRequest;
+import com.services.core.applydays.entity.VerificationStatus;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,4 +12,6 @@ public interface VerificationRequestRepository
   Optional<VerificationRequest> findByApplicationId(UUID applicationId);
 
   List<VerificationRequest> findByApplicationIdIn(List<UUID> applicationIds);
+
+  long countByMemberIdAndStatus(UUID memberId, VerificationStatus status);
 }

@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
+import com.services.api.applydays.dto.MySummaryResponse;
+import com.services.api.applydays.dto.SubscriptionResponse;
 import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.dto.ApplicationDetailResponse;
 import com.services.core.applydays.dto.ApplyDaysStatisticsResponse;
@@ -26,6 +28,8 @@ import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.DashboardApplicationSummary;
 import com.services.core.applydays.repository.VerificationRequestRepository;
+import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
+import com.services.core.applydays.service.ApplyDaysSubscriptionQueryService;
 import com.services.core.common.dto.CompanyResponse;
 import com.services.core.common.dto.PageResponse;
 import com.services.core.common.exception.BadRequestException;
@@ -74,6 +78,8 @@ public class ApplyDaysQueryService {
   private final MeterRegistry meterRegistry;
   private final MemberService memberService;
   private final ObjectMapper objectMapper;
+  private final ApplyDaysSubscriptionQueryService subscriptionQueryService;
+  private final ApplyDaysPaymentMethodQueryService paymentMethodQueryService;
 
   public TimelineListResponse getCompanyTimeline(
       Authentication authentication, String slug, String cursor, int limit) {
@@ -143,6 +149,25 @@ public class ApplyDaysQueryService {
   @Cacheable(value = "categoryList")
   public List<Category> getCategories() {
     return categoryRepository.findAllByOrderByNameAsc();
+  }
+
+  public MySummaryResponse getMySummary(String email) {
+    UUID memberId = UUID.fromString(memberService.getMemberIdByEmail(email));
+    MyApplicationsSummaryResponse summary = getMyApplicationsSummaryByMemberId(memberId);
+
+    boolean hasBillingKey = paymentMethodQueryService.hasPaymentMethod(memberId);
+    SubscriptionResponse subscriptionResponse =
+        subscriptionQueryService
+            .getSubscriptionByMemberId(memberId)
+            .map(sub -> SubscriptionResponse.from(sub, hasBillingKey))
+            .orElse(null);
+
+    return new MySummaryResponse(
+        summary.totalCount(),
+        summary.pendingCount(),
+        summary.rejectedCount(),
+        summary.approvedCount(),
+        subscriptionResponse);
   }
 
   public MyApplicationsSummaryResponse getMyApplicationsSummary(String email) {

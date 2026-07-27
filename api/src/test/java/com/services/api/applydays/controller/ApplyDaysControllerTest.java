@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.ApplicationRequest;
 import com.services.api.applydays.dto.CompanySummaryResponse;
 import com.services.api.applydays.dto.MyApplicationsDashboardResponse;
+import com.services.api.applydays.dto.MySummaryResponse;
 import com.services.api.applydays.service.ApplyDaysCommandService;
 import com.services.api.applydays.service.ApplyDaysQueryService;
 import com.services.api.common.config.SecurityConfiguration;
@@ -217,6 +218,29 @@ class ApplyDaysControllerTest {
         .andExpect(
             jsonPath("$.data.content[0].avgResponseTime")
                 .value("{\"DOCUMENT\":{\"avg\":5.2,\"count\":10}}"));
+  }
+
+  @Test
+  @WithMockUser(username = "test@example.com", roles = "USER")
+  @DisplayName("내 지원서 및 구독 요약 정보(MySummaryResponse)를 조회한다")
+  void get_my_summary_success() throws Exception {
+    // given
+    String email = "test@example.com";
+    MySummaryResponse summaryResponse = new MySummaryResponse(5L, 2L, 1L, 2L, null);
+
+    given(applyDaysQueryService.getMySummary(email)).willReturn(summaryResponse);
+
+    // when & then
+    mockMvc
+        .perform(get("/applydays/my/summary"))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(200))
+        .andExpect(jsonPath("$.data.totalCount").value(5))
+        .andExpect(jsonPath("$.data.pendingCount").value(2))
+        .andExpect(jsonPath("$.data.rejectedCount").value(1))
+        .andExpect(jsonPath("$.data.approvedCount").value(2))
+        .andExpect(jsonPath("$.data.subscription").doesNotExist());
   }
 
   @Test
