@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -25,12 +26,13 @@ public class SubscriptionNotificationEventListener {
   private final ObjectProvider<SendPulseEmailClient> sendPulseEmailClientProvider;
   private final DiscordWebhookService discordWebhookService;
 
-  @Value("${app.notification.sendpulse.sender-email:noreply@applydays.com}")
+  @Value("${app.notification.sendpulse.sender-email}")
   private String senderEmail;
 
-  @Value("${app.notification.sendpulse.sender-name:ApplyDays}")
+  @Value("${app.notification.sendpulse.sender-name}")
   private String senderName;
 
+  @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleSubscriptionPaid(SubscriptionPaidEvent event) {
     log.info("Handling SubscriptionPaidEvent for memberId={}", event.memberId());
@@ -65,6 +67,7 @@ public class SubscriptionNotificationEventListener {
     sendDiscordBillingNotification(title, description);
   }
 
+  @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleSubscriptionPaymentFailed(SubscriptionPaymentFailedEvent event) {
     log.info("Handling SubscriptionPaymentFailedEvent for memberId={}", event.memberId());
@@ -90,6 +93,7 @@ public class SubscriptionNotificationEventListener {
     }
   }
 
+  @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleSubscriptionCanceled(SubscriptionCanceledEvent event) {
     log.info("Handling SubscriptionCanceledEvent for memberId={}", event.memberId());
@@ -111,6 +115,7 @@ public class SubscriptionNotificationEventListener {
         SubscriptionEmailTemplate.getCancellationHtmlBase64(name, planName, event.endDate()));
   }
 
+  @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleSubscriptionResumed(SubscriptionResumedEvent event) {
     log.info("Handling SubscriptionResumedEvent for memberId={}", event.memberId());
@@ -125,6 +130,7 @@ public class SubscriptionNotificationEventListener {
             name, email, event.nextBillingDate() != null ? event.nextBillingDate() : "N/A"));
   }
 
+  @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleSubscriptionCardDeleted(SubscriptionCardDeletedEvent event) {
     log.info("Handling SubscriptionCardDeletedEvent for memberId={}", event.memberId());
@@ -136,6 +142,7 @@ public class SubscriptionNotificationEventListener {
         "🗑️ 등록 카드 삭제", String.format("회원: %s (%s)\n결제 카드(빌링키) 삭제 완료", name, email));
   }
 
+  @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleSubscriptionExpired(SubscriptionExpiredEvent event) {
     log.info("Handling SubscriptionExpiredEvent for memberId={}", event.memberId());

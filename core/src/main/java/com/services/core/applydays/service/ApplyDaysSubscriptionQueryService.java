@@ -48,4 +48,12 @@ public class ApplyDaysSubscriptionQueryService {
     return new SubscriptionManageData(
         subscription, paymentMethod, paymentHistories, paymentMethod.isPresent());
   }
+
+  public Optional<ApplyDaysPayment> getPaymentByPortonePaymentId(String paymentId) {
+    return paymentRepository.findByPortonePaymentId(paymentId);
+  }
+
+  public Optional<ApplyDaysSubscriptionPlan> getPlan(UUID planId) {
+    return planRepository.findById(planId);
+  }
 }

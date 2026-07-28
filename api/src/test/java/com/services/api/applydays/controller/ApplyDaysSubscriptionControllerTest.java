@@ -1,8 +1,10 @@
 package com.services.api.applydays.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -30,6 +32,9 @@ import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionCommandService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionQueryService;
 import com.services.core.common.infrastructure.RedisDataStorage;
+import com.services.core.common.infrastructure.external.portone.PortOneClient;
+import com.services.core.common.infrastructure.external.portone.PortOneClient.Amount;
+import com.services.core.common.infrastructure.external.portone.PortOneClient.PortOnePaymentResponse;
 import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.entity.member.Role;
 import com.services.core.common.persistence.repository.member.MemberRepository;
@@ -45,10 +50,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ApplyDaysSubscriptionController.class)
+@TestPropertySource(properties = {"app.portone.webhook-secret=test-secret"})
 class ApplyDaysSubscriptionControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -65,6 +72,8 @@ class ApplyDaysSubscriptionControllerTest {
   @MockitoBean private JwtProvider jwtProvider;
   @MockitoBean private RedisDataStorage redisDataStorage;
   @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private PortOneClient portOneClient;
 
   @Test
   @WithMockUser(username = "test@example.com", roles = "USER")
@@ -286,6 +295,9 @@ class ApplyDaysSubscriptionControllerTest {
     ApplyDaysFixtures.setId(subscription, UUID.randomUUID());
 
     given(memberRepository.findByEmail(email)).willReturn(Optional.of(member));
+    given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+    given(jwtProvider.createAccessToken(eq(email), eq("ROLE_USER")))
+        .willReturn("mock_access_token_pay");
     given(subscriptionService.processPayment(eq(memberId), eq(billingKey), eq(paymentId)))
         .willReturn(subscription);
 
@@ -299,7 +311,8 @@ class ApplyDaysSubscriptionControllerTest {
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(201))
-        .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.data.accessToken").value("mock_access_token_pay"));
   }
 
   @Test
@@ -338,17 +351,33 @@ class ApplyDaysSubscriptionControllerTest {
             "2026-07-18T17:28:00.000Z",
             new PortOneWebhookRequest.WebhookData(paymentId, "store_123", "tx_123", billingKey));
 
+    PortOnePaymentResponse mockResponse =
+        new PortOnePaymentResponse(
+            paymentId, "PAID", new Amount(16500L, "KRW"), null, null, null, null);
+    given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
+
+    ApplyDaysSubscription subscription =
+        ApplyDaysSubscription.builder().memberId(memberId).planId(UUID.randomUUID()).build();
+    given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
+        .willReturn(Optional.of(subscription));
+
+    ApplyDaysSubscriptionPlan plan = ApplyDaysSubscriptionPlan.builder().price(16500L).build();
+    given(subscriptionQueryService.getPlan(eq(subscription.getPlanId())))
+        .willReturn(Optional.of(plan));
+
     // when & then
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
                 .with(csrf())
+                .header("webhook-signature", "test-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(200));
 
+    verify(portOneClient).verifyPayment(eq(paymentId));
     verify(subscriptionService).processPayment(eq(memberId), isNull(), eq(paymentId));
   }
 
@@ -372,6 +401,9 @@ class ApplyDaysSubscriptionControllerTest {
     ApplyDaysFixtures.setId(subscription, UUID.randomUUID());
 
     given(memberRepository.findByEmail(email)).willReturn(Optional.of(member));
+    given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+    given(jwtProvider.createAccessToken(eq(email), eq("ROLE_SUBSCRIBER")))
+        .willReturn("mock_access_token_resume");
     given(subscriptionService.resumeSubscription(eq(memberId))).willReturn(subscription);
 
     // when & then
@@ -380,7 +412,8 @@ class ApplyDaysSubscriptionControllerTest {
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(200))
-        .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.data.accessToken").value("mock_access_token_resume"));
 
     verify(subscriptionService).resumeSubscription(eq(memberId));
   }
@@ -405,5 +438,106 @@ class ApplyDaysSubscriptionControllerTest {
         .andExpect(jsonPath("$.status").value(200));
 
     verify(subscriptionService).deleteCard(eq(memberId));
+  }
+
+  @Test
+  @WithMockUser(username = "webhook", roles = "USER")
+  @DisplayName("포트원 웹훅 서명 검증이 실패하면 401 반환한다")
+  void handlePortOneWebhook_invalidSignature() throws Exception {
+    // given
+    PortOneWebhookRequest request = new PortOneWebhookRequest("Transaction.Paid", "time", null);
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .with(csrf())
+                .header("webhook-signature", "invalid-signature")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(401));
+  }
+
+  @Test
+  @WithMockUser(username = "webhook", roles = "USER")
+  @DisplayName("이미 성공 처리된 결제는 멱등성 검증(패스) 처리한다")
+  void handlePortOneWebhook_idempotencyPass() throws Exception {
+    // given
+    UUID memberId = UUID.randomUUID();
+    String paymentId = "sub_" + memberId + "_123";
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Paid",
+            "time",
+            new PortOneWebhookRequest.WebhookData(paymentId, "store", "tx", "bk"));
+
+    ApplyDaysPayment existingPayment =
+        ApplyDaysPayment.builder().memberId(memberId).status(PaymentStatus.SUCCESS).build();
+    ApplyDaysFixtures.setId(existingPayment, UUID.randomUUID());
+
+    given(subscriptionQueryService.getPaymentByPortonePaymentId(eq(paymentId)))
+        .willReturn(Optional.of(existingPayment));
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .with(csrf())
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk());
+
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
+  }
+
+  @Test
+  @WithMockUser(username = "webhook", roles = "USER")
+  @DisplayName("웹훅 2차 검증 시 결제 금액이 불일치하면 예외(400)를 반환한다")
+  void handlePortOneWebhook_amountMismatch() throws Exception {
+    // given
+    UUID memberId = UUID.randomUUID();
+    String paymentId = "sub_" + memberId + "_123";
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Paid",
+            "time",
+            new PortOneWebhookRequest.WebhookData(paymentId, "store", "tx", "bk"));
+
+    PortOnePaymentResponse mockResponse =
+        new PortOnePaymentResponse(
+            paymentId,
+            "PAID",
+            new Amount(1000L, "KRW"),
+            null,
+            null,
+            null,
+            null); // Actual amount 1000
+    given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
+
+    ApplyDaysSubscription subscription =
+        ApplyDaysSubscription.builder().memberId(memberId).planId(UUID.randomUUID()).build();
+    given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
+        .willReturn(Optional.of(subscription));
+
+    ApplyDaysSubscriptionPlan plan =
+        ApplyDaysSubscriptionPlan.builder().price(16500L).build(); // Expected amount 16500
+    given(subscriptionQueryService.getPlan(eq(subscription.getPlanId())))
+        .willReturn(Optional.of(plan));
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .with(csrf())
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(400));
   }
 }
