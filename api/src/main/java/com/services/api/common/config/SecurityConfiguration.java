@@ -67,8 +67,7 @@ public class SecurityConfiguration {
   @Bean
   @Order(1)
   public SecurityFilterChain webhookSecurityFilterChain(HttpSecurity http) throws Exception {
-    http.securityMatcher(
-            AntPathRequestMatcher.antMatcher("/applydays/subscriptions/webhook"))
+    http.securityMatcher(AntPathRequestMatcher.antMatcher("/applydays/subscriptions/webhook"))
         .csrf(AbstractHttpConfigurer::disable)
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .sessionManagement(
@@ -184,7 +183,8 @@ public class SecurityConfiguration {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(origins);
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+    configuration.setAllowedHeaders(
+        Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
     configuration.setExposedHeaders(Arrays.asList("Authorization", "X-Token-Expired"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
