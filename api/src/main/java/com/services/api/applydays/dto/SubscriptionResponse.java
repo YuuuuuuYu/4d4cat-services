@@ -13,9 +13,11 @@ public record SubscriptionResponse(
     LocalDate startDate,
     LocalDate endDate,
     LocalDate nextBillingDate,
-    boolean hasBillingKey) {
+    boolean hasBillingKey,
+    String accessToken) {
+
   public static SubscriptionResponse from(
-      ApplyDaysSubscription subscription, boolean hasBillingKey) {
+      ApplyDaysSubscription subscription, boolean hasBillingKey, String accessToken) {
     return new SubscriptionResponse(
         subscription.getId(),
         subscription.getMemberId(),
@@ -24,10 +26,16 @@ public record SubscriptionResponse(
         subscription.getStartDate(),
         subscription.getEndDate(),
         subscription.getNextBillingDate(),
-        hasBillingKey);
+        hasBillingKey,
+        accessToken);
+  }
+
+  public static SubscriptionResponse from(
+      ApplyDaysSubscription subscription, boolean hasBillingKey) {
+    return from(subscription, hasBillingKey, null);
   }
 
   public static SubscriptionResponse from(ApplyDaysSubscription subscription) {
-    return from(subscription, false);
+    return from(subscription, false, null);
   }
 }
