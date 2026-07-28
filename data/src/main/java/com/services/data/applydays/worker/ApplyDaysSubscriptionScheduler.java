@@ -30,7 +30,7 @@ public class ApplyDaysSubscriptionScheduler {
   @Value("${app.scheduler.lock.subscription-billing.duration}")
   private Duration lockDuration;
 
-  @Scheduled(cron = "0 0 * * * *")
+  @Scheduled(cron = "10 0 0 * * *")
   @NotifyDiscord(
       taskName = "Subscription Billing & Expiration Processing",
       channel = DiscordChannel.MONITORING)
