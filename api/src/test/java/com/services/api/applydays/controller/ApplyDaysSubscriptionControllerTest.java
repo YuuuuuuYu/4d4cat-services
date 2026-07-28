@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.PaySubscriptionRequest;
 import com.services.api.applydays.dto.PortOneWebhookRequest;
 import com.services.api.applydays.dto.PreRegisterRequest;
+import com.services.api.common.config.SecurityConfiguration;
 import com.services.api.common.security.handler.OAuth2SuccessHandler;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
@@ -47,6 +48,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -55,6 +57,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ApplyDaysSubscriptionController.class)
+@Import(SecurityConfiguration.class)
 @TestPropertySource(properties = {"app.portone.webhook-secret=test-secret"})
 class ApplyDaysSubscriptionControllerTest {
 
@@ -338,8 +341,7 @@ class ApplyDaysSubscriptionControllerTest {
   }
 
   @Test
-  @WithMockUser(username = "webhook", roles = "USER")
-  @DisplayName("포트원 결제완료 웹훅을 정상적으로 수신하고 처리한다")
+  @DisplayName("인증 헤더가 없는 비인증 상태의 포트원 결제완료 웹훅을 정상적으로 수신하고 처리한다")
   void handlePortOneWebhook_success() throws Exception {
     // given
     UUID memberId = UUID.randomUUID();
@@ -369,7 +371,6 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .with(csrf())
                 .header("webhook-signature", "test-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -441,7 +442,6 @@ class ApplyDaysSubscriptionControllerTest {
   }
 
   @Test
-  @WithMockUser(username = "webhook", roles = "USER")
   @DisplayName("포트원 웹훅 서명 검증이 실패하면 401 반환한다")
   void handlePortOneWebhook_invalidSignature() throws Exception {
     // given
@@ -451,7 +451,6 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .with(csrf())
                 .header("webhook-signature", "invalid-signature")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -461,7 +460,6 @@ class ApplyDaysSubscriptionControllerTest {
   }
 
   @Test
-  @WithMockUser(username = "webhook", roles = "USER")
   @DisplayName("이미 성공 처리된 결제는 멱등성 검증(패스) 처리한다")
   void handlePortOneWebhook_idempotencyPass() throws Exception {
     // given
@@ -484,7 +482,6 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .with(csrf())
                 .header("webhook-signature", "test-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -495,7 +492,6 @@ class ApplyDaysSubscriptionControllerTest {
   }
 
   @Test
-  @WithMockUser(username = "webhook", roles = "USER")
   @DisplayName("웹훅 2차 검증 시 결제 금액이 불일치하면 예외(400)를 반환한다")
   void handlePortOneWebhook_amountMismatch() throws Exception {
     // given
@@ -532,12 +528,164 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .with(csrf())
                 .header("webhook-signature", "test-secret")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value(400));
+  }
+
+  @Test
+  @DisplayName("지원하지 않는 포트원 웹훅 이벤트 타입 수신 시 결제 처리 없이 200 OK 반환한다")
+  void handlePortOneWebhook_unsupportedEventType() throws Exception {
+    // given
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Cancelled",
+            "2026-07-18T17:28:00.000Z",
+            new PortOneWebhookRequest.WebhookData(
+                "sub_" + UUID.randomUUID() + "_123", "store", "tx", "bk"));
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(200));
+
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("paymentId에서 memberId 추출 실패 시 400 반환한다")
+  void handlePortOneWebhook_invalidPaymentIdFormat() throws Exception {
+    // given
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Paid",
+            "2026-07-18T17:28:00.000Z",
+            new PortOneWebhookRequest.WebhookData(
+                "invalid_payment_id_format", "store", "tx", "bk"));
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(400));
+
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("웹훅 검증 시 결제 상태가 PAID가 아닌 경우 400 반환한다")
+  void handlePortOneWebhook_notPaidStatus() throws Exception {
+    // given
+    UUID memberId = UUID.randomUUID();
+    String paymentId = "sub_" + memberId + "_123";
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Paid",
+            "time",
+            new PortOneWebhookRequest.WebhookData(paymentId, "store", "tx", "bk"));
+
+    PortOnePaymentResponse mockResponse =
+        new PortOnePaymentResponse(
+            paymentId, "FAILED", new Amount(16500L, "KRW"), null, null, null, null);
+    given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(400));
+
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("포트원 외부 API 호출 중 예외 발생 시 400 반환하며 안전하게 처리한다")
+  void handlePortOneWebhook_portOneClientException() throws Exception {
+    // given
+    UUID memberId = UUID.randomUUID();
+    String paymentId = "sub_" + memberId + "_123";
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Paid",
+            "time",
+            new PortOneWebhookRequest.WebhookData(paymentId, "store", "tx", "bk"));
+
+    given(portOneClient.verifyPayment(eq(paymentId)))
+        .willThrow(new RuntimeException("PortOne API Timeout"));
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(400));
+
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("웹훅 검증 시 해당 회원의 구독 정보가 존재하지 않으면 400 반환한다")
+  void handlePortOneWebhook_subscriptionNotFound() throws Exception {
+    // given
+    UUID memberId = UUID.randomUUID();
+    String paymentId = "sub_" + memberId + "_123";
+    PortOneWebhookRequest request =
+        new PortOneWebhookRequest(
+            "Transaction.Paid",
+            "time",
+            new PortOneWebhookRequest.WebhookData(paymentId, "store", "tx", "bk"));
+
+    PortOnePaymentResponse mockResponse =
+        new PortOnePaymentResponse(
+            paymentId, "PAID", new Amount(16500L, "KRW"), null, null, null, null);
+    given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
+    given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
+        .willReturn(Optional.empty());
+
+    // when & then
+    mockMvc
+        .perform(
+            post("/applydays/subscriptions/webhook")
+                .header("webhook-signature", "test-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+        .andDo(print())
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value(400));
+
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
+  }
+
+  @Test
+  @DisplayName("비인증 사용자가 내 구독 정보를 조회 시 401 Unauthorized를 반환한다")
+  void getMySubscription_unauthorized() throws Exception {
+    // when & then
+    mockMvc
+        .perform(get("/applydays/subscriptions/me"))
+        .andDo(print())
+        .andExpect(status().isUnauthorized());
   }
 }

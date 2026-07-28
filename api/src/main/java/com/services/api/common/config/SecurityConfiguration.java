@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
@@ -27,6 +28,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -63,7 +65,21 @@ public class SecurityConfiguration {
   }
 
   @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http, RoleHierarchy roleHierarchy)
+  @Order(1)
+  public SecurityFilterChain webhookSecurityFilterChain(HttpSecurity http) throws Exception {
+    http.securityMatcher(
+            AntPathRequestMatcher.antMatcher(HttpMethod.POST, "/applydays/subscriptions/webhook"))
+        .csrf(AbstractHttpConfigurer::disable)
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
+    return http.build();
+  }
+
+  @Bean
+  @Order(2)
+  public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http, RoleHierarchy roleHierarchy)
       throws Exception {
     http.csrf(AbstractHttpConfigurer::disable)
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -74,44 +90,47 @@ public class SecurityConfiguration {
         .authorizeHttpRequests(
             authorize ->
                 authorize
-                    .requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.OPTIONS, "/**"))
                     .permitAll()
                     .requestMatchers(
-                        "/",
-                        "/favicon.ico",
-                        "/error",
-                        "/auth/logout",
-                        "/auth/refresh",
-                        "/techblogs/**",
-                        "/pixabay/**",
-                        "/video",
-                        "/music",
-                        "/message/**",
-                        "/applydays/statistics/summary",
-                        "/applydays/companies",
-                        "/applydays/companies/**",
-                        "/applydays/companies/search",
-                        "/applydays/categories",
-                        "/actuator/**",
-                        "/swagger-ui/**",
-                        "/v3/api-docs/**",
-                        "/applydays/subscriptions/webhook")
+                        antMatchers(
+                            "/",
+                            "/favicon.ico",
+                            "/error",
+                            "/auth/logout",
+                            "/auth/refresh",
+                            "/techblogs/**",
+                            "/pixabay/**",
+                            "/video",
+                            "/music",
+                            "/message/**",
+                            "/applydays/statistics/summary",
+                            "/applydays/companies",
+                            "/applydays/companies/**",
+                            "/applydays/companies/search",
+                            "/applydays/categories",
+                            "/actuator/**",
+                            "/swagger-ui/**",
+                            "/v3/api-docs/**"))
                     .permitAll()
                     .requestMatchers(
-                        AntPathRequestMatcher.antMatcher(
-                            HttpMethod.POST, "/applydays/applications"),
-                        AntPathRequestMatcher.antMatcher(
-                            HttpMethod.POST, "/applydays/verification/**"),
-                        AntPathRequestMatcher.antMatcher("/applydays/subscriptions/**"),
-                        AntPathRequestMatcher.antMatcher(
-                            HttpMethod.GET, "/applydays/verification/images/**"),
-                        AntPathRequestMatcher.antMatcher("/applydays/statistics/category"))
+                        antMatchers(
+                            HttpMethod.POST,
+                            "/applydays/applications",
+                            "/applydays/verification/**"))
                     .hasRole("USER")
-                    .requestMatchers("/applydays/statistics/detail")
+                    .requestMatchers(antMatchers("/applydays/subscriptions/**"))
+                    .hasRole("USER")
+                    .requestMatchers(
+                        antMatchers(HttpMethod.GET, "/applydays/verification/images/**"))
+                    .hasRole("USER")
+                    .requestMatchers(antMatchers("/applydays/statistics/category"))
+                    .hasRole("USER")
+                    .requestMatchers(antMatchers("/applydays/statistics/detail"))
                     .hasRole("REVIEWER")
-                    .requestMatchers("/applydays/statistics/premium")
+                    .requestMatchers(antMatchers("/applydays/statistics/premium"))
                     .hasRole("SUBSCRIBER")
-                    .requestMatchers("/admin/**")
+                    .requestMatchers(antMatchers("/admin/**"))
                     .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
@@ -165,14 +184,34 @@ public class SecurityConfiguration {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(origins);
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(Arrays.asList("*"));
-    configuration.setExposedHeaders(Arrays.asList("X-Token-Expired"));
+    configuration.setAllowedHeaders(
+        Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "webhook-signature",
+            "x-portone-signature"));
+    configuration.setExposedHeaders(Arrays.asList("Authorization", "X-Token-Expired"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", configuration);
     return source;
+  }
+
+  private RequestMatcher[] antMatchers(String... patterns) {
+    return Arrays.stream(patterns)
+        .map(AntPathRequestMatcher::antMatcher)
+        .toArray(RequestMatcher[]::new);
+  }
+
+  private RequestMatcher[] antMatchers(HttpMethod method, String... patterns) {
+    return Arrays.stream(patterns)
+        .map(pattern -> AntPathRequestMatcher.antMatcher(method, pattern))
+        .toArray(RequestMatcher[]::new);
   }
 
   private OAuth2AuthorizationRequestResolver authorizationRequestResolver(
