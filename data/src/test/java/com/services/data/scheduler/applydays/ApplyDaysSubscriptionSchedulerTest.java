@@ -1,5 +1,6 @@
-package com.services.data.applydays.worker;
+package com.services.data.scheduler.applydays;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -43,13 +44,17 @@ class ApplyDaysSubscriptionSchedulerTest {
             valueOperations.setIfAbsent(
                 eq("lock:subscription-billing"), eq("locked"), any(Duration.class)))
         .willReturn(true);
+    given(subscriptionService.processRenewal()).willReturn(10);
+    given(subscriptionService.processExpiration()).willReturn(5);
 
     // when
-    scheduler.processSubscriptionBillingAndExpiration();
+    SubscriptionJobReport report = scheduler.processSubscriptionBillingAndExpiration();
 
     // then
     verify(subscriptionService).processRenewal();
     verify(subscriptionService).processExpiration();
+    assertThat(report.renewals()).isEqualTo(10);
+    assertThat(report.expirations()).isEqualTo(5);
   }
 
   @Test
@@ -62,10 +67,12 @@ class ApplyDaysSubscriptionSchedulerTest {
         .willReturn(false);
 
     // when
-    scheduler.processSubscriptionBillingAndExpiration();
+    SubscriptionJobReport report = scheduler.processSubscriptionBillingAndExpiration();
 
     // then
     verify(subscriptionService, never()).processRenewal();
     verify(subscriptionService, never()).processExpiration();
+    assertThat(report.renewals()).isEqualTo(0);
+    assertThat(report.expirations()).isEqualTo(0);
   }
 }

@@ -1,4 +1,4 @@
-package com.services.data.applydays.worker;
+package com.services.data.scheduler.applydays;
 
 import com.services.core.applydays.repository.DeletedImageProjection;
 import com.services.core.applydays.repository.VerificationImageRepository;
@@ -43,12 +43,12 @@ public class VerificationImageCleanupScheduler {
   @Scheduled(cron = "0 0 3 * * *")
   @NotifyDiscord(taskName = "Verification Image Cleanup", channel = DiscordChannel.MONITORING)
   @Transactional
-  public void cleanupDeletedImages() {
+  public CleanupReport cleanupDeletedImages() {
     Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", lockDuration);
     if (acquired == null || !acquired) {
       log.info(
           "Another instance is already running Verification Image Cleanup. Skipping execution.");
-      return;
+      return new CleanupReport(0, 0);
     }
 
     log.info("Starting scheduled cleanup of verification images of deleted applications.");
@@ -58,17 +58,19 @@ public class VerificationImageCleanupScheduler {
 
     if (deletedImages.isEmpty()) {
       log.info("No verification images of deleted applications found for cleanup.");
-      return;
+      return new CleanupReport(0, 0);
     }
 
     log.info(
         "Found {} verification images of deleted applications to clean up.", deletedImages.size());
 
+    int r2DeletedCount = 0;
     for (DeletedImageProjection image : deletedImages) {
       try {
         s3Client.deleteObject(
             DeleteObjectRequest.builder().bucket(bucketName).key(image.getImageUrl()).build());
         log.debug("Successfully deleted image from R2: {}", image.getImageUrl());
+        r2DeletedCount++;
       } catch (Exception e) {
         log.error(
             "Failed to delete image from R2: {}. Skipping DB hard-delete.", image.getImageUrl(), e);
@@ -84,5 +86,7 @@ public class VerificationImageCleanupScheduler {
     log.info(
         "Finished scheduled cleanup. Hard-deleted {} records from database.",
         idsToHardDelete.size());
+
+    return new CleanupReport(r2DeletedCount, idsToHardDelete.size());
   }
 }

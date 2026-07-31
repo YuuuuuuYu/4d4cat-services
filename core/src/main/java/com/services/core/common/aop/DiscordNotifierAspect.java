@@ -3,6 +3,7 @@ package com.services.core.common.aop;
 import com.services.core.common.exception.CustomException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.notification.DataCollectionResult;
+import com.services.core.common.notification.NotificationReportable;
 import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.DiscordWebhookPayload;
 import com.services.core.common.notification.discord.DiscordWebhookService;
@@ -124,7 +125,12 @@ public class DiscordNotifierAspect {
     String description;
     int color = DISCORD_COLOR_SUCCESS;
 
-    if (result instanceof DataCollectionResult res) {
+    if (result instanceof NotificationReportable reportable) {
+      description = reportable.toNotificationDescription();
+      if (reportable.isWarning()) {
+        color = DISCORD_COLOR_WARNING;
+      }
+    } else if (result instanceof DataCollectionResult res) {
       description =
           String.format(
               "**총 %d개**의 아이템이 저장되었습니다.\n"
@@ -154,9 +160,11 @@ public class DiscordNotifierAspect {
             ? customException.getErrorCode()
             : ErrorCode.INTERNAL_SERVER_ERROR;
 
+    String errorMessage =
+        (exception instanceof CustomException) ? exception.getMessage() : "시스템 내부 오류가 발생했습니다.";
+
     String description =
-        String.format(
-            "**ErrorCode:** `%s`\n**Message:** `%s`", errorCode.getCode(), exception.getMessage());
+        String.format("**ErrorCode:** `%s`\n**Message:** `%s`", errorCode.getCode(), errorMessage);
 
     // Use MessageSource if available, otherwise use default title
     messageSource.ifPresent(
