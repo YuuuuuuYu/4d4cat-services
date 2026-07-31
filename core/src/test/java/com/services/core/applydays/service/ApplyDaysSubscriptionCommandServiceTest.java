@@ -3,9 +3,10 @@ package com.services.core.applydays.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -15,7 +16,6 @@ import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscriptionPlan;
 import com.services.core.applydays.entity.subscription.SubscriptionStatus;
 import com.services.core.applydays.event.SubscriptionCanceledEvent;
-import com.services.core.applydays.event.SubscriptionCardDeletedEvent;
 import com.services.core.applydays.event.SubscriptionExpiredEvent;
 import com.services.core.applydays.repository.ApplyDaysPaymentRepository;
 import com.services.core.applydays.repository.ApplyDaysSubscriptionPlanRepository;
@@ -323,8 +323,7 @@ class ApplyDaysSubscriptionCommandServiceTest {
     // then
     assertThat(result.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
     assertThat(result.getEndDate()).isEqualTo(existingEndDate.plusMonths(1));
-    verify(paymentMethodCommandService)
-        .registerPaymentMethod(memberId, billingKey, null, null, true);
+    verify(paymentMethodCommandService).registerPaymentMethod(memberId, billingKey, null, null);
   }
 
   @Test
@@ -364,7 +363,7 @@ class ApplyDaysSubscriptionCommandServiceTest {
 
     // verify payment method is NOT registered
     verify(paymentMethodCommandService, never())
-        .registerPaymentMethod(any(UUID.class), anyString(), any(), any(), anyBoolean());
+        .registerPaymentMethod(any(UUID.class), anyString(), any(), any());
   }
 
   @Test
@@ -426,22 +425,6 @@ class ApplyDaysSubscriptionCommandServiceTest {
   }
 
   @Test
-  @DisplayName("등록 카드 삭제(deleteCard) 성공 - CommandService에 위임 및 디스코드 알림 발송")
-  void deleteCard_success() {
-    // given
-    UUID memberId = UUID.randomUUID();
-    Member member = Member.builder().email("user@example.com").name("Gildong").build();
-    given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
-
-    // when
-    subscriptionService.deleteCard(memberId);
-
-    // then
-    verify(paymentMethodCommandService).deletePaymentMethod(memberId);
-    verify(eventPublisher).publishEvent(any(SubscriptionCardDeletedEvent.class));
-  }
-
-  @Test
   @DisplayName("카드 삭제 이벤트 수신 시 ACTIVE 구독인 경우 CANCELED로 전환된다")
   void scheduleCancellationOnCardDeleted_activeSubscription() {
     // given
@@ -464,5 +447,67 @@ class ApplyDaysSubscriptionCommandServiceTest {
     assertThat(activeSub.getStatus()).isEqualTo(SubscriptionStatus.CANCELED);
     assertThat(activeSub.getNextBillingDate()).isNull();
     verify(subscriptionRepository).save(activeSub);
+  }
+
+  @Test
+  @DisplayName("paymentId가 null 또는 빈 문자열일 경우 memberId 기반 paymentId가 자동 생성된다")
+  void processPayment_autoGeneratesPaymentIdWhenNull() {
+    // given
+    UUID memberId = UUID.randomUUID();
+    UUID planId = UUID.randomUUID();
+    String billingKey = "billing_key_autogen";
+
+    ApplyDaysSubscription existingSubscription =
+        ApplyDaysSubscription.builder()
+            .memberId(memberId)
+            .planId(planId)
+            .status(SubscriptionStatus.ACTIVE)
+            .startDate(LocalDate.now())
+            .endDate(LocalDate.now().plusDays(30))
+            .nextBillingDate(LocalDate.now().plusDays(30))
+            .build();
+
+    ApplyDaysSubscriptionPlan plan =
+        ApplyDaysSubscriptionPlan.builder()
+            .name("Standard")
+            .price(16500L)
+            .billingCycleMonths(1)
+            .build();
+    ApplyDaysFixtures.setId(plan, planId);
+
+    Member member =
+        Member.builder().email("user@example.com").name("Gildong").role(Role.USER).build();
+
+    given(paymentRepository.existsByPortonePaymentId(any())).willReturn(false);
+    given(subscriptionRepository.findWithLockByMemberId(memberId))
+        .willReturn(Optional.of(existingSubscription));
+    given(planRepository.findById(any())).willReturn(Optional.of(plan));
+    given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
+    given(subscriptionRepository.save(any())).willAnswer(i -> i.getArgument(0));
+
+    PortOnePaymentResponse mockResponse =
+        new PortOnePaymentResponse(
+            "sub_auto_123",
+            "PAID",
+            new PortOneClient.Amount(16500L, "KRW"),
+            billingKey,
+            null,
+            "url",
+            "tx_123");
+    given(portOneClient.payWithBillingKey(anyString(), anyString(), anyLong(), anyString()))
+        .willReturn(mockResponse);
+
+    // when
+    ApplyDaysSubscription result =
+        subscriptionService.processPayment(memberId, billingKey, null, planId);
+
+    // then
+    assertThat(result).isNotNull();
+    verify(portOneClient)
+        .payWithBillingKey(
+            eq(billingKey),
+            argThat(id -> id != null && id.contains(memberId.toString())),
+            eq(16500L),
+            eq("Standard"));
   }
 }

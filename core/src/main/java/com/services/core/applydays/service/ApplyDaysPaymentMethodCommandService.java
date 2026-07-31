@@ -25,11 +25,7 @@ public class ApplyDaysPaymentMethodCommandService {
   private final ApplicationEventPublisher eventPublisher;
 
   public ApplyDaysPaymentMethod registerPaymentMethod(
-      UUID memberId,
-      String billingKey,
-      String cardCompany,
-      String cardNumberMasked,
-      boolean isDefault) {
+      UUID memberId, String billingKey, String cardCompany, String cardNumberMasked) {
     log.info("Registering payment method for memberId={}", memberId);
 
     Optional<ApplyDaysPaymentMethod> existingOpt = paymentMethodRepository.findByMemberId(memberId);
@@ -40,7 +36,7 @@ public class ApplyDaysPaymentMethodCommandService {
       if (paymentMethod.isDeleted()) {
         paymentMethod.restore();
       }
-      paymentMethod.updatePaymentMethod(billingKey, cardCompany, cardNumberMasked, isDefault);
+      paymentMethod.updatePaymentMethod(billingKey, cardCompany, cardNumberMasked);
     } else {
       paymentMethod =
           ApplyDaysPaymentMethod.builder()
@@ -48,7 +44,6 @@ public class ApplyDaysPaymentMethodCommandService {
               .billingKey(billingKey)
               .cardCompany(cardCompany)
               .cardNumberMasked(cardNumberMasked)
-              .isDefault(isDefault)
               .build();
     }
 

@@ -7,7 +7,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -163,7 +162,6 @@ class ApplyDaysSubscriptionControllerTest {
             .billingKey("bk_test")
             .cardCompany("Hyundai")
             .cardNumberMasked("1234-****-****-5678")
-            .isDefault(true)
             .build();
     ApplyDaysFixtures.setId(paymentMethod, UUID.randomUUID());
 
@@ -382,28 +380,6 @@ class ApplyDaysSubscriptionControllerTest {
         .andExpect(jsonPath("$.data.accessToken").value("mock_access_token_resume"));
 
     verify(subscriptionService).resumeSubscription(eq(memberId));
-  }
-
-  @Test
-  @WithMockUser(username = "test@example.com", roles = "SUBSCRIBER")
-  @DisplayName("등록 카드 삭제(deleteCard)를 요청한다")
-  void deleteCard_success() throws Exception {
-    // given
-    String email = "test@example.com";
-    Member member = ApplyDaysFixtures.createMember(email, Role.SUBSCRIBER);
-    UUID memberId = UUID.randomUUID();
-    ApplyDaysFixtures.setId(member, memberId);
-
-    given(memberRepository.findByEmail(email)).willReturn(Optional.of(member));
-
-    // when & then
-    mockMvc
-        .perform(delete("/applydays/subscriptions/card").with(csrf()))
-        .andDo(print())
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value(200));
-
-    verify(subscriptionService).deleteCard(eq(memberId));
   }
 
   @Test

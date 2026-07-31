@@ -34,7 +34,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -215,24 +214,6 @@ public class ApplyDaysSubscriptionController {
 
     return BaseResponse.of(
         HttpStatus.OK, SubscriptionResponse.from(subscription, hasBillingKey, accessToken));
-  }
-
-  @DeleteMapping("/card")
-  public BaseResponse<Void> deleteCard(Authentication authentication) {
-    if (authentication == null) {
-      throw new UnauthorizedException(ErrorCode.UNAUTHORIZED);
-    }
-    String email = authentication.getName();
-    log.info("Subscription card delete request received for user: {}", email);
-
-    Member member =
-        memberRepository
-            .findByEmail(email)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
-
-    subscriptionService.deleteCard(member.getId());
-
-    return BaseResponse.of(HttpStatus.OK, null);
   }
 
   @PostMapping("/webhook")

@@ -7,6 +7,7 @@ import com.services.core.common.notification.discord.DiscordWebhookPayload;
 import com.services.core.common.notification.discord.DiscordWebhookService;
 import com.services.core.common.notification.discord.Embed;
 import com.services.core.common.notification.email.template.SubscriptionEmailTemplate;
+import com.services.core.common.persistence.repository.member.MemberRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class SubscriptionNotificationEventListener {
 
   private final ObjectProvider<SendPulseEmailClient> sendPulseEmailClientProvider;
   private final DiscordWebhookService discordWebhookService;
+  private final MemberRepository memberRepository;
 
   @Value("${app.notification.sendpulse.sender-email}")
   private String senderEmail;
@@ -132,14 +134,19 @@ public class SubscriptionNotificationEventListener {
 
   @Async("subscriptionEventTaskExecutor")
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-  public void handleSubscriptionCardDeleted(SubscriptionCardDeletedEvent event) {
-    log.info("Handling SubscriptionCardDeletedEvent for memberId={}", event.memberId());
+  public void handlePaymentMethodDeleted(PaymentMethodDeletedEvent event) {
+    log.info("Handling PaymentMethodDeletedEvent for memberId={}", event.memberId());
 
-    String name = sanitizeText(event.memberName());
-    String email = sanitizeText(event.memberEmail());
+    memberRepository
+        .findById(event.memberId())
+        .ifPresent(
+            member -> {
+              String name = sanitizeText(member.getName());
+              String email = sanitizeText(member.getEmail());
 
-    sendDiscordBillingNotification(
-        "🗑️ 등록 카드 삭제", String.format("회원: %s (%s)\n결제 카드(빌링키) 삭제 완료", name, email));
+              sendDiscordBillingNotification(
+                  "🗑️ 등록 카드 삭제", String.format("회원: %s (%s)\n결제 카드(빌링키) 삭제 완료", name, email));
+            });
   }
 
   @Async("subscriptionEventTaskExecutor")
