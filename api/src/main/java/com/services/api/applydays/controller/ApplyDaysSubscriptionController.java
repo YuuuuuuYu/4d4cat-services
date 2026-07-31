@@ -4,7 +4,6 @@ import com.services.api.applydays.dto.PaySubscriptionRequest;
 import com.services.api.applydays.dto.PaymentHistoryResponse;
 import com.services.api.applydays.dto.PaymentMethodResponse;
 import com.services.api.applydays.dto.PortOneWebhookRequest;
-import com.services.api.applydays.dto.PreRegisterRequest;
 import com.services.api.applydays.dto.SubscriptionManageInfoResponse;
 import com.services.api.applydays.dto.SubscriptionPlanResponse;
 import com.services.api.applydays.dto.SubscriptionResponse;
@@ -144,27 +143,6 @@ public class ApplyDaysSubscriptionController {
     return BaseResponse.of(HttpStatus.OK, payments);
   }
 
-  @PostMapping("/pre-register")
-  public BaseResponse<SubscriptionResponse> preRegister(
-      Authentication authentication, @RequestBody PreRegisterRequest request) {
-
-    if (authentication == null) {
-      throw new UnauthorizedException(ErrorCode.UNAUTHORIZED);
-    }
-    String email = authentication.getName();
-    log.info("Subscription pre-registration requested for user: {}", email);
-
-    Member member =
-        memberRepository
-            .findByEmail(email)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
-
-    ApplyDaysSubscription subscription =
-        subscriptionService.preRegister(member.getId(), request.planId());
-
-    return BaseResponse.of(HttpStatus.CREATED, SubscriptionResponse.from(subscription));
-  }
-
   @PostMapping("/pay")
   public BaseResponse<SubscriptionResponse> paySubscription(
       Authentication authentication, @RequestBody PaySubscriptionRequest request) {
@@ -174,10 +152,10 @@ public class ApplyDaysSubscriptionController {
     }
     String email = authentication.getName();
     log.info(
-        "Payment subscription request received: email={}, billingKey={}, paymentId={}",
+        "Payment subscription request received: email={}, paymentId={}, planId={}",
         email,
-        request.billingKey(),
-        request.paymentId());
+        request.paymentId(),
+        request.planId());
 
     Member member =
         memberRepository
@@ -186,7 +164,7 @@ public class ApplyDaysSubscriptionController {
 
     ApplyDaysSubscription subscription =
         subscriptionService.processPayment(
-            member.getId(), request.billingKey(), request.paymentId());
+            member.getId(), request.billingKey(), request.paymentId(), request.planId());
 
     Member updatedMember = memberRepository.findById(member.getId()).orElse(member);
     boolean hasBillingKey = paymentMethodQueryService.hasPaymentMethod(member.getId());

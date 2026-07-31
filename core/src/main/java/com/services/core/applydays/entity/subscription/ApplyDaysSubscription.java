@@ -89,11 +89,6 @@ public class ApplyDaysSubscription extends BaseSoftDeleteEntity {
     this.nextBillingDate = nextBillingDate;
   }
 
-  public void preRegister(UUID planId) {
-    this.planId = planId;
-    this.status = SubscriptionStatus.PRE_REGISTERED;
-  }
-
   public void resume() {
     this.status = SubscriptionStatus.ACTIVE;
     this.nextBillingDate = this.endDate.plusDays(1);

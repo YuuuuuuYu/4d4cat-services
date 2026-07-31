@@ -59,38 +59,21 @@ public class ApplyDaysSubscriptionCommandService {
   private final MeterRegistry meterRegistry;
   private final ApplicationEventPublisher eventPublisher;
 
-  @Transactional
-  public ApplyDaysSubscription preRegister(UUID memberId, UUID planId) {
-    planRepository
-        .findById(planId)
-        .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
-
+  private ApplyDaysSubscriptionPlan resolvePlan(UUID memberId, UUID planId) {
+    if (planId != null) {
+      return planRepository
+          .findById(planId)
+          .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
+    }
     Optional<ApplyDaysSubscription> existing = subscriptionRepository.findByMemberId(memberId);
     if (existing.isPresent()) {
-      ApplyDaysSubscription s = existing.get();
-      if (s.getStatus() == SubscriptionStatus.ACTIVE) {
-        throw new BadRequestException(ErrorCode.ALREADY_SUBSCRIBED);
-      }
-      if (s.getStatus() == SubscriptionStatus.CANCELED) {
-        s.preRegister(planId);
-        ApplyDaysSubscription saved = subscriptionRepository.save(s);
-        meterRegistry.counter("applydays.subscriptions.preregistered").increment();
-        return saved;
-      }
-      subscriptionRepository.delete(s);
-      subscriptionRepository.flush();
+      return planRepository
+          .findById(existing.get().getPlanId())
+          .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
     }
-
-    ApplyDaysSubscription subscription =
-        ApplyDaysSubscription.builder()
-            .memberId(memberId)
-            .planId(planId)
-            .status(SubscriptionStatus.PRE_REGISTERED)
-            .build();
-
-    ApplyDaysSubscription saved = subscriptionRepository.save(subscription);
-    meterRegistry.counter("applydays.subscriptions.preregistered").increment();
-    return saved;
+    return planRepository.findAllByDeletedFalse().stream()
+        .findFirst()
+        .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
   }
 
   /**
@@ -113,15 +96,20 @@ public class ApplyDaysSubscriptionCommandService {
             });
   }
 
+  public ApplyDaysSubscription processPayment(UUID memberId, String billingKey, String paymentId) {
+    return processPayment(memberId, billingKey, paymentId, null);
+  }
+
   /**
    * 최초 결제 요청 및 검증 (Transaction-After-API 패턴 적용) 외부 API 호출은 트랜잭션 외부에서 수행, 이후 DB 락 및 처리를 트랜잭션 내에서 처리
    */
-  public ApplyDaysSubscription processPayment(UUID memberId, String billingKey, String paymentId) {
+  public ApplyDaysSubscription processPayment(
+      UUID memberId, String billingKey, String paymentId, UUID planId) {
     log.info(
-        "Processing subscription payment outside transaction: memberId={}, billingKey={}, paymentId={}",
+        "Processing subscription payment outside transaction: memberId={}, paymentId={}, planId={}",
         memberId,
-        billingKey,
-        paymentId);
+        paymentId,
+        planId);
 
     // 1. Idempotency Check
     if (paymentRepository.existsByPortonePaymentId(paymentId)) {
@@ -131,9 +119,7 @@ public class ApplyDaysSubscriptionCommandService {
           .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
     }
 
-    if (billingKey != null && !billingKey.isBlank()) {
-      paymentMethodCommandService.registerPaymentMethod(memberId, billingKey, null, null, true);
-    }
+    ApplyDaysSubscriptionPlan plan = resolvePlan(memberId, planId);
 
     String effectiveBillingKey =
         (billingKey != null && !billingKey.isBlank())
@@ -146,15 +132,6 @@ public class ApplyDaysSubscriptionCommandService {
     // 2. 외부 API를 통해 결제 승인 또는 검증 수행 (Connection Pool 점유 예방)
     PortOnePaymentResponse portoneResponse;
     if (effectiveBillingKey != null && !effectiveBillingKey.isBlank()) {
-      ApplyDaysSubscription subscription =
-          subscriptionRepository
-              .findByMemberId(memberId)
-              .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
-      ApplyDaysSubscriptionPlan plan =
-          planRepository
-              .findById(subscription.getPlanId())
-              .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
-
       try {
         portoneResponse =
             portOneClient.payWithBillingKey(
@@ -166,7 +143,8 @@ public class ApplyDaysSubscriptionCommandService {
             e);
         selfProvider
             .getObject()
-            .saveFailedPaymentAttempt(memberId, paymentId, "Payment request call failed");
+            .saveFailedPaymentAttempt(
+                memberId, paymentId, "Payment request call failed", plan.getId());
         throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
       }
     } else {
@@ -179,33 +157,53 @@ public class ApplyDaysSubscriptionCommandService {
             e);
         selfProvider
             .getObject()
-            .saveFailedPaymentAttempt(memberId, paymentId, "Payment verification call failed");
+            .saveFailedPaymentAttempt(
+                memberId, paymentId, "Payment verification call failed", plan.getId());
         throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
       }
     }
 
     // 3. 결제 결과를 바탕으로 DB 트랜잭션 처리 위임 (Self-Proxy 호출)
-    return selfProvider.getObject().savePaymentAndActivate(memberId, paymentId, portoneResponse);
+    return selfProvider
+        .getObject()
+        .savePaymentAndActivate(memberId, billingKey, paymentId, portoneResponse, plan.getId());
   }
 
   @Transactional
   public ApplyDaysSubscription savePaymentAndActivate(
-      UUID memberId, String paymentId, PortOnePaymentResponse portoneResponse) {
-    // Lock subscription
-    ApplyDaysSubscription subscription =
-        subscriptionRepository
-            .findWithLockByMemberId(memberId)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
+      UUID memberId,
+      String billingKey,
+      String paymentId,
+      PortOnePaymentResponse portoneResponse,
+      UUID planId) {
+    // Lock or create subscription
+    Optional<ApplyDaysSubscription> subscriptionOpt =
+        subscriptionRepository.findWithLockByMemberId(memberId);
+
+    ApplyDaysSubscriptionPlan plan = resolvePlan(memberId, planId);
+
+    ApplyDaysSubscription subscription;
+    if (subscriptionOpt.isPresent()) {
+      subscription = subscriptionOpt.get();
+    } else {
+      subscription =
+          ApplyDaysSubscription.builder()
+              .memberId(memberId)
+              .planId(plan.getId())
+              .status(SubscriptionStatus.PAYMENT_FAILED)
+              .build();
+    }
 
     // Double check idempotency under lock
     if (paymentRepository.existsByPortonePaymentId(paymentId)) {
       return subscription;
     }
 
-    ApplyDaysSubscriptionPlan plan =
-        planRepository
-            .findById(subscription.getPlanId())
-            .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
+    if (!paymentId.contains(memberId.toString())) {
+      log.error(
+          "Payment ID does not match member ID: paymentId={}, memberId={}", paymentId, memberId);
+      throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
+    }
 
     // Validate payment status & amount
     if (!"PAID".equalsIgnoreCase(portoneResponse.status())) {
@@ -263,6 +261,10 @@ public class ApplyDaysSubscriptionCommandService {
     subscription.activate(startDate, endDate, nextBillingDate);
     ApplyDaysSubscription savedSubscription = subscriptionRepository.save(subscription);
 
+    if (billingKey != null && !billingKey.isBlank()) {
+      paymentMethodCommandService.registerPaymentMethod(memberId, billingKey, null, null, true);
+    }
+
     // Record success payment
     String receipt = portoneResponse.receiptUrl();
     savePayment(
@@ -304,27 +306,33 @@ public class ApplyDaysSubscriptionCommandService {
   }
 
   @Transactional
-  public void saveFailedPaymentAttempt(UUID memberId, String paymentId, String failReason) {
+  public void saveFailedPaymentAttempt(
+      UUID memberId, String paymentId, String failReason, UUID planId) {
     ApplyDaysSubscription subscription =
         subscriptionRepository.findWithLockByMemberId(memberId).orElse(null);
-    if (subscription != null) {
-      ApplyDaysSubscriptionPlan plan =
-          planRepository.findById(subscription.getPlanId()).orElse(null);
-      long price = plan != null ? plan.getPrice() : 0L;
-      savePayment(
-          subscription, memberId, price, PaymentStatus.FAILED, paymentId, failReason, null, null);
-      subscription.markPaymentFailed();
-      subscriptionRepository.save(subscription);
-
-      Member member = memberRepository.findById(memberId).orElse(null);
-      String email = member != null ? member.getEmail() : "Unknown";
-      String name = member != null ? member.getName() : "Unknown";
-      String planName = plan != null ? plan.getName() : null;
-
-      eventPublisher.publishEvent(
-          new SubscriptionPaymentFailedEvent(
-              memberId, name, email, planName, paymentId, failReason));
+    ApplyDaysSubscriptionPlan plan = resolvePlan(memberId, planId);
+    if (subscription == null) {
+      subscription =
+          ApplyDaysSubscription.builder()
+              .memberId(memberId)
+              .planId(plan.getId())
+              .status(SubscriptionStatus.PAYMENT_FAILED)
+              .build();
+      subscription = subscriptionRepository.save(subscription);
     }
+    long price = plan != null ? plan.getPrice() : 0L;
+    savePayment(
+        subscription, memberId, price, PaymentStatus.FAILED, paymentId, failReason, null, null);
+    subscription.markPaymentFailed();
+    subscriptionRepository.save(subscription);
+
+    Member member = memberRepository.findById(memberId).orElse(null);
+    String email = member != null ? member.getEmail() : "Unknown";
+    String name = member != null ? member.getName() : "Unknown";
+    String planName = plan != null ? plan.getName() : null;
+
+    eventPublisher.publishEvent(
+        new SubscriptionPaymentFailedEvent(memberId, name, email, planName, paymentId, failReason));
   }
 
   @Transactional
@@ -495,7 +503,8 @@ public class ApplyDaysSubscriptionCommandService {
             .findById(sub.getPlanId())
             .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
 
-    String paymentId = "merchant_sub_" + UUID.randomUUID();
+    String paymentId =
+        "sub_" + sub.getMemberId().toString() + "_" + UUID.randomUUID().toString().substring(0, 8);
     PortOnePaymentResponse portoneResponse;
 
     String billingKey =

@@ -1,3 +1,5 @@
 package com.services.api.applydays.dto;
 
-public record PaySubscriptionRequest(String billingKey, String paymentId) {}
+import java.util.UUID;
+
+public record PaySubscriptionRequest(String billingKey, String paymentId, UUID planId) {}
