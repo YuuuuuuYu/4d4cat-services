@@ -37,7 +37,6 @@ class ApplyDaysPaymentMethodQueryServiceTest {
             .billingKey("billing_123")
             .cardCompany("KCP")
             .cardNumberMasked("1234-****")
-            .isDefault(true)
             .build();
 
     given(paymentMethodRepository.findByMemberIdAndDeletedFalse(memberId))

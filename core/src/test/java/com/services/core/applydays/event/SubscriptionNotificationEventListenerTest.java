@@ -10,6 +10,7 @@ import com.services.core.common.infrastructure.external.sendpulse.dto.SendPulseE
 import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.DiscordWebhookPayload;
 import com.services.core.common.notification.discord.DiscordWebhookService;
+import com.services.core.common.persistence.repository.member.MemberRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -28,6 +29,7 @@ class SubscriptionNotificationEventListenerTest {
   @Mock private ObjectProvider<SendPulseEmailClient> sendPulseEmailClientProvider;
   @Mock private SendPulseEmailClient sendPulseEmailClient;
   @Mock private DiscordWebhookService discordWebhookService;
+  @Mock private MemberRepository memberRepository;
 
   private SubscriptionNotificationEventListener eventListener;
 
@@ -35,7 +37,7 @@ class SubscriptionNotificationEventListenerTest {
   void setUp() {
     eventListener =
         new SubscriptionNotificationEventListener(
-            sendPulseEmailClientProvider, discordWebhookService);
+            sendPulseEmailClientProvider, discordWebhookService, memberRepository);
     ReflectionTestUtils.setField(eventListener, "senderEmail", "noreply@applydays.com");
     ReflectionTestUtils.setField(eventListener, "senderName", "ApplyDays");
   }

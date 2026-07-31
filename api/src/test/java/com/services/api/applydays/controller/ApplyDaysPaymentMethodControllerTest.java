@@ -69,7 +69,6 @@ class ApplyDaysPaymentMethodControllerTest {
             .billingKey("billing_key_123")
             .cardCompany("신한카드")
             .cardNumberMasked("1234-****")
-            .isDefault(true)
             .build();
     ApplyDaysFixtures.setId(pm, UUID.randomUUID());
 
@@ -96,7 +95,7 @@ class ApplyDaysPaymentMethodControllerTest {
     ApplyDaysFixtures.setId(member, memberId);
 
     RegisterPaymentMethodRequest request =
-        new RegisterPaymentMethodRequest("billing_new", "국민카드", "5520-****", true);
+        new RegisterPaymentMethodRequest("billing_new", "국민카드", "5520-****");
 
     ApplyDaysPaymentMethod pm =
         ApplyDaysPaymentMethod.builder()
@@ -104,14 +103,13 @@ class ApplyDaysPaymentMethodControllerTest {
             .billingKey("billing_new")
             .cardCompany("국민카드")
             .cardNumberMasked("5520-****")
-            .isDefault(true)
             .build();
     ApplyDaysFixtures.setId(pm, UUID.randomUUID());
 
     given(memberRepository.findByEmail("user@example.com")).willReturn(Optional.of(member));
     given(
             paymentMethodCommandService.registerPaymentMethod(
-                eq(memberId), eq("billing_new"), eq("국민카드"), eq("5520-****"), eq(true)))
+                eq(memberId), eq("billing_new"), eq("국민카드"), eq("5520-****")))
         .willReturn(pm);
 
     // when & then

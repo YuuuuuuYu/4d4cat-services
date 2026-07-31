@@ -66,14 +66,12 @@ public class ApplyDaysPaymentMethodController {
             .findByEmail(email)
             .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
 
-    boolean isDefault = request.isDefault() == null || request.isDefault();
     ApplyDaysPaymentMethod pm =
         paymentMethodCommandService.registerPaymentMethod(
             member.getId(),
             request.billingKey(),
             request.cardCompany(),
-            request.cardNumberMasked(),
-            isDefault);
+            request.cardNumberMasked());
 
     return BaseResponse.of(HttpStatus.CREATED, PaymentMethodResponse.from(pm));
   }

@@ -8,7 +8,6 @@ import com.services.core.applydays.entity.subscription.ApplyDaysSubscriptionPlan
 import com.services.core.applydays.entity.subscription.PaymentStatus;
 import com.services.core.applydays.entity.subscription.SubscriptionStatus;
 import com.services.core.applydays.event.SubscriptionCanceledEvent;
-import com.services.core.applydays.event.SubscriptionCardDeletedEvent;
 import com.services.core.applydays.event.SubscriptionExpiredEvent;
 import com.services.core.applydays.event.SubscriptionPaidEvent;
 import com.services.core.applydays.event.SubscriptionPaymentFailedEvent;
@@ -41,6 +40,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -105,6 +105,10 @@ public class ApplyDaysSubscriptionCommandService {
    */
   public ApplyDaysSubscription processPayment(
       UUID memberId, String billingKey, String paymentId, UUID planId) {
+    if (!StringUtils.hasText(paymentId)) {
+      paymentId = "sub_" + memberId + "_" + System.currentTimeMillis();
+    }
+
     log.info(
         "Processing subscription payment outside transaction: memberId={}, paymentId={}, planId={}",
         memberId,
@@ -199,12 +203,6 @@ public class ApplyDaysSubscriptionCommandService {
       return subscription;
     }
 
-    if (!paymentId.contains(memberId.toString())) {
-      log.error(
-          "Payment ID does not match member ID: paymentId={}, memberId={}", paymentId, memberId);
-      throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
-    }
-
     // Validate payment status & amount
     if (!"PAID".equalsIgnoreCase(portoneResponse.status())) {
       log.error("Payment status is not PAID: {}", portoneResponse.status());
@@ -262,7 +260,7 @@ public class ApplyDaysSubscriptionCommandService {
     ApplyDaysSubscription savedSubscription = subscriptionRepository.save(subscription);
 
     if (billingKey != null && !billingKey.isBlank()) {
-      paymentMethodCommandService.registerPaymentMethod(memberId, billingKey, null, null, true);
+      paymentMethodCommandService.registerPaymentMethod(memberId, billingKey, null, null);
     }
 
     // Record success payment
@@ -344,7 +342,7 @@ public class ApplyDaysSubscriptionCommandService {
             .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
 
     if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
-      throw new BadRequestException(ErrorCode.SUBSCRIPTION_NOT_FOUND);
+      throw new BadRequestException(ErrorCode.INVALID_SUBSCRIPTION_STATUS);
     }
 
     subscription.cancel();
@@ -406,20 +404,6 @@ public class ApplyDaysSubscriptionCommandService {
 
     meterRegistry.counter("applydays.subscriptions.resumed").increment();
     return saved;
-  }
-
-  @Transactional
-  public void deleteCard(UUID memberId) {
-    log.info("Deleting card billing key for memberId={}", memberId);
-    paymentMethodCommandService.deletePaymentMethod(memberId);
-
-    Member member =
-        memberRepository
-            .findById(memberId)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
-
-    eventPublisher.publishEvent(
-        new SubscriptionCardDeletedEvent(memberId, member.getName(), member.getEmail()));
   }
 
   public void processRenewal() {

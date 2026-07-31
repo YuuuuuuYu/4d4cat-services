@@ -49,7 +49,7 @@ class ApplyDaysPaymentMethodCommandServiceTest {
 
     // when
     ApplyDaysPaymentMethod pm =
-        commandService.registerPaymentMethod(memberId, "billing_new", "신한카드", "4330-****", true);
+        commandService.registerPaymentMethod(memberId, "billing_new", "신한카드", "4330-****");
 
     // then
     assertThat(pm.getMemberId()).isEqualTo(memberId);
@@ -68,7 +68,6 @@ class ApplyDaysPaymentMethodCommandServiceTest {
             .billingKey("billing_del")
             .cardCompany("국민카드")
             .cardNumberMasked("5520-****")
-            .isDefault(true)
             .build();
 
     given(paymentMethodRepository.findByMemberIdAndDeletedFalse(memberId))

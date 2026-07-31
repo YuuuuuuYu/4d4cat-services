@@ -35,28 +35,18 @@ public class ApplyDaysPaymentMethod extends BaseSoftDeleteEntity {
   @Column(name = "card_number_masked")
   private String cardNumberMasked;
 
-  @Column(name = "is_default", nullable = false)
-  private boolean isDefault;
-
   @Builder
   public ApplyDaysPaymentMethod(
-      UUID memberId,
-      String billingKey,
-      String cardCompany,
-      String cardNumberMasked,
-      boolean isDefault) {
+      UUID memberId, String billingKey, String cardCompany, String cardNumberMasked) {
     this.memberId = memberId;
     this.billingKey = billingKey;
     this.cardCompany = cardCompany;
     this.cardNumberMasked = cardNumberMasked;
-    this.isDefault = isDefault;
   }
 
-  public void updatePaymentMethod(
-      String billingKey, String cardCompany, String cardNumberMasked, boolean isDefault) {
+  public void updatePaymentMethod(String billingKey, String cardCompany, String cardNumberMasked) {
     this.billingKey = billingKey;
     this.cardCompany = cardCompany;
     this.cardNumberMasked = cardNumberMasked;
-    this.isDefault = isDefault;
   }
 }
