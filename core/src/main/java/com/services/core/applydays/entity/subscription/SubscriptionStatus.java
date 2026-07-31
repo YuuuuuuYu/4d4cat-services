@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum SubscriptionStatus {
-  PRE_REGISTERED("사전등록"),
   ACTIVE("활성"),
   CANCELED("취소"),
   EXPIRED("만료"),

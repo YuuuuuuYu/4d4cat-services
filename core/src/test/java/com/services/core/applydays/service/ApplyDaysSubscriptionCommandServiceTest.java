@@ -3,9 +3,11 @@ package com.services.core.applydays.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -25,6 +27,7 @@ import com.services.core.common.infrastructure.external.portone.PortOneClient.Po
 import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.entity.member.Role;
 import com.services.core.common.persistence.repository.member.MemberRepository;
+import com.services.core.fixture.ApplyDaysFixtures;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDate;
@@ -72,7 +75,7 @@ class ApplyDaysSubscriptionCommandServiceTest {
             selfProvider,
             meterRegistry,
             eventPublisher);
-    org.mockito.Mockito.lenient().when(selfProvider.getObject()).thenReturn(subscriptionService);
+    lenient().when(selfProvider.getObject()).thenReturn(subscriptionService);
   }
 
   @Test
@@ -156,35 +159,6 @@ class ApplyDaysSubscriptionCommandServiceTest {
   }
 
   @Test
-  @DisplayName("구독 사전 등록 성공")
-  void preRegister_success() {
-    // given
-    UUID memberId = UUID.randomUUID();
-    UUID planId = UUID.randomUUID();
-    ApplyDaysSubscriptionPlan plan =
-        ApplyDaysSubscriptionPlan.builder()
-            .name("Subscriber Plan")
-            .price(16500L)
-            .billingCycleMonths(1)
-            .build();
-
-    given(planRepository.findById(planId)).willReturn(Optional.of(plan));
-    given(subscriptionRepository.findByMemberId(memberId)).willReturn(Optional.empty());
-    given(subscriptionRepository.save(any(ApplyDaysSubscription.class)))
-        .willAnswer(invocation -> invocation.getArgument(0));
-
-    // when
-    ApplyDaysSubscription result = subscriptionService.preRegister(memberId, planId);
-
-    // then
-    assertThat(result.getMemberId()).isEqualTo(memberId);
-    assertThat(result.getPlanId()).isEqualTo(planId);
-    assertThat(result.getStatus()).isEqualTo(SubscriptionStatus.PRE_REGISTERED);
-    verify(subscriptionRepository).save(any(ApplyDaysSubscription.class));
-    assertThat(meterRegistry.find("applydays.subscriptions.preregistered").counter()).isNotNull();
-  }
-
-  @Test
   @DisplayName("구독 해지 성공 - 다음 결제예정일 제거, 만료일까지 유지, 이벤트 발행")
   void cancelSubscription_success() {
     // given
@@ -227,7 +201,7 @@ class ApplyDaysSubscriptionCommandServiceTest {
     ApplyDaysSubscription subscription =
         ApplyDaysSubscription.builder()
             .memberId(memberId)
-            .status(SubscriptionStatus.PRE_REGISTERED)
+            .status(SubscriptionStatus.PAYMENT_FAILED)
             .build();
 
     given(subscriptionRepository.findWithLockByMemberId(memberId))
@@ -300,7 +274,7 @@ class ApplyDaysSubscriptionCommandServiceTest {
     UUID memberId = UUID.randomUUID();
     UUID planId = UUID.randomUUID();
     String billingKey = "billing_key_extend";
-    String paymentId = "pay_extend_123";
+    String paymentId = "sub_" + memberId.toString() + "_extend_123";
     LocalDate existingEndDate = LocalDate.now().plusDays(15);
 
     ApplyDaysSubscription existingSubscription =
@@ -349,6 +323,48 @@ class ApplyDaysSubscriptionCommandServiceTest {
     // then
     assertThat(result.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
     assertThat(result.getEndDate()).isEqualTo(existingEndDate.plusMonths(1));
+    verify(paymentMethodCommandService)
+        .registerPaymentMethod(memberId, billingKey, null, null, true);
+  }
+
+  @Test
+  @DisplayName("결제 실패 시 결제 수단이 등록되지 않는다")
+  void processPayment_failed_doesNotRegisterPaymentMethod() {
+    // given
+    UUID memberId = UUID.randomUUID();
+    UUID planId = UUID.randomUUID();
+    String billingKey = "billing_key_fail";
+    String paymentId = "sub_" + memberId.toString() + "_fail_123";
+
+    ApplyDaysSubscriptionPlan plan =
+        ApplyDaysSubscriptionPlan.builder()
+            .name("Premium")
+            .price(16500L)
+            .billingCycleMonths(1)
+            .build();
+    ApplyDaysFixtures.setId(plan, planId);
+
+    given(paymentRepository.existsByPortonePaymentId(paymentId)).willReturn(false);
+    given(subscriptionRepository.findWithLockByMemberId(memberId)).willReturn(Optional.empty());
+    given(planRepository.findById(any())).willReturn(Optional.of(plan));
+    given(subscriptionRepository.save(any(ApplyDaysSubscription.class)))
+        .willAnswer(
+            i -> {
+              ApplyDaysSubscription s = i.getArgument(0);
+              ApplyDaysFixtures.setId(s, UUID.randomUUID());
+              return s;
+            });
+    given(portOneClient.payWithBillingKey(anyString(), anyString(), anyLong(), anyString()))
+        .willThrow(new RuntimeException("Payment API Error"));
+
+    // when & then
+    assertThatThrownBy(
+            () -> subscriptionService.processPayment(memberId, billingKey, paymentId, planId))
+        .isInstanceOf(BadRequestException.class);
+
+    // verify payment method is NOT registered
+    verify(paymentMethodCommandService, never())
+        .registerPaymentMethod(any(UUID.class), anyString(), any(), any(), anyBoolean());
   }
 
   @Test
@@ -358,7 +374,7 @@ class ApplyDaysSubscriptionCommandServiceTest {
     UUID memberId = UUID.randomUUID();
     UUID planId = UUID.randomUUID();
     String billingKey = "billing_key_accumulate";
-    String paymentId = "pay_accumulate_123";
+    String paymentId = "sub_" + memberId.toString() + "_accumulate_123";
     LocalDate initialStartDate = LocalDate.now().minusDays(15);
     LocalDate remainingEndDate = LocalDate.now().plusDays(15);
 

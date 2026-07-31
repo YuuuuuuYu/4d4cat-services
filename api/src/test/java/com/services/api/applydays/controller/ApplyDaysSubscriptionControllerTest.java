@@ -17,7 +17,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.PaySubscriptionRequest;
 import com.services.api.applydays.dto.PortOneWebhookRequest;
-import com.services.api.applydays.dto.PreRegisterRequest;
 import com.services.api.common.config.SecurityConfiguration;
 import com.services.api.common.security.handler.OAuth2SuccessHandler;
 import com.services.api.common.security.jwt.JwtProvider;
@@ -240,50 +239,14 @@ class ApplyDaysSubscriptionControllerTest {
 
   @Test
   @WithMockUser(username = "test@example.com", roles = "USER")
-  @DisplayName("구독 사전 등록을 진행한다")
-  void preRegister_success() throws Exception {
-    // given
-    String email = "test@example.com";
-    UUID planId = UUID.randomUUID();
-    PreRegisterRequest request = new PreRegisterRequest(planId);
-
-    Member member = ApplyDaysFixtures.createMember(email, Role.USER);
-    ApplyDaysFixtures.setId(member, UUID.randomUUID());
-
-    ApplyDaysSubscription subscription =
-        ApplyDaysSubscription.builder()
-            .memberId(member.getId())
-            .planId(planId)
-            .status(SubscriptionStatus.PRE_REGISTERED)
-            .build();
-    ApplyDaysFixtures.setId(subscription, UUID.randomUUID());
-
-    given(memberRepository.findByEmail(email)).willReturn(Optional.of(member));
-    given(subscriptionService.preRegister(eq(member.getId()), eq(planId))).willReturn(subscription);
-
-    // when & then
-    mockMvc
-        .perform(
-            post("/applydays/subscriptions/pre-register")
-                .with(csrf())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-        .andDo(print())
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value(201))
-        .andExpect(jsonPath("$.data.status").value("PRE_REGISTERED"))
-        .andExpect(jsonPath("$.data.planId").value(planId.toString()));
-  }
-
-  @Test
-  @WithMockUser(username = "test@example.com", roles = "USER")
   @DisplayName("구독 결제를 완료 및 검증 처리한다")
   void paySubscription_success() throws Exception {
     // given
     String email = "test@example.com";
     String billingKey = "billing_12345";
     String paymentId = "sub_member_12345";
-    PaySubscriptionRequest request = new PaySubscriptionRequest(billingKey, paymentId);
+    UUID planId = UUID.randomUUID();
+    PaySubscriptionRequest request = new PaySubscriptionRequest(billingKey, paymentId, planId);
 
     Member member = ApplyDaysFixtures.createMember(email, Role.USER);
     UUID memberId = UUID.randomUUID();
@@ -301,7 +264,9 @@ class ApplyDaysSubscriptionControllerTest {
     given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
     given(jwtProvider.createAccessToken(eq(email), eq("ROLE_USER")))
         .willReturn("mock_access_token_pay");
-    given(subscriptionService.processPayment(eq(memberId), eq(billingKey), eq(paymentId)))
+    given(
+            subscriptionService.processPayment(
+                eq(memberId), eq(billingKey), eq(paymentId), eq(planId)))
         .willReturn(subscription);
 
     // when & then

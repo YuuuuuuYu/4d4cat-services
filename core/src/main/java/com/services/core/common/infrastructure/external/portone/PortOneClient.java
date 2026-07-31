@@ -95,7 +95,7 @@ public class PortOneClient {
       String billingKey, String paymentId, long amount, String orderName) {
     log.info(
         "Requesting billing key payment with PortOne V2: billingKey={}, paymentId={}, amount={}, orderName={}",
-        billingKey,
+        maskBillingKey(billingKey),
         paymentId,
         amount,
         orderName);
@@ -216,7 +216,7 @@ public class PortOneClient {
   }
 
   public void deleteBillingKey(String billingKey) {
-    log.info("Deleting billing key via PortOne V2: billingKey={}", billingKey);
+    log.info("Deleting billing key via PortOne V2: billingKey={}", maskBillingKey(billingKey));
     if ("mock".equalsIgnoreCase(apiUrl) || apiUrl.isBlank()) {
       log.info("Running PortOneClient V2 in mock mode");
       if (billingKey != null && billingKey.contains("fail_delete")) {
@@ -234,7 +234,17 @@ public class PortOneClient {
           .toBodilessEntity();
     } catch (Exception e) {
       log.error("Error deleting billing key via PortOne V2", e);
-      throw new RuntimeException("Failed to delete billing key with PortOne V2");
+      throw new RuntimeException("Failed to delete billing key");
     }
+  }
+
+  private String maskBillingKey(String key) {
+    if (key == null || key.isBlank()) {
+      return "****";
+    }
+    if (key.length() <= 8) {
+      return "****";
+    }
+    return key.substring(0, 4) + "****" + key.substring(key.length() - 4);
   }
 }
