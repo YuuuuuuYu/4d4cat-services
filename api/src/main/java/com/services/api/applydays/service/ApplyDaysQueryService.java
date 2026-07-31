@@ -524,7 +524,7 @@ public class ApplyDaysQueryService {
   @Cacheable(value = "publicSummary")
   public PublicSummaryResponse getPublicSummary() {
     long totalReviews = applicationRepository.count();
-    long totalCompanies = companyRepository.count();
+    long totalCompanies = applicationRepository.countDistinctCompanySlug();
     return PublicSummaryResponse.builder()
         .totalReviews(totalReviews)
         .totalCompanies(totalCompanies)

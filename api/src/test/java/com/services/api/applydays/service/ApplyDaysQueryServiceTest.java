@@ -560,7 +560,7 @@ class ApplyDaysQueryServiceTest {
   void getPublicSummary_success() {
     // given
     when(applicationRepository.count()).thenReturn(150L);
-    when(companyRepository.count()).thenReturn(45L);
+    when(applicationRepository.countDistinctCompanySlug()).thenReturn(45L);
 
     // when
     PublicSummaryResponse response = applyDaysQueryService.getPublicSummary();
@@ -576,7 +576,7 @@ class ApplyDaysQueryServiceTest {
   void getPublicSummary_zeroCount_edgeCase() {
     // given
     when(applicationRepository.count()).thenReturn(0L);
-    when(companyRepository.count()).thenReturn(0L);
+    when(applicationRepository.countDistinctCompanySlug()).thenReturn(0L);
 
     // when
     PublicSummaryResponse response = applyDaysQueryService.getPublicSummary();

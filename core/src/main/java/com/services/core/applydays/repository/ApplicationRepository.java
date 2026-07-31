@@ -17,6 +17,9 @@ public interface ApplicationRepository
 
   long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
+  @Query("SELECT COUNT(DISTINCT a.companySlug) FROM Application a")
+  long countDistinctCompanySlug();
+
   @Query(
       "SELECT a.channel, COUNT(a) FROM Application a WHERE a.createdAt BETWEEN :start AND :end GROUP BY a.channel")
   List<Object[]> countByChannelAndCreatedAtBetween(
