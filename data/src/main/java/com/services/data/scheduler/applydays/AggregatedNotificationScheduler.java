@@ -1,4 +1,4 @@
-package com.services.data.applydays.worker;
+package com.services.data.scheduler.applydays;
 
 import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.NotificationQueue;
@@ -6,6 +6,7 @@ import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.NotificationQueueRepository;
 import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.repository.member.MemberRepository;
+import com.services.data.applydays.worker.SendPulseNotificationWorker;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,6 @@ public class AggregatedNotificationScheduler {
   public void sendAggregatedEmails() {
     log.info("Starting aggregated email notification batch...");
 
-    // 1. 발송 대기 중인(PENDING) 데이터 중 예약 시간이 지났거나 없는 것 조회
     LocalDateTime now = LocalDateTime.now();
     List<NotificationQueue> pendingQueues =
         notificationQueueRepository.findAllByStatus("PENDING").stream()
@@ -46,7 +46,6 @@ public class AggregatedNotificationScheduler {
 
     log.info("Found {} pending notifications.", pendingQueues.size());
 
-    // 2. 사용자(member_id)별로 그룹화
     Map<UUID, List<NotificationQueue>> groups =
         pendingQueues.stream().collect(Collectors.groupingBy(NotificationQueue::getMemberId));
 
@@ -72,7 +71,6 @@ public class AggregatedNotificationScheduler {
     }
 
     try {
-      // 3. 최신 지원서 정보 조회 (Lazy Building)
       List<Application> applications = applicationRepository.findAllById(applicationIds);
 
       if (applications.isEmpty()) {
@@ -82,10 +80,8 @@ public class AggregatedNotificationScheduler {
         return;
       }
 
-      // 4. 통합 메일 발송
       sendPulseNotificationWorker.sendVerificationResultEmail(member, applications);
 
-      // 5. 성공 상태 업데이트
       queues.forEach(NotificationQueue::markAsSent);
       log.info(
           "Successfully sent aggregated email to member {} for {} applications.",

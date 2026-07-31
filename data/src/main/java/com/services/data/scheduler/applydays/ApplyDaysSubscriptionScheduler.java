@@ -1,4 +1,4 @@
-package com.services.data.applydays.worker;
+package com.services.data.scheduler.applydays;
 
 import com.services.core.applydays.service.ApplyDaysSubscriptionCommandService;
 import com.services.core.common.notification.discord.DiscordChannel;
@@ -33,24 +33,25 @@ public class ApplyDaysSubscriptionScheduler {
   @Scheduled(cron = "10 0 0 * * *")
   @NotifyDiscord(
       taskName = "Subscription Billing & Expiration Processing",
-      channel = DiscordChannel.MONITORING)
-  public void processSubscriptionBillingAndExpiration() {
+      channel = DiscordChannel.STATISTICS)
+  public SubscriptionJobReport processSubscriptionBillingAndExpiration() {
     Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", lockDuration);
     if (acquired == null || !acquired) {
       log.info(
           "Another instance is already running Subscription Billing & Expiration task. Skipping.");
-      return;
+      return new SubscriptionJobReport(0, 0);
     }
 
     log.info("Starting subscription renewal and expiration scheduler...");
     try {
       // 1. Process renewals (charge ACTIVE subscriptions where nextBillingDate <= now)
-      subscriptionService.processRenewal();
+      int renewals = subscriptionService.processRenewal();
 
       // 2. Process expirations (deactivate CANCELED subscriptions where endDate < now)
-      subscriptionService.processExpiration();
+      int expirations = subscriptionService.processExpiration();
 
       log.info("Finished subscription renewal and expiration scheduler successfully.");
+      return new SubscriptionJobReport(renewals, expirations);
     } catch (Exception e) {
       log.error("Error occurred during subscription billing/expiration task", e);
       throw e;

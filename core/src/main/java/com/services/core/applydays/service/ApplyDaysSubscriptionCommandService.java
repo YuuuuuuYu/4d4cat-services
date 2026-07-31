@@ -406,10 +406,11 @@ public class ApplyDaysSubscriptionCommandService {
     return saved;
   }
 
-  public void processRenewal() {
+  public int processRenewal() {
     LocalDate today = LocalDate.now();
     int pageNumber = 0;
     int pageSize = 100;
+    int totalProcessed = 0;
 
     log.info("Starting subscription renewal batch at {}", today);
 
@@ -426,8 +427,8 @@ public class ApplyDaysSubscriptionCommandService {
 
       for (ApplyDaysSubscription sub : targets) {
         try {
-          // Self-Proxy를 사용하여 개별 건을 격리된 트랜잭션(Requires New)으로 안전하게 실행
           selfProvider.getObject().renewSubscription(sub);
+          totalProcessed++;
         } catch (Exception e) {
           log.error(
               "Failed to process renewal for subscription of member {}", sub.getMemberId(), e);
@@ -439,12 +440,14 @@ public class ApplyDaysSubscriptionCommandService {
       }
       pageNumber++;
     }
+    return totalProcessed;
   }
 
-  public void processExpiration() {
+  public int processExpiration() {
     LocalDate today = LocalDate.now();
     int pageNumber = 0;
     int pageSize = 100;
+    int totalProcessed = 0;
 
     log.info("Starting subscription expiration batch at {}", today);
 
@@ -461,8 +464,8 @@ public class ApplyDaysSubscriptionCommandService {
 
       for (ApplyDaysSubscription sub : targets) {
         try {
-          // Self-Proxy를 사용하여 개별 건을 격리된 트랜잭션(Requires New)으로 안전하게 실행
           selfProvider.getObject().expireSubscriptionIsolated(sub.getMemberId());
+          totalProcessed++;
         } catch (Exception e) {
           log.error(
               "Failed to process expiration for subscription of member {}", sub.getMemberId(), e);
@@ -474,6 +477,7 @@ public class ApplyDaysSubscriptionCommandService {
       }
       pageNumber++;
     }
+    return totalProcessed;
   }
 
   public void expireSubscription(ApplyDaysSubscription sub) {

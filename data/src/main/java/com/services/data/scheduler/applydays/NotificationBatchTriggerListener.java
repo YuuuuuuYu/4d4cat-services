@@ -1,4 +1,4 @@
-package com.services.data.applydays.worker;
+package com.services.data.scheduler.applydays;
 
 import com.services.core.common.infrastructure.RedisMessageQueue;
 import jakarta.annotation.PostConstruct;
@@ -43,7 +43,6 @@ public class NotificationBatchTriggerListener {
     log.info("Starting Notification Batch Trigger listener (LPUSH/BRPOP): {}", triggerQueueName);
     while (running && !Thread.currentThread().isInterrupted()) {
       try {
-        // Wait for trigger signal (Blocking pop for 5 seconds to stay within commandTimeout)
         redisMessageQueue
             .pop(triggerQueueName, Duration.ofSeconds(5), String.class)
             .ifPresent(

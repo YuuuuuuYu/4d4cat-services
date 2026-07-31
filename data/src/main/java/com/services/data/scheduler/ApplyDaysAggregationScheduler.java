@@ -2,6 +2,7 @@ package com.services.data.scheduler;
 
 import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
+import com.services.data.scheduler.applydays.AggregationReport;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,7 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.cache.CacheManager;
@@ -27,7 +29,7 @@ public class ApplyDaysAggregationScheduler {
 
   @Scheduled(cron = "0 10 1 * * *", zone = "Asia/Seoul")
   @NotifyDiscord(taskName = "ApplyDays Statistics Aggregation", channel = DiscordChannel.STATISTICS)
-  public void runAggregationJob() {
+  public AggregationReport runAggregationJob() {
     log.info("Scheduled trigger: Starting statistics refresh job.");
 
     Set<JobExecution> runningJobs =
@@ -35,7 +37,7 @@ public class ApplyDaysAggregationScheduler {
 
     if (!runningJobs.isEmpty()) {
       log.warn("Scheduled trigger: Statistics job is already running.");
-      return;
+      return new AggregationReport(0);
     }
 
     try {
@@ -44,9 +46,13 @@ public class ApplyDaysAggregationScheduler {
       JobParameters jobParameters =
           new JobParametersBuilder().addLong("time", System.currentTimeMillis()).toJobParameters();
 
-      jobLauncher.run(applyDaysAggregationJob, jobParameters);
+      JobExecution execution = jobLauncher.run(applyDaysAggregationJob, jobParameters);
+
+      long writeCount =
+          execution.getStepExecutions().stream().mapToLong(StepExecution::getWriteCount).sum();
 
       log.info("Scheduled trigger: Statistics refresh job started successfully.");
+      return new AggregationReport(writeCount);
     } catch (Exception e) {
       log.error("Scheduled trigger: Failed to start statistics refresh job", e);
       throw new RuntimeException("Failed to start statistics refresh job", e);

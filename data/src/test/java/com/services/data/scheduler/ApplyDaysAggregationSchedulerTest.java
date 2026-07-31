@@ -3,13 +3,16 @@ package com.services.data.scheduler;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import com.services.data.scheduler.applydays.AggregationReport;
 import java.util.Collections;
 import java.util.Set;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.cache.Cache;
@@ -47,12 +50,19 @@ class ApplyDaysAggregationSchedulerTest {
     Cache mockCache = mock(Cache.class);
     when(cacheManager.getCache(anyString())).thenReturn(mockCache);
 
+    JobExecution mockExecution = mock(JobExecution.class);
+    StepExecution mockStepExecution = mock(StepExecution.class);
+    when(mockStepExecution.getWriteCount()).thenReturn(5L);
+    when(mockExecution.getStepExecutions()).thenReturn(Collections.singleton(mockStepExecution));
+    when(jobLauncher.run(eq(applyDaysAggregationJob), any())).thenReturn(mockExecution);
+
     // When
-    scheduler.runAggregationJob();
+    AggregationReport report = scheduler.runAggregationJob();
 
     // Then
     verify(mockCache, times(4)).clear();
     verify(jobLauncher).run(eq(applyDaysAggregationJob), any());
+    Assertions.assertEquals(5L, report.writeCount());
   }
 
   @Test
