@@ -12,6 +12,8 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.util.HtmlUtils;
@@ -24,6 +26,7 @@ public class ApplicationNotificationEventListener {
   private final NotificationQueueRepository notificationQueueRepository;
   private final DiscordWebhookService discordWebhookService;
 
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleApplicationApproved(ApplicationApprovedEvent event) {
     log.info("Handling ApplicationApprovedEvent for requestId={}", event.requestId());
@@ -58,6 +61,7 @@ public class ApplicationNotificationEventListener {
     }
   }
 
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleApplicationRejected(ApplicationRejectedEvent event) {
     log.info("Handling ApplicationRejectedEvent for requestId={}", event.requestId());
