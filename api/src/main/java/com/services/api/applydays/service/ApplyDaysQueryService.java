@@ -29,6 +29,7 @@ import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.DashboardApplicationSummary;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
+import com.services.core.applydays.service.ApplyDaysSubscriberBenefitQueryService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionQueryService;
 import com.services.core.common.dto.CompanyResponse;
 import com.services.core.common.dto.PageResponse;
@@ -80,12 +81,11 @@ public class ApplyDaysQueryService {
   private final ObjectMapper objectMapper;
   private final ApplyDaysSubscriptionQueryService subscriptionQueryService;
   private final ApplyDaysPaymentMethodQueryService paymentMethodQueryService;
+  private final ApplyDaysSubscriberBenefitQueryService subscriberBenefitQueryService;
 
   public TimelineListResponse getCompanyTimeline(
       Authentication authentication, String slug, String cursor, int limit) {
-    String authorityKey = getAuthorityKey(authentication);
-
-    if ("SUBSCRIBER".equals(authorityKey)) {
+    if (hasSubscriberBenefit(authentication)) {
       List<TimelineDetailResponse> content =
           applicationRepository.findTimelineDetailByCompanySlug(slug, cursor, limit);
 
@@ -472,11 +472,7 @@ public class ApplyDaysQueryService {
 
   public List<ApplicationDetailResponse> getCompanyDetails(
       Authentication authentication, String companySlug) {
-    String authorityKey = getAuthorityKey(authentication);
-
-    if (!"SUBSCRIBER".equals(authorityKey)) {
-      throw new ForbiddenException(ErrorCode.FORBIDDEN);
-    }
+    requireSubscriberBenefit(authentication);
 
     List<ApplicationSummary> applications =
         applicationRepository.findAllByCompanySlugAndVerificationStatus(
@@ -515,6 +511,27 @@ public class ApplyDaysQueryService {
       return "USER";
     }
     return "AUTHENTICATED";
+  }
+
+  public void requireSubscriberBenefit(Authentication authentication) {
+    if (!hasSubscriberBenefit(authentication)) {
+      throw new ForbiddenException(ErrorCode.FORBIDDEN);
+    }
+  }
+
+  private boolean hasSubscriberBenefit(Authentication authentication) {
+    String authorityKey = getAuthorityKey(authentication);
+    if ("SUBSCRIBER".equals(authorityKey)) {
+      return true;
+    }
+    if (!"REVIEWER".equals(authorityKey) || !StringUtils.hasText(authentication.getName())) {
+      return false;
+    }
+
+    return memberRepository
+        .findByEmail(authentication.getName())
+        .map(subscriberBenefitQueryService::hasSubscriberBenefit)
+        .orElse(false);
   }
 
   private Map<Long, String> getCategoryMap() {

@@ -90,5 +90,5 @@ Prometheus + Grafana를 통해 아래 지표를 실시간 모니터링해야 합
 
 ---
 **작성일**: 2026-03-06
-**작성자**: Gemini CLI (Engineering Team)
+**작성자**: Engineering Team
 **상태**: 📖 가이드 제공 완료

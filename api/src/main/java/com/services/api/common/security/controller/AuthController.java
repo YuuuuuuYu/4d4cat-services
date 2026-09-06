@@ -2,6 +2,7 @@ package com.services.api.common.security.controller;
 
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.MemberService;
+import com.services.core.applydays.service.ApplyDaysSubscriberBenefitQueryService;
 import com.services.core.common.dto.BaseResponse;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.NotFoundException;
@@ -34,8 +35,10 @@ public class AuthController {
   private final RedisDataStorage redisDataStorage;
   private final MemberRepository memberRepository;
   private final MemberService memberService;
+  private final ApplyDaysSubscriberBenefitQueryService subscriberBenefitQueryService;
 
-  public record MemberProfileResponse(String name, String email, String role) {}
+  public record MemberProfileResponse(
+      String name, String email, String role, boolean hasSubscriberBenefit) {}
 
   public record TokenRefreshRequest(String refreshToken) {}
 
@@ -56,7 +59,11 @@ public class AuthController {
 
     return BaseResponse.of(
         HttpStatus.OK,
-        new MemberProfileResponse(member.getName(), member.getEmail(), member.getRole().getKey()));
+        new MemberProfileResponse(
+            member.getName(),
+            member.getEmail(),
+            member.getRole().getKey(),
+            subscriberBenefitQueryService.hasSubscriberBenefit(member)));
   }
 
   @PostMapping("/refresh")

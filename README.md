@@ -72,7 +72,6 @@
 
 ### Development Tools
 - **Virtual Threads** - Java 21 경량 스레드 기반 동시성
-- **Claude & Gemini AI** - 코드 리뷰 및 개선 지원
 
 ## 📡 API 엔드포인트
 

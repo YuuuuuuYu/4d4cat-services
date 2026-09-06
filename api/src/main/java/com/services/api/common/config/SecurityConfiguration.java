@@ -128,7 +128,7 @@ public class SecurityConfiguration {
                     .requestMatchers(antMatchers("/applydays/statistics/detail"))
                     .hasRole("REVIEWER")
                     .requestMatchers(antMatchers("/applydays/statistics/premium"))
-                    .hasRole("SUBSCRIBER")
+                    .hasRole("REVIEWER")
                     .requestMatchers(antMatchers("/admin/**"))
                     .hasRole("ADMIN")
                     .anyRequest()

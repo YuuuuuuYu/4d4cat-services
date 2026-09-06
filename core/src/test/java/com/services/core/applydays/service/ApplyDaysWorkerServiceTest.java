@@ -1,6 +1,7 @@
 package com.services.core.applydays.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.services.core.applydays.entity.Application;
@@ -27,6 +28,7 @@ class ApplyDaysWorkerServiceTest {
   @Mock private ApplicationRepository applicationRepository;
   @Mock private VerificationRequestRepository verificationRequestRepository;
   @Mock private MemberRepository memberRepository;
+  @Mock private ApplyDaysSubscriberBenefitCommandService subscriberBenefitCommandService;
 
   @InjectMocks private ApplyDaysWorkerService applyDaysWorkerService;
 
@@ -59,5 +61,6 @@ class ApplyDaysWorkerServiceTest {
     assertThat(application.getVerificationStatus()).isEqualTo(VerificationStatus.APPROVED);
     assertThat(application.getAccessPassword()).isNotNull();
     assertThat(member.getRole()).isEqualTo(Role.REVIEWER);
+    verify(subscriberBenefitCommandService).grantIfEligible(member);
   }
 }

@@ -6,6 +6,12 @@
 
 ### 1. Redis 관련
 
+#### [어드민 대량 처리로 인한 레디스 부하 최적화](./redis-bulk-operation-optimization.md)
+**상태**: ✅ 해결 완료
+**증상**: 지원서 다건 승인/거절 시 레디스 연결 대기 및 응답 지연 발생
+**원인**: 부적절한 커넥션 풀 설정, O(N) 개별 이벤트 발행, 트랜잭션 분리 미흡
+**해결**: `pushAll` 기반 배치 처리, 커넥션 설정 튜닝(Virtual Thread 최적화), Self-Injection 활용
+
 #### [Redis 레이턴시 이슈 해결](./redis-latency-issue-resolution.md)
 **상태**: ✅ 해결 완료 (배포 대기)
 **증상**: 운영 환경에서 Redis 조회 시 1~5초 딜레이 발생
@@ -25,6 +31,18 @@
 #### [Redis 커넥션 풀 최적화 가이드](./redis-connection-pool-optimization.md)
 **상태**: 📖 가이드 문서
 **목적**: 가상 스레드 환경에서의 Redis 연결 풀 조정 기준 제공
+
+#### [Redis 직렬화 에러 및 폼 제출 무반응 이슈](./redis-serialization-error.md)
+**상태**: ✅ 해결 완료
+**증상**: 캐시 적용 API 호출 시 500 에러 및 프론트엔드 폼 무반응
+**원인**: BaseResponse 및 프로젝션의 직렬화 부재, 프론트엔드 에러 피드백 부족
+**해결**: Serializable DTO 도입 및 UI 에러 메시지 강화
+
+#### [Redis 다형성 직렬화 및 통계 배치 최적화](./redis-serialization-and-batch-optimization.md)
+**상태**: ✅ 해결 완료
+**증상**: 복합 객체(Generic, Slice) 직렬화 실패 및 배치 집계 데이터 정합성 이슈
+**원인**: Jackson 다형성 설정 불일치, 캐시 무효화 로직 부재, 배치 SQL 구조 결함
+**해결**: PageResponse 도입, As.PROPERTY 타입 설정, 배치 리스너 기반 캐시 삭제 구현
 
 ---
 **핵심 내용**:
@@ -57,7 +75,17 @@
 
 ---
 
-### 3. 모니터링 관련
+### 3. 모니터링 및 보안 관련
+
+#### [Spring Security 6 계층형 권한 이슈 해결](./spring-security-6-role-hierarchy-fix.md)
+**상태**: ✅ 해결 완료
+**증상**: ADMIN 권한자가 USER 권한 API 접근 시 403 Forbidden 발생
+**원인**: Spring Security 6에서 RoleHierarchy 자동 적용 방식 변화
+**해결**: WebSecurityExpressionHandler 설정 및 JWT 필터 내 권한 확장 적용
+
+#### [ApplyDays 보안 구현 보고서](./applydays-security-implementation.md)
+**상태**: 📖 참고 문서
+**목적**: JWT 및 Role Hierarchy 도입 과정 기록
 
 #### [Prometheus 및 Grafana 진단 가이드]
 **상태**: 📖 참고 문서
@@ -66,6 +94,29 @@
 **핵심 내용**:
 - **Prometheus UI 확인**: `http://localhost:9090` 접속하여 `Status -> Targets` 메뉴에서 `api-service` 및 `monitoring` 서비스의 상태 확인. `UP` 상태여야 메트릭이 정상적으로 수집되고 있음을 의미합니다.
 - **Grafana 대시보드 확인**: `http://localhost:3000` 접속 후 Prometheus 데이터 소스가 올바르게 연결되어 있는지 확인하고, 관련 대시보드에서 메트릭 시각화 확인.
+
+### 4. 데이터베이스 및 JPA 관련
+
+#### [HikariCP 커넥션 누수 오탐지 경고 (Apparent Connection Leak Detected) 트러블슈팅](./hikari-apparent-connection-leak-warning.md)
+**상태**: ✅ 해결 완료
+**증상**: 지원서 등록 시 `com.zaxxer.hikari.pool.ProxyLeakTask` 커넥션 누수 의심 로그 출력
+**원인**: `leak-detection-threshold` 설정이 지나치게 짧음(3초), 일시적 DB/네트워크 지연 시 오탐지
+**해결**: `leak-detection-threshold` 값을 30초(`30000`ms)로 완화
+
+#### [JPA 벌크 업데이트 영속성 컨텍스트 분리 버그 (clearAutomatically 이슈)](./jpa-bulk-update-side-effect.md)
+**상태**: ✅ 해결 완료
+**증상**: 엔티티 상태 변경이 DB에 커밋되지 않는 현상 (더티 체킹 실패)
+**원인**: `@Modifying(clearAutomatically = true)` 사용으로 인한 영속성 컨텍스트 강제 초기화 및 엔티티 준영속화
+**해결**: `clearAutomatically = false, flushAutomatically = true` 조합으로 변경 및 수동 상태 동기화
+
+---
+
+### 5. 프론트엔드 및 React 관련
+
+#### [React Query Cache 충돌 및 인증 로딩 UX 개선](./react-query-cache-and-auth-ux-fix.md)
+**상태**: ✅ 해결 완료
+**증상**: 페이지 전환 시 렌더링 에러(하얀 화면) 및 통계 데이터가 순간적으로 '??'로 표기되는 현상.
+**원인**: 동일한 QueryKey 사용으로 인한 데이터 캐시 오염 및 인증 상태 로딩 처리 누락.
 
 ---
 
@@ -128,9 +179,9 @@
 
 ## 관련 디렉토리
 
-- [프로젝트 문서](../.claude/) - 프로젝트 전체 컨텍스트 및 가이드
-- [워크플로우](./.github/workflows/) - CI/CD 파이프라인
-- [Docker 구성](./docker-compose.yml) - 컨테이너 설정
+- [프로젝트 지침](../../AGENTS.md) - 저장소 공통 개발 정책
+- [워크플로우](../../.github/workflows/) - CI/CD 파이프라인
+- [Docker 구성](../../docker-compose.yml) - 컨테이너 설정
 
 ---
 

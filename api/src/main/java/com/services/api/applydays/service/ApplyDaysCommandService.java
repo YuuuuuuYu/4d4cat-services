@@ -5,10 +5,12 @@ import com.services.core.applydays.dto.HiringStepDetail;
 import com.services.core.applydays.entity.Application;
 import com.services.core.applydays.entity.Category;
 import com.services.core.applydays.entity.VerificationRequest;
+import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.ForbiddenException;
 import com.services.core.common.exception.NotFoundException;
@@ -171,6 +173,9 @@ public class ApplyDaysCommandService {
     List<Application> apps = applicationRepository.findAllById(targetAppIds);
     if (apps.size() < targetAppIds.size()) {
       throw new NotFoundException(ErrorCode.APPLICATION_NOT_FOUND);
+    }
+    if (apps.stream().anyMatch(app -> app.getVerificationStatus() == VerificationStatus.APPROVED)) {
+      throw new BadRequestException(ErrorCode.INVALID_REQUEST);
     }
 
     applicationRepository.deleteAll(apps);
