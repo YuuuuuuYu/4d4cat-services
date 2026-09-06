@@ -26,7 +26,8 @@ class ApplyDaysSubscriberBenefitQueryServiceTest {
 
   @BeforeEach
   void setUp() {
-    subscriberBenefitQueryService = new ApplyDaysSubscriberBenefitQueryService(memberBenefitRepository);
+    subscriberBenefitQueryService =
+        new ApplyDaysSubscriberBenefitQueryService(memberBenefitRepository);
   }
 
   @Test

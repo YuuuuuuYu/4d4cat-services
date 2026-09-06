@@ -321,7 +321,8 @@ class ApplyDaysQueryServiceTest {
         .thenReturn(List.of(item));
 
     // when
-    TimelineListResponse result = applyDaysQueryService.getCompanyTimeline(auth, companySlug, null, 10);
+    TimelineListResponse result =
+        applyDaysQueryService.getCompanyTimeline(auth, companySlug, null, 10);
 
     // then
     assertThat(result.items()).hasSize(1);

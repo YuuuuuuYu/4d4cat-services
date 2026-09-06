@@ -30,7 +30,8 @@ class ApplyDaysSubscriberBenefitCommandServiceTest {
   @BeforeEach
   void setUp() {
     subscriberBenefitCommandService =
-        new ApplyDaysSubscriberBenefitCommandService(applicationRepository, memberBenefitRepository);
+        new ApplyDaysSubscriberBenefitCommandService(
+            applicationRepository, memberBenefitRepository);
   }
 
   @Test
@@ -73,7 +74,9 @@ class ApplyDaysSubscriberBenefitCommandServiceTest {
     // given
     Member subscriber = ApplyDaysFixtures.createMember("subscriber@example.com", Role.SUBSCRIBER);
     ApplyDaysFixtures.setId(subscriber, UUID.randomUUID());
-    given(applicationRepository.countApprovedDocumentPassedApplicationsByMemberId(subscriber.getId()))
+    given(
+            applicationRepository.countApprovedDocumentPassedApplicationsByMemberId(
+                subscriber.getId()))
         .willReturn(10L);
 
     // when
