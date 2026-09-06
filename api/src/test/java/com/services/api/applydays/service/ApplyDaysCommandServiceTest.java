@@ -15,6 +15,7 @@ import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ForbiddenException;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.persistence.entity.Company;
@@ -201,5 +202,30 @@ class ApplyDaysCommandServiceTest {
     // when & then
     assertThatThrownBy(() -> applyDaysCommandService.deleteApplication(email, appId))
         .isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  @DisplayName("승인된 지원 내역은 삭제할 수 없다")
+  void deleteApplication_approvedApplicationCannotBeDeleted() {
+    // given
+    String email = "test@example.com";
+    UUID appId = UUID.randomUUID();
+    UUID memberId = UUID.randomUUID();
+    Member member = ApplyDaysFixtures.createMember(email, Role.USER);
+    ApplyDaysFixtures.setId(member, memberId);
+    VerificationRequest verificationRequest =
+        VerificationRequest.builder().applicationId(appId).memberId(memberId).build();
+    Application application = ApplyDaysFixtures.createApplication("naver", 1L);
+    ApplyDaysFixtures.setId(application, appId);
+    application.approve();
+
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(verificationRequestRepository.findByApplicationIdIn(List.of(appId)))
+        .thenReturn(List.of(verificationRequest));
+    when(applicationRepository.findAllById(List.of(appId))).thenReturn(List.of(application));
+
+    // when & then
+    assertThatThrownBy(() -> applyDaysCommandService.deleteApplication(email, appId))
+        .isInstanceOf(BadRequestException.class);
   }
 }

@@ -1,6 +1,7 @@
 package com.services.api.applydays.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import com.services.core.applydays.event.ApplicationRejectedEvent;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysWorkerService;
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.persistence.entity.Company;
 import com.services.core.common.persistence.repository.CompanyRepository;
 import com.services.core.fixture.ApplyDaysFixtures;
@@ -82,6 +84,21 @@ class AdminApplyDaysCommandServiceTest {
     assertThat(meterRegistry.find("applydays.applications.approved").counter()).isNotNull();
     assertThat(meterRegistry.find("applydays.applications.approved").counter().count())
         .isEqualTo(1);
+  }
+
+  @Test
+  @DisplayName("관리자도 승인된 지원서는 삭제할 수 없다")
+  void deleteApplication_approvedApplicationCannotBeDeleted() {
+    // given
+    UUID applicationId = UUID.randomUUID();
+    Application application = ApplyDaysFixtures.createApplication("naver", 1L);
+    ApplyDaysFixtures.setId(application, applicationId);
+    application.approve();
+    when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
+
+    // when & then
+    assertThatThrownBy(() -> adminApplyDaysCommandService.deleteApplication(applicationId))
+        .isInstanceOf(BadRequestException.class);
   }
 
   @Test

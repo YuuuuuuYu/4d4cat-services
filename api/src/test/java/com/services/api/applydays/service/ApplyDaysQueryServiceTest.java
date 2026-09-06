@@ -30,6 +30,7 @@ import com.services.core.applydays.repository.ApplyDaysStatisticsRepository;
 import com.services.core.applydays.repository.CategoryRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
+import com.services.core.applydays.service.ApplyDaysSubscriberBenefitQueryService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionQueryService;
 import com.services.core.common.dto.PageResponse;
 import com.services.core.common.exception.BadRequestException;
@@ -73,6 +74,7 @@ class ApplyDaysQueryServiceTest {
   @Mock private MemberService memberService;
   @Mock private ApplyDaysSubscriptionQueryService subscriptionQueryService;
   @Mock private ApplyDaysPaymentMethodQueryService paymentMethodQueryService;
+  @Mock private ApplyDaysSubscriberBenefitQueryService subscriberBenefitQueryService;
   private MeterRegistry meterRegistry;
 
   private ApplyDaysQueryService applyDaysQueryService;
@@ -92,7 +94,8 @@ class ApplyDaysQueryServiceTest {
             memberService,
             new ObjectMapper(),
             subscriptionQueryService,
-            paymentMethodQueryService);
+            paymentMethodQueryService,
+            subscriberBenefitQueryService);
   }
 
   @Test
@@ -286,6 +289,43 @@ class ApplyDaysQueryServiceTest {
     assertThat(result.items().get(0)).isEqualTo(item);
     assertThat(result.nextCursor()).isNull();
     assertThat(result.hasNext()).isFalse();
+  }
+
+  @Test
+  @DisplayName("서류 합격 이력 10건을 공유한 REVIEWER는 SUBSCRIBER와 같이 상세 타임라인을 조회한다")
+  void getCompanyTimeline_reviewerWithSubscriberBenefit() {
+    // given
+    String email = "reviewer@example.com";
+    String companySlug = "naver";
+    Authentication auth = mock(Authentication.class);
+    when(auth.isAuthenticated()).thenReturn(true);
+    when(auth.getName()).thenReturn(email);
+    when(auth.getAuthorities())
+        .thenAnswer(invocation -> List.of(new SimpleGrantedAuthority("ROLE_REVIEWER")));
+
+    Member reviewer = ApplyDaysFixtures.createMember(email, Role.REVIEWER);
+    when(memberRepository.findByEmail(email)).thenReturn(Optional.of(reviewer));
+    when(subscriberBenefitQueryService.hasSubscriberBenefit(reviewer)).thenReturn(true);
+
+    TimelineDetailResponse item =
+        new TimelineDetailResponse(
+            UUID.randomUUID(),
+            "L1",
+            "L2",
+            LocalDateTime.now(),
+            LocalDateTime.now(),
+            "Developer",
+            ApplicationChannel.WANTED,
+            List.of());
+    when(applicationRepository.findTimelineDetailByCompanySlug(companySlug, null, 10))
+        .thenReturn(List.of(item));
+
+    // when
+    TimelineListResponse result = applyDaysQueryService.getCompanyTimeline(auth, companySlug, null, 10);
+
+    // then
+    assertThat(result.items()).hasSize(1);
+    assertThat(result.items().getFirst()).isEqualTo(item);
   }
 
   @Test

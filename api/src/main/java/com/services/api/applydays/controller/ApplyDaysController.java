@@ -173,6 +173,7 @@ public class ApplyDaysController {
 
   @GetMapping("/statistics/premium")
   public BaseResponse<CommonMessageResponse> getPremiumStatistics(Authentication authentication) {
+    applyDaysQueryService.requireSubscriberBenefit(authentication);
     return BaseResponse.of(
         HttpStatus.OK, CommonMessageResponse.of("Premium detailed review and analytics data"));
   }

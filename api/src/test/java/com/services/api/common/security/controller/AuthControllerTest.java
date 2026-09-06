@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.common.security.controller.AuthController.WithdrawRequest;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.MemberService;
+import com.services.core.applydays.service.ApplyDaysSubscriberBenefitQueryService;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +43,8 @@ class AuthControllerTest {
   @MockitoBean private MemberRepository memberRepository;
 
   @MockitoBean private MemberService memberService;
+
+  @MockitoBean private ApplyDaysSubscriberBenefitQueryService subscriberBenefitQueryService;
 
   @Test
   @DisplayName("전체 토큰 무효화 요청 시 Redis에 타임스탬프를 저장한다")

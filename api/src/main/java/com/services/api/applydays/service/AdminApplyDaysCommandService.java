@@ -11,6 +11,7 @@ import com.services.core.applydays.event.ApplicationRejectedEvent;
 import com.services.core.applydays.repository.ApplicationRepository;
 import com.services.core.applydays.repository.VerificationRequestRepository;
 import com.services.core.applydays.service.ApplyDaysWorkerService;
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.persistence.entity.CompanyStatus;
@@ -229,6 +230,9 @@ public class AdminApplyDaysCommandService {
         applicationRepository
             .findById(id)
             .orElseThrow(() -> new NotFoundException(ErrorCode.APPLICATION_NOT_FOUND));
+    if (application.getVerificationStatus() == VerificationStatus.APPROVED) {
+      throw new BadRequestException(ErrorCode.INVALID_REQUEST);
+    }
     applicationRepository.delete(application);
     log.info("Application {} soft deleted by admin.", id);
   }

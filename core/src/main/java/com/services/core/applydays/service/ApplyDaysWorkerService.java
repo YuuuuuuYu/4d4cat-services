@@ -23,6 +23,7 @@ public class ApplyDaysWorkerService {
   private final ApplicationRepository applicationRepository;
   private final VerificationRequestRepository verificationRequestRepository;
   private final MemberRepository memberRepository;
+  private final ApplyDaysSubscriberBenefitCommandService subscriberBenefitCommandService;
 
   @Transactional
   public void processApproval(UUID applicationId) {
@@ -50,6 +51,8 @@ public class ApplyDaysWorkerService {
               }
             });
 
+    applicationRepository.flush();
+
     memberRepository
         .findById(request.getMemberId())
         .ifPresent(
@@ -57,6 +60,7 @@ public class ApplyDaysWorkerService {
               if (member.getRole() == Role.USER) {
                 member.promoteToReviewer();
               }
+              subscriberBenefitCommandService.grantIfEligible(member);
             });
 
     log.info("Successfully processed approval for application: {}", applicationId);

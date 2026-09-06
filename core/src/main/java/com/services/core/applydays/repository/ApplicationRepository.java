@@ -42,6 +42,23 @@ public interface ApplicationRepository
           + "WHERE vr.memberId = :memberId GROUP BY a.verificationStatus")
   List<Object[]> countByVerificationStatusForMember(@Param("memberId") UUID memberId);
 
+  @Query(
+      value =
+          "SELECT COUNT(*) "
+              + "FROM application a "
+              + "JOIN verification_request vr ON vr.application_id = a.id "
+              + "WHERE vr.member_id = :memberId "
+              + "AND vr.status = 'APPROVED' "
+              + "AND a.verification_status = 'APPROVED' "
+              + "AND a.deleted = false "
+              + "AND EXISTS ( "
+              + "  SELECT 1 FROM jsonb_array_elements(a.hiring_process) step "
+              + "  WHERE step ->> 'stepType' = 'DOCUMENT' "
+              + "  AND step ->> 'status' = 'PASSED'"
+              + ")",
+      nativeQuery = true)
+  long countApprovedDocumentPassedApplicationsByMemberId(@Param("memberId") UUID memberId);
+
   @Modifying(clearAutomatically = false, flushAutomatically = true)
   @Query("UPDATE Application a SET a.companySlug = :newSlug WHERE a.companySlug = :oldSlug")
   void updateCompanySlug(@Param("oldSlug") String oldSlug, @Param("newSlug") String newSlug);
