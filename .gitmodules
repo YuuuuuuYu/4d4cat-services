@@ -7,4 +7,4 @@
 	url = https://github.com/YuuuuuuYu/4d4cat-properties.git
 [submodule ".agents"]
 	path = .agents
-	url = https://github.com/YuuuuuuYu/4d4cat-antigravity.git
+	url = https://github.com/YuuuuuuYu/4d4cat-agent.git
