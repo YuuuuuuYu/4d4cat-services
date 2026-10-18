@@ -39,14 +39,20 @@ import com.services.core.common.persistence.entity.member.Role;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import com.services.core.fixture.ApplyDaysFixtures;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -56,7 +62,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ApplyDaysSubscriptionController.class)
 @Import(SecurityConfiguration.class)
-@TestPropertySource(properties = {"app.portone.webhook-secret=test-secret"})
+@TestPropertySource(properties = {"app.portone.webhook-secret=whsec_dGVzdC1zZWNyZXQ="})
 class ApplyDaysSubscriptionControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -318,7 +324,7 @@ class ApplyDaysSubscriptionControllerTest {
 
     PortOnePaymentResponse mockResponse =
         new PortOnePaymentResponse(
-            paymentId, "PAID", new Amount(16500L, "KRW"), null, null, null, null);
+            paymentId, "PAID", new Amount(16500L), null, null, null, null, "KRW");
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
 
     ApplyDaysSubscription subscription =
@@ -334,7 +340,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -342,7 +348,10 @@ class ApplyDaysSubscriptionControllerTest {
         .andExpect(jsonPath("$.status").value(200));
 
     verify(portOneClient).verifyPayment(eq(paymentId));
-    verify(subscriptionService).processPayment(eq(memberId), isNull(), eq(paymentId));
+    verify(subscriptionService)
+        .savePaymentAndActivate(
+            eq(memberId), isNull(), eq(paymentId), eq(mockResponse), eq(plan.getId()));
+    verify(subscriptionService, never()).processPayment(any(), any(), any());
   }
 
   @Test
@@ -423,7 +432,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -448,11 +457,12 @@ class ApplyDaysSubscriptionControllerTest {
         new PortOnePaymentResponse(
             paymentId,
             "PAID",
-            new Amount(1000L, "KRW"),
+            new Amount(1000L),
             null,
             null,
             null,
-            null); // Actual amount 1000
+            null,
+            "KRW"); // Actual amount 1000
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
 
     ApplyDaysSubscription subscription =
@@ -469,7 +479,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -492,7 +502,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -517,7 +527,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -541,14 +551,14 @@ class ApplyDaysSubscriptionControllerTest {
 
     PortOnePaymentResponse mockResponse =
         new PortOnePaymentResponse(
-            paymentId, "FAILED", new Amount(16500L, "KRW"), null, null, null, null);
+            paymentId, "FAILED", new Amount(16500L), null, null, null, null, "KRW");
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
 
     // when & then
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -577,7 +587,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -601,7 +611,7 @@ class ApplyDaysSubscriptionControllerTest {
 
     PortOnePaymentResponse mockResponse =
         new PortOnePaymentResponse(
-            paymentId, "PAID", new Amount(16500L, "KRW"), null, null, null, null);
+            paymentId, "PAID", new Amount(16500L), null, null, null, null, "KRW");
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
     given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
         .willReturn(Optional.empty());
@@ -610,7 +620,7 @@ class ApplyDaysSubscriptionControllerTest {
     mockMvc
         .perform(
             post("/applydays/subscriptions/webhook")
-                .header("webhook-signature", "test-secret")
+                .headers(signedHeaders(request))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
         .andDo(print())
@@ -628,5 +638,22 @@ class ApplyDaysSubscriptionControllerTest {
         .perform(get("/applydays/subscriptions/me"))
         .andDo(print())
         .andExpect(status().isUnauthorized());
+  }
+
+  private HttpHeaders signedHeaders(PortOneWebhookRequest request) throws Exception {
+    String body = objectMapper.writeValueAsString(request);
+    String timestamp = Long.toString(Instant.now().getEpochSecond());
+    String id = "msg_test";
+    Mac mac = Mac.getInstance("HmacSHA256");
+    mac.init(new SecretKeySpec("test-secret".getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+    String signature =
+        Base64.getEncoder()
+            .encodeToString(
+                mac.doFinal((id + "." + timestamp + "." + body).getBytes(StandardCharsets.UTF_8)));
+    HttpHeaders headers = new HttpHeaders();
+    headers.add("webhook-id", id);
+    headers.add("webhook-timestamp", timestamp);
+    headers.add("webhook-signature", "v1," + signature);
+    return headers;
   }
 }

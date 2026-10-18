@@ -12,11 +12,15 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.services.core.applydays.dto.SubscriptionPaymentId;
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscriptionPlan;
+import com.services.core.applydays.entity.subscription.PaymentStatus;
 import com.services.core.applydays.entity.subscription.SubscriptionStatus;
 import com.services.core.applydays.event.SubscriptionCanceledEvent;
 import com.services.core.applydays.event.SubscriptionExpiredEvent;
+import com.services.core.applydays.event.SubscriptionPaidEvent;
+import com.services.core.applydays.event.SubscriptionPaymentFailedEvent;
 import com.services.core.applydays.repository.ApplyDaysPaymentRepository;
 import com.services.core.applydays.repository.ApplyDaysSubscriptionPlanRepository;
 import com.services.core.applydays.repository.ApplyDaysSubscriptionRepository;
@@ -33,10 +37,13 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -308,11 +315,12 @@ class ApplyDaysSubscriptionCommandServiceTest {
             new PortOnePaymentResponse(
                 paymentId,
                 "PAID",
-                new PortOneClient.Amount(16500L, "KRW"),
+                new PortOneClient.Amount(16500L),
                 billingKey,
                 null,
                 "url",
-                "tx"));
+                "tx",
+                "KRW"));
     given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
     given(subscriptionRepository.save(any())).willAnswer(i -> i.getArgument(0));
 
@@ -408,11 +416,12 @@ class ApplyDaysSubscriptionCommandServiceTest {
             new PortOnePaymentResponse(
                 paymentId,
                 "PAID",
-                new PortOneClient.Amount(16500L, "KRW"),
+                new PortOneClient.Amount(16500L),
                 billingKey,
                 null,
                 "url",
-                "tx"));
+                "tx",
+                "KRW"));
     given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
     given(subscriptionRepository.save(any())).willAnswer(i -> i.getArgument(0));
 
@@ -485,17 +494,18 @@ class ApplyDaysSubscriptionCommandServiceTest {
     given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
     given(subscriptionRepository.save(any())).willAnswer(i -> i.getArgument(0));
 
-    PortOnePaymentResponse mockResponse =
-        new PortOnePaymentResponse(
-            "sub_auto_123",
-            "PAID",
-            new PortOneClient.Amount(16500L, "KRW"),
-            billingKey,
-            null,
-            "url",
-            "tx_123");
     given(portOneClient.payWithBillingKey(anyString(), anyString(), anyLong(), anyString()))
-        .willReturn(mockResponse);
+        .willAnswer(
+            invocation ->
+                new PortOnePaymentResponse(
+                    invocation.getArgument(1),
+                    "PAID",
+                    new PortOneClient.Amount(16500L),
+                    billingKey,
+                    null,
+                    "url",
+                    "tx_123",
+                    "KRW"));
 
     // when
     ApplyDaysSubscription result =
@@ -506,8 +516,168 @@ class ApplyDaysSubscriptionCommandServiceTest {
     verify(portOneClient)
         .payWithBillingKey(
             eq(billingKey),
-            argThat(id -> id != null && id.contains(memberId.toString())),
+            argThat(
+                id ->
+                    id != null
+                        && id.length() <= 40
+                        && memberId.equals(SubscriptionPaymentId.memberId(id))),
             eq(16500L),
             eq("Standard"));
   }
+
+  @ParameterizedTest
+  @MethodSource("invalidPayments")
+  void firstPaymentRejectsUnverifiedResults(PortOnePaymentResponse response) {
+    PaymentFixture fixture = paymentFixture(false);
+    given(planRepository.findById(fixture.plan().getId())).willReturn(Optional.of(fixture.plan()));
+
+    assertThatThrownBy(
+            () ->
+                subscriptionService.savePaymentAndActivate(
+                    fixture.memberId(),
+                    "billing_live",
+                    "payment_live",
+                    response,
+                    fixture.plan().getId()))
+        .isInstanceOf(BadRequestException.class);
+
+    verify(paymentMethodCommandService, never()).registerPaymentMethod(any(), any(), any(), any());
+    verify(eventPublisher, never()).publishEvent(any(SubscriptionPaidEvent.class));
+    verify(paymentRepository).save(argThat(payment -> payment.getStatus() == PaymentStatus.FAILED));
+  }
+
+  @Test
+  void firstPaymentRechecksIdempotencyUnderLock() {
+    PaymentFixture fixture = paymentFixture(false);
+    given(planRepository.findById(fixture.plan().getId())).willReturn(Optional.of(fixture.plan()));
+    given(paymentRepository.existsByPortonePaymentId("payment_live")).willReturn(true);
+
+    subscriptionService.savePaymentAndActivate(
+        fixture.memberId(), null, "payment_live", null, fixture.plan().getId());
+
+    verify(paymentRepository, never()).save(any());
+    verify(eventPublisher, never()).publishEvent(any(Object.class));
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidPayments")
+  void renewalRejectsUnverifiedResultsAndDemotesMember(PortOnePaymentResponse response) {
+    PaymentFixture fixture = paymentFixture(true);
+    Member member = ApplyDaysFixtures.createMember("renewal@example.com", Role.SUBSCRIBER);
+    ApplyDaysFixtures.setId(member, fixture.memberId());
+    given(memberRepository.findById(fixture.memberId())).willReturn(Optional.of(member));
+
+    subscriptionService.saveRenewalResultIsolated(
+        fixture.memberId(), response, "payment_live", fixture.plan());
+
+    assertThat(fixture.subscription().getStatus()).isEqualTo(SubscriptionStatus.PAYMENT_FAILED);
+    assertThat(member.getRole()).isEqualTo(Role.USER);
+    verify(paymentRepository).save(argThat(payment -> payment.getStatus() == PaymentStatus.FAILED));
+    verify(eventPublisher).publishEvent(any(SubscriptionPaymentFailedEvent.class));
+    verify(eventPublisher, never()).publishEvent(any(SubscriptionPaidEvent.class));
+  }
+
+  @Test
+  void verifiedRenewalAdvancesBillingDateAndPublishesEvent() {
+    PaymentFixture fixture = paymentFixture(true);
+    Member member = ApplyDaysFixtures.createMember("renewal@example.com", Role.SUBSCRIBER);
+    given(memberRepository.findById(fixture.memberId())).willReturn(Optional.of(member));
+    PortOnePaymentResponse response =
+        new PortOnePaymentResponse(
+            "payment_live",
+            "PAID",
+            new PortOneClient.Amount(16500L),
+            null,
+            null,
+            "receipt",
+            "tx_live",
+            "KRW");
+
+    subscriptionService.saveRenewalResultIsolated(
+        fixture.memberId(), response, "payment_live", fixture.plan());
+
+    assertThat(fixture.subscription().getNextBillingDate())
+        .isEqualTo(LocalDate.now().plusMonths(1));
+    verify(paymentRepository)
+        .save(argThat(payment -> payment.getStatus() == PaymentStatus.SUCCESS));
+    verify(eventPublisher).publishEvent(any(SubscriptionPaidEvent.class));
+  }
+
+  @Test
+  void renewalRechecksPaymentIdUnderLock() {
+    PaymentFixture fixture = paymentFixture(true);
+    given(paymentRepository.existsByPortonePaymentId("payment_live")).willReturn(true);
+
+    subscriptionService.saveRenewalResultIsolated(
+        fixture.memberId(), null, "payment_live", fixture.plan());
+
+    verify(paymentRepository, never()).save(any());
+    verify(subscriptionRepository, never()).save(any());
+  }
+
+  @Test
+  void renewalRechecksCanceledStateUnderLock() {
+    PaymentFixture fixture = paymentFixture(true);
+    fixture.subscription().cancel();
+
+    subscriptionService.saveRenewalResultIsolated(
+        fixture.memberId(), null, "payment_live", fixture.plan());
+
+    verify(paymentRepository, never()).save(any());
+    verify(subscriptionRepository, never()).save(any());
+  }
+
+  private static Stream<PortOnePaymentResponse> invalidPayments() {
+    return Stream.of(
+        null,
+        new PortOnePaymentResponse("payment_live", "FAILED", null, null, null, null, null, "KRW"),
+        new PortOnePaymentResponse("payment_live", "PAID", null, null, null, null, null, "KRW"),
+        new PortOnePaymentResponse(
+            "payment_live", "PAID", new PortOneClient.Amount(100L), null, null, null, null, "KRW"),
+        new PortOnePaymentResponse(
+            "payment_live",
+            "PAID",
+            new PortOneClient.Amount(16500L),
+            null,
+            null,
+            null,
+            null,
+            "USD"),
+        new PortOnePaymentResponse(
+            "other_payment",
+            "PAID",
+            new PortOneClient.Amount(16500L),
+            null,
+            null,
+            null,
+            null,
+            "KRW"));
+  }
+
+  private PaymentFixture paymentFixture(boolean renewal) {
+    UUID memberId = UUID.randomUUID();
+    ApplyDaysSubscriptionPlan plan =
+        ApplyDaysSubscriptionPlan.builder()
+            .name("Premium")
+            .price(16500L)
+            .billingCycleMonths(1)
+            .build();
+    ApplyDaysFixtures.setId(plan, UUID.randomUUID());
+    ApplyDaysSubscription subscription =
+        ApplyDaysSubscription.builder()
+            .memberId(memberId)
+            .planId(plan.getId())
+            .status(renewal ? SubscriptionStatus.ACTIVE : SubscriptionStatus.PAYMENT_FAILED)
+            .startDate(LocalDate.now().minusMonths(1))
+            .endDate(LocalDate.now().minusDays(1))
+            .nextBillingDate(LocalDate.now())
+            .build();
+    ApplyDaysFixtures.setId(subscription, UUID.randomUUID());
+    given(subscriptionRepository.findWithLockByMemberId(memberId))
+        .willReturn(Optional.of(subscription));
+    return new PaymentFixture(memberId, plan, subscription);
+  }
+
+  private record PaymentFixture(
+      UUID memberId, ApplyDaysSubscriptionPlan plan, ApplyDaysSubscription subscription) {}
 }
