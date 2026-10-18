@@ -1,5 +1,6 @@
 package com.services.core.applydays.service;
 
+import com.services.core.applydays.dto.SubscriptionPaymentId;
 import com.services.core.applydays.entity.VerificationStatus;
 import com.services.core.applydays.entity.subscription.ApplyDaysPayment;
 import com.services.core.applydays.entity.subscription.ApplyDaysPaymentMethod;
@@ -106,7 +107,7 @@ public class ApplyDaysSubscriptionCommandService {
   public ApplyDaysSubscription processPayment(
       UUID memberId, String billingKey, String paymentId, UUID planId) {
     if (!StringUtils.hasText(paymentId)) {
-      paymentId = "sub_" + memberId + "_" + System.currentTimeMillis();
+      paymentId = SubscriptionPaymentId.create(memberId);
     }
 
     log.info(
@@ -204,10 +205,12 @@ public class ApplyDaysSubscriptionCommandService {
     }
 
     // Validate payment status & amount
-    if (!"PAID".equalsIgnoreCase(portoneResponse.status())) {
-      log.error("Payment status is not PAID: {}", portoneResponse.status());
+    if (portoneResponse == null || !"PAID".equalsIgnoreCase(portoneResponse.status())) {
+      log.warn("Payment verification did not return PAID");
       String failReason =
-          portoneResponse.failed() != null ? portoneResponse.failed().reason() : "Unknown error";
+          portoneResponse != null && portoneResponse.failed() != null
+              ? portoneResponse.failed().reason()
+              : "Payment verification failed";
       savePayment(
           subscription,
           memberId,
@@ -216,16 +219,18 @@ public class ApplyDaysSubscriptionCommandService {
           paymentId,
           failReason,
           null,
-          portoneResponse.pgTxId());
+          portoneResponse != null ? portoneResponse.pgTxId() : null);
       subscription.markPaymentFailed();
       subscriptionRepository.save(subscription);
       throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
     }
 
     long actualAmount = portoneResponse.amount() != null ? portoneResponse.amount().total() : 0L;
-    if (actualAmount != plan.getPrice()) {
+    if (actualAmount != plan.getPrice()
+        || !"KRW".equals(portoneResponse.currency())
+        || !paymentId.equals(portoneResponse.id())) {
       log.error("Payment amount mismatch: expected={}, actual={}", plan.getPrice(), actualAmount);
-      String errorMsg = "Amount mismatch: expected=" + plan.getPrice() + ", actual=" + actualAmount;
+      String errorMsg = "Payment ID, currency or amount mismatch";
       savePayment(
           subscription,
           memberId,
@@ -234,7 +239,7 @@ public class ApplyDaysSubscriptionCommandService {
           paymentId,
           errorMsg,
           null,
-          portoneResponse.pgTxId());
+          portoneResponse != null ? portoneResponse.pgTxId() : null);
       subscription.markPaymentFailed();
       subscriptionRepository.save(subscription);
       throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
@@ -491,8 +496,7 @@ public class ApplyDaysSubscriptionCommandService {
             .findById(sub.getPlanId())
             .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
 
-    String paymentId =
-        "sub_" + sub.getMemberId().toString() + "_" + UUID.randomUUID().toString().substring(0, 8);
+    String paymentId = SubscriptionPaymentId.create(sub.getMemberId());
     PortOnePaymentResponse portoneResponse;
 
     String billingKey =
@@ -542,19 +546,35 @@ public class ApplyDaysSubscriptionCommandService {
             .findWithLockByMemberId(memberId)
             .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
 
+    if (paymentRepository.existsByPortonePaymentId(paymentId)) {
+      return;
+    }
+
     if (subscription.getStatus() != SubscriptionStatus.ACTIVE
+        || subscription.getNextBillingDate() == null
         || subscription.getNextBillingDate().isAfter(LocalDate.now())) {
       return; // Already processed
     }
 
-    if (!"PAID".equalsIgnoreCase(portoneResponse.status())) {
+    if (portoneResponse == null || !"PAID".equalsIgnoreCase(portoneResponse.status())) {
       log.error(
           "PayWithBillingKey status is not PAID for subscription {}: {}",
           subscription.getId(),
-          portoneResponse.status());
+          portoneResponse != null ? portoneResponse.status() : null);
       String failReason =
-          portoneResponse.failed() != null ? portoneResponse.failed().reason() : "Unknown error";
+          portoneResponse != null && portoneResponse.failed() != null
+              ? portoneResponse.failed().reason()
+              : "Payment verification failed";
       saveRenewalFailureInternal(subscription, plan, paymentId, failReason);
+      return;
+    }
+
+    if (!paymentId.equals(portoneResponse.id())
+        || portoneResponse.amount() == null
+        || portoneResponse.amount().total() != plan.getPrice()
+        || !"KRW".equals(portoneResponse.currency())) {
+      saveRenewalFailureInternal(
+          subscription, plan, paymentId, "Payment ID, currency or amount mismatch");
       return;
     }
 

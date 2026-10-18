@@ -1,5 +1,7 @@
 package com.services.api.applydays.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.services.api.applydays.dto.PaySubscriptionRequest;
 import com.services.api.applydays.dto.PaymentHistoryResponse;
 import com.services.api.applydays.dto.PaymentMethodResponse;
@@ -9,6 +11,7 @@ import com.services.api.applydays.dto.SubscriptionPlanResponse;
 import com.services.api.applydays.dto.SubscriptionResponse;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.core.applydays.dto.SubscriptionManageData;
+import com.services.core.applydays.dto.SubscriptionPaymentId;
 import com.services.core.applydays.entity.subscription.ApplyDaysPayment;
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscriptionPlan;
@@ -17,15 +20,15 @@ import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionCommandService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionQueryService;
 import com.services.core.common.dto.BaseResponse;
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.exception.UnauthorizedException;
 import com.services.core.common.infrastructure.external.portone.PortOneClient;
 import com.services.core.common.infrastructure.external.portone.PortOneClient.PortOnePaymentResponse;
+import com.services.core.common.infrastructure.external.portone.PortOneWebhookVerifier;
 import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.repository.member.MemberRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +36,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,6 +55,7 @@ public class ApplyDaysSubscriptionController {
   private final MemberRepository memberRepository;
   private final JwtProvider jwtProvider;
   private final PortOneClient portOneClient;
+  private final ObjectMapper objectMapper;
 
   @Value("${app.portone.webhook-secret}")
   private String webhookSecret;
@@ -218,27 +221,28 @@ public class ApplyDaysSubscriptionController {
 
   @PostMapping("/webhook")
   public BaseResponse<Void> handlePortOneWebhook(
-      @RequestHeader(value = "webhook-signature", required = false) String webhookSignature,
-      @RequestHeader(value = "x-portone-signature", required = false) String xPortoneSignature,
-      @RequestBody PortOneWebhookRequest request) {
-    log.info(
-        "PortOne V2 Webhook received: type={}, timestamp={}", request.type(), request.timestamp());
-
-    if (StringUtils.hasText(webhookSecret)) {
-      String signature =
-          StringUtils.hasText(webhookSignature) ? webhookSignature : xPortoneSignature;
-      if (!StringUtils.hasText(signature)
-          || !MessageDigest.isEqual(
-              webhookSecret.getBytes(StandardCharsets.UTF_8),
-              signature.getBytes(StandardCharsets.UTF_8))) {
-        log.warn("Invalid PortOne Webhook signature/secret");
-        return BaseResponse.of(HttpStatus.UNAUTHORIZED, null);
-      }
+      @RequestHeader(value = "webhook-signature", required = false) String signature,
+      @RequestHeader(value = "webhook-id", required = false) String webhookId,
+      @RequestHeader(value = "webhook-timestamp", required = false) String webhookTimestamp,
+      @RequestBody String body) {
+    if (!PortOneWebhookVerifier.verify(
+        webhookSecret, webhookId, webhookTimestamp, signature, body)) {
+      log.warn("Invalid PortOne webhook signature");
+      return BaseResponse.of(HttpStatus.UNAUTHORIZED, null);
+    }
+    PortOneWebhookRequest request;
+    try {
+      request = objectMapper.readValue(body, PortOneWebhookRequest.class);
+    } catch (JsonProcessingException e) {
+      throw new BadRequestException(ErrorCode.INVALID_REQUEST);
+    }
+    if (request == null) {
+      throw new BadRequestException(ErrorCode.INVALID_REQUEST);
     }
 
     if ("Transaction.Paid".equalsIgnoreCase(request.type()) && request.data() != null) {
       String paymentId = request.data().paymentId();
-      UUID memberId = extractMemberIdFromPaymentId(paymentId);
+      UUID memberId = SubscriptionPaymentId.memberId(paymentId);
       if (memberId == null) {
         log.warn("Could not extract memberId from paymentId: {}", paymentId);
         return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
@@ -274,39 +278,29 @@ public class ApplyDaysSubscriptionController {
           return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
         }
 
-        if (verifiedPayment.amount().total() != plan.getPrice()) {
+        if (!paymentId.equals(verifiedPayment.id())
+            || verifiedPayment.amount() == null
+            || verifiedPayment.amount().total() != plan.getPrice()
+            || !"KRW".equals(verifiedPayment.currency())) {
           log.warn(
               "Webhook: Payment amount verification failed. expected={}, actual={}",
               plan.getPrice(),
-              verifiedPayment.amount().total());
+              verifiedPayment.amount() != null ? verifiedPayment.amount().total() : null);
           return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
         }
 
+        subscriptionService.savePaymentAndActivate(
+            memberId, null, paymentId, verifiedPayment, plan.getId());
       } catch (Exception e) {
         log.error("PortOne payment 2nd verification exception for paymentId={}", paymentId, e);
         return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
       }
 
-      subscriptionService.processPayment(memberId, null, paymentId);
       log.info("PortOne V2 Webhook processed successfully for memberId={}", memberId);
     } else {
       log.info("Ignoring webhook type: {}", request.type());
     }
 
     return BaseResponse.of(HttpStatus.OK, null);
-  }
-
-  private UUID extractMemberIdFromPaymentId(String paymentId) {
-    try {
-      if (paymentId != null && paymentId.startsWith("sub_")) {
-        String[] parts = paymentId.split("_");
-        if (parts.length >= 2) {
-          return UUID.fromString(parts[1]);
-        }
-      }
-    } catch (Exception e) {
-      log.error("Failed to parse memberId from paymentId: {}", paymentId, e);
-    }
-    return null;
   }
 }
