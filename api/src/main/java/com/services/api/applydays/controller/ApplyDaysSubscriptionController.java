@@ -35,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -220,15 +221,19 @@ public class ApplyDaysSubscriptionController {
   }
 
   @PostMapping("/webhook")
-  public BaseResponse<Void> handlePortOneWebhook(
+  public ResponseEntity<BaseResponse<Void>> handlePortOneWebhook(
       @RequestHeader(value = "webhook-signature", required = false) String signature,
       @RequestHeader(value = "webhook-id", required = false) String webhookId,
       @RequestHeader(value = "webhook-timestamp", required = false) String webhookTimestamp,
       @RequestBody String body) {
     if (!PortOneWebhookVerifier.verify(
         webhookSecret, webhookId, webhookTimestamp, signature, body)) {
-      log.warn("Invalid PortOne webhook signature");
-      return BaseResponse.of(HttpStatus.UNAUTHORIZED, null);
+      log.warn(
+          "Invalid PortOne webhook signature: idPresent={}, timestampPresent={}, signaturePresent={}",
+          webhookId != null,
+          webhookTimestamp != null,
+          signature != null);
+      return webhookResponse(HttpStatus.UNAUTHORIZED);
     }
     PortOneWebhookRequest request;
     try {
@@ -239,13 +244,17 @@ public class ApplyDaysSubscriptionController {
     if (request == null) {
       throw new BadRequestException(ErrorCode.INVALID_REQUEST);
     }
+    log.info("PortOne V2 webhook received: type={}", request.type());
 
-    if ("Transaction.Paid".equalsIgnoreCase(request.type()) && request.data() != null) {
+    if ("Transaction.Paid".equalsIgnoreCase(request.type())) {
+      if (request.data() == null) {
+        throw new BadRequestException(ErrorCode.INVALID_REQUEST);
+      }
       String paymentId = request.data().paymentId();
       UUID memberId = SubscriptionPaymentId.memberId(paymentId);
       if (memberId == null) {
         log.warn("Could not extract memberId from paymentId: {}", paymentId);
-        return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
+        return webhookResponse(HttpStatus.BAD_REQUEST);
       }
 
       ApplyDaysPayment existingPayment =
@@ -254,28 +263,29 @@ public class ApplyDaysSubscriptionController {
         log.info(
             "Webhook: Payment {} already processed successfully, idempotency check passed",
             paymentId);
-        return BaseResponse.of(HttpStatus.OK, null);
+        return webhookResponse(HttpStatus.OK);
       }
 
       try {
         PortOnePaymentResponse verifiedPayment = portOneClient.verifyPayment(paymentId);
         if (!"PAID".equalsIgnoreCase(verifiedPayment.status())) {
           log.warn("PortOne payment 2nd verification failed: status={}", verifiedPayment.status());
-          return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
+          return webhookResponse(HttpStatus.BAD_REQUEST);
         }
 
         ApplyDaysSubscription subscription =
             subscriptionQueryService.getSubscriptionByMemberId(memberId).orElse(null);
         if (subscription == null) {
           log.warn("Webhook: Subscription not found for memberId={}", memberId);
-          return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
+          // The first payment webhook may arrive before /pay commits the subscription.
+          return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
         }
 
         ApplyDaysSubscriptionPlan plan =
             subscriptionQueryService.getPlan(subscription.getPlanId()).orElse(null);
         if (plan == null) {
           log.warn("Webhook: Subscription plan not found for planId={}", subscription.getPlanId());
-          return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
+          return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
         }
 
         if (!paymentId.equals(verifiedPayment.id())
@@ -286,14 +296,14 @@ public class ApplyDaysSubscriptionController {
               "Webhook: Payment amount verification failed. expected={}, actual={}",
               plan.getPrice(),
               verifiedPayment.amount() != null ? verifiedPayment.amount().total() : null);
-          return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
+          return webhookResponse(HttpStatus.BAD_REQUEST);
         }
 
         subscriptionService.savePaymentAndActivate(
             memberId, null, paymentId, verifiedPayment, plan.getId());
       } catch (Exception e) {
         log.error("PortOne payment 2nd verification exception for paymentId={}", paymentId, e);
-        return BaseResponse.of(HttpStatus.BAD_REQUEST, null);
+        return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
       }
 
       log.info("PortOne V2 Webhook processed successfully for memberId={}", memberId);
@@ -301,6 +311,10 @@ public class ApplyDaysSubscriptionController {
       log.info("Ignoring webhook type: {}", request.type());
     }
 
-    return BaseResponse.of(HttpStatus.OK, null);
+    return webhookResponse(HttpStatus.OK);
+  }
+
+  private ResponseEntity<BaseResponse<Void>> webhookResponse(HttpStatus status) {
+    return ResponseEntity.status(status).body(BaseResponse.of(status, null));
   }
 }
