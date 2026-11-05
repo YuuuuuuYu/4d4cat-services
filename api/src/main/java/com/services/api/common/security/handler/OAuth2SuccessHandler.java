@@ -1,6 +1,7 @@
 package com.services.api.common.security.handler;
 
 import com.services.api.common.annotation.AuditAction;
+import com.services.api.common.security.ApplyDaysSessionGrant;
 import com.services.api.common.security.dto.SessionUser;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.MemberService;
@@ -18,7 +19,6 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 @RequiredArgsConstructor
@@ -66,18 +66,23 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     ResponseCookie cookie =
         ResponseCookie.from("refreshToken", refreshToken)
             .httpOnly(true)
-            .secure(request.isSecure())
+            .secure(request.isSecure() || redirectUri.startsWith("https://"))
             .path("/")
             .maxAge(refreshTokenValidity / 1000)
             .sameSite("Lax")
             .build();
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
+    var session = request.getSession(false);
+    String challenge =
+        session == null ? null : (String) session.getAttribute(ApplyDaysSessionGrant.CHALLENGE);
+    if (session != null) {
+      session.removeAttribute(ApplyDaysSessionGrant.CHALLENGE);
+    }
+    response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    response.setHeader("Referrer-Policy", "no-referrer");
     String targetUrl =
-        UriComponentsBuilder.fromUriString(redirectUri)
-            .queryParam("accessToken", accessToken)
-            .build()
-            .toUriString();
+        ApplyDaysSessionGrant.redirect(redisDataStorage, redirectUri, challenge, accessToken);
 
     getRedirectStrategy().sendRedirect(request, response, targetUrl);
   }

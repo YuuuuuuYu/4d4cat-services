@@ -1,7 +1,6 @@
 package com.services.core.applydays.repository;
 
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
-import com.services.core.applydays.entity.subscription.SubscriptionStatus;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -21,9 +20,19 @@ public interface ApplyDaysSubscriptionRepository
   @Query("SELECT s FROM ApplyDaysSubscription s WHERE s.memberId = :memberId")
   Optional<ApplyDaysSubscription> findWithLockByMemberId(@Param("memberId") UUID memberId);
 
-  Slice<ApplyDaysSubscription> findAllByStatusAndNextBillingDateLessThanEqual(
-      SubscriptionStatus status, LocalDate date, Pageable pageable);
+  @Query(
+      """
+      SELECT s FROM ApplyDaysSubscription s
+      WHERE s.status = com.services.core.applydays.entity.subscription.SubscriptionStatus.ACTIVE
+      AND s.nextBillingDate <= :today AND s.memberId > :cursor ORDER BY s.memberId
+      """)
+  Slice<ApplyDaysSubscription> findRenewals(LocalDate today, UUID cursor, Pageable pageable);
 
-  Slice<ApplyDaysSubscription> findAllByStatusAndEndDateLessThan(
-      SubscriptionStatus status, LocalDate date, Pageable pageable);
+  @Query(
+      """
+      SELECT s FROM ApplyDaysSubscription s
+      WHERE s.status = com.services.core.applydays.entity.subscription.SubscriptionStatus.CANCELED
+      AND s.endDate < :today AND s.memberId > :cursor ORDER BY s.memberId
+      """)
+  Slice<ApplyDaysSubscription> findExpirations(LocalDate today, UUID cursor, Pageable pageable);
 }

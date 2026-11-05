@@ -1,5 +1,6 @@
 package com.services.api.common.security.controller;
 
+import com.services.api.common.security.ApplyDaysSessionGrant;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.MemberService;
 import com.services.core.applydays.service.ApplyDaysSubscriberBenefitQueryService;
@@ -12,8 +13,10 @@ import com.services.core.common.persistence.entity.member.Member;
 import com.services.core.common.persistence.repository.member.MemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,12 +41,19 @@ public class AuthController {
   private final MemberService memberService;
   private final ApplyDaysSubscriberBenefitQueryService subscriberBenefitQueryService;
 
+  @Value("${app.oauth2.redirect-uri}")
+  private String redirectUri;
+
   public record MemberProfileResponse(
       String name, String email, String role, boolean hasSubscriberBenefit) {}
 
   public record TokenRefreshRequest(String refreshToken) {}
 
   public record TokenResponse(String accessToken, String refreshToken) {}
+
+  public record SessionExchangeRequest(String code, String verifier) {}
+
+  public record AccessTokenResponse(String accessToken) {}
 
   public record WithdrawRequest(String reasonCategory, String reasonDetail) {}
 
@@ -107,7 +118,46 @@ public class AuthController {
             .build();
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-    return BaseResponse.of(HttpStatus.OK, new TokenResponse(newAccessToken, newRefreshToken));
+    return BaseResponse.of(HttpStatus.OK, new TokenResponse(newAccessToken, null));
+  }
+
+  @GetMapping("/session/continue")
+  public void continueSession(
+      HttpServletResponse response,
+      @RequestParam(ApplyDaysSessionGrant.CHALLENGE) String challenge,
+      @CookieValue(name = "refreshToken", required = false) String refreshToken)
+      throws IOException {
+    String token = null;
+    if (ApplyDaysSessionGrant.isProof(challenge)
+        && StringUtils.hasText(refreshToken)
+        && jwtProvider.validateToken(refreshToken)) {
+      String email = jwtProvider.getEmail(refreshToken);
+      if (redisDataStorage
+          .<String>getCache("REFRESH_TOKEN:" + email)
+          .filter(refreshToken::equals)
+          .isPresent()) {
+        token =
+            memberRepository
+                .findByEmail(email)
+                .map(
+                    member ->
+                        jwtProvider.createAccessToken(member.getEmail(), member.getRole().getKey()))
+                .orElse(null);
+      }
+    }
+    response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    response.setHeader("Referrer-Policy", "no-referrer");
+    response.sendRedirect(
+        ApplyDaysSessionGrant.redirect(redisDataStorage, redirectUri, challenge, token));
+  }
+
+  @PostMapping("/session/exchange")
+  public BaseResponse<AccessTokenResponse> exchangeSession(
+      @RequestBody SessionExchangeRequest request, HttpServletResponse response) {
+    response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    String token =
+        ApplyDaysSessionGrant.exchange(redisDataStorage, request.code(), request.verifier());
+    return BaseResponse.of(HttpStatus.OK, new AccessTokenResponse(token));
   }
 
   @PostMapping("/logout")

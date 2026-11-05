@@ -44,6 +44,7 @@ public class ApplyDaysSubscriptionScheduler {
 
     log.info("Starting subscription renewal and expiration scheduler...");
     try {
+      subscriptionService.reconcilePendingPayments();
       // 1. Process renewals (charge ACTIVE subscriptions where nextBillingDate <= now)
       int renewals = subscriptionService.processRenewal();
 

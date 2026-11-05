@@ -1,5 +1,10 @@
 package com.services.api.common.security.service;
 
+import com.services.core.applydays.entity.subscription.PaymentStatus;
+import com.services.core.applydays.repository.ApplyDaysPaymentMethodRepository;
+import com.services.core.applydays.repository.ApplyDaysPaymentRepository;
+import com.services.core.applydays.repository.ApplyDaysSubscriptionRepository;
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.infrastructure.RedisDataStorage;
@@ -22,6 +27,9 @@ public class MemberService {
   private final MemberRepository memberRepository;
   private final WithdrawLogRepository withdrawLogRepository;
   private final RedisDataStorage redisDataStorage;
+  private final ApplyDaysSubscriptionRepository subscriptionRepository;
+  private final ApplyDaysPaymentRepository paymentRepository;
+  private final ApplyDaysPaymentMethodRepository paymentMethodRepository;
 
   @Cacheable(value = "memberId", key = "#email")
   @Transactional(readOnly = true)
@@ -39,7 +47,18 @@ public class MemberService {
     Member member =
         memberRepository
             .findByEmail(email)
+            .flatMap(existing -> memberRepository.findByIdForUpdate(existing.getId()))
             .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+
+    if (paymentRepository.existsByMemberIdAndStatus(member.getId(), PaymentStatus.PENDING)) {
+      throw new BadRequestException(ErrorCode.PAYMENT_PENDING);
+    }
+    subscriptionRepository
+        .findWithLockByMemberId(member.getId())
+        .ifPresent(subscription -> subscription.expire());
+    paymentMethodRepository
+        .findByMemberIdAndDeletedFalse(member.getId())
+        .ifPresent(method -> method.delete());
 
     WithdrawLog log =
         WithdrawLog.builder()

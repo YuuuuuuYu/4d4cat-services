@@ -1,5 +1,6 @@
 package com.services.api.applydays.service;
 
+import com.services.core.common.exception.BadRequestException;
 import com.services.core.common.exception.ErrorCode;
 import com.services.core.common.exception.InternalServerException;
 import com.services.core.common.exception.NotFoundException;
@@ -8,6 +9,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,13 +19,16 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 @Service
 @RequiredArgsConstructor
 public class R2Service {
+  static final long MAX_VERIFICATION_BYTES = 8 * 1024 * 1024;
 
   private final S3Client s3Client;
   private final S3Presigner s3Presigner;
@@ -89,6 +94,24 @@ public class R2Service {
       s3Client.deleteObject(DeleteObjectRequest.builder().bucket(bucketName).key(key).build());
     } catch (Exception e) {
       throw new InternalServerException(ErrorCode.R2_DELETE_FAILED);
+    }
+  }
+
+  public void verifyUploadedImage(String key, Set<String> imageTypes) {
+    try {
+      var object =
+          s3Client.headObject(HeadObjectRequest.builder().bucket(bucketName).key(key).build());
+      if (object.contentType() == null
+          || !imageTypes.contains(object.contentType())
+          || object.contentLength() <= 0
+          || object.contentLength() > MAX_VERIFICATION_BYTES) {
+        throw new BadRequestException(ErrorCode.INVALID_REQUEST);
+      }
+    } catch (S3Exception e) {
+      if (e.statusCode() == 404) {
+        throw new NotFoundException(ErrorCode.DATA_NOT_FOUND);
+      }
+      throw new InternalServerException(ErrorCode.R2_UPLOAD_FAILED);
     }
   }
 

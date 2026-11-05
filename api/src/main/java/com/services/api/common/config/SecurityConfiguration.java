@@ -1,10 +1,12 @@
 package com.services.api.common.config;
 
+import com.services.api.common.security.ApplyDaysSessionGrant;
 import com.services.api.common.security.handler.OAuth2SuccessHandler;
 import com.services.api.common.security.jwt.JwtAuthenticationFilter;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.api.common.security.service.CustomOAuth2UserService;
 import com.services.core.common.infrastructure.RedisDataStorage;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +27,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -98,6 +101,8 @@ public class SecurityConfiguration {
                             "/error",
                             "/auth/logout",
                             "/auth/refresh",
+                            "/auth/session/continue",
+                            "/auth/session/exchange",
                             "/techblogs/**",
                             "/pixabay/**",
                             "/video",
@@ -122,7 +127,7 @@ public class SecurityConfiguration {
                     .hasRole("USER")
                     .requestMatchers(
                         antMatchers(HttpMethod.GET, "/applydays/verification/images/**"))
-                    .hasRole("USER")
+                    .hasRole("ADMIN")
                     .requestMatchers(antMatchers("/applydays/statistics/category"))
                     .hasRole("USER")
                     .requestMatchers(antMatchers("/applydays/statistics/detail"))
@@ -214,6 +219,30 @@ public class SecurityConfiguration {
     authorizationRequestResolver.setAuthorizationRequestCustomizer(
         customizer ->
             customizer.additionalParameters(params -> params.put("prompt", "select_account")));
-    return authorizationRequestResolver;
+    return new OAuth2AuthorizationRequestResolver() {
+      @Override
+      public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+        return rememberProof(request, authorizationRequestResolver.resolve(request));
+      }
+
+      @Override
+      public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String registrationId) {
+        return rememberProof(
+            request, authorizationRequestResolver.resolve(request, registrationId));
+      }
+
+      private OAuth2AuthorizationRequest rememberProof(
+          HttpServletRequest request, OAuth2AuthorizationRequest authorization) {
+        if (authorization != null) {
+          String challenge = request.getParameter(ApplyDaysSessionGrant.CHALLENGE);
+          request
+              .getSession()
+              .setAttribute(
+                  ApplyDaysSessionGrant.CHALLENGE,
+                  ApplyDaysSessionGrant.isProof(challenge) ? challenge : null);
+        }
+        return authorization;
+      }
+    };
   }
 }

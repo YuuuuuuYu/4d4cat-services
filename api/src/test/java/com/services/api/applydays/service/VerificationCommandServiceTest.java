@@ -75,9 +75,9 @@ class VerificationCommandServiceTest {
 
     when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
-    when(verificationRequestRepository.findByApplicationId(applicationId))
+    when(verificationRequestRepository.findByApplicationIdForUpdate(applicationId))
         .thenReturn(Optional.of(vr));
-    when(verificationImageRepository.countByApplicationId(applicationId)).thenReturn(0L);
+    when(verificationImageRepository.countActiveSlots(eq(applicationId), any())).thenReturn(0L);
     when(r2Service.generateKey(eq(applicationId), anyInt())).thenReturn("generated/key");
     when(r2Service.generatePresignedUrl(eq("generated/key"), eq(contentType)))
         .thenReturn("http://presigned.url");
@@ -111,6 +111,7 @@ class VerificationCommandServiceTest {
     String email = "test@example.com";
     UUID applicationId = UUID.randomUUID();
     MultipartFile file = mock(MultipartFile.class);
+    when(file.getContentType()).thenReturn("image/png");
     Application application = ApplyDaysFixtures.createApplication("naver", 1L);
     ApplyDaysFixtures.setId(application, applicationId);
     Member member = ApplyDaysFixtures.createMember(email, Role.USER);
@@ -121,9 +122,9 @@ class VerificationCommandServiceTest {
 
     when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
-    when(verificationRequestRepository.findByApplicationId(applicationId))
+    when(verificationRequestRepository.findByApplicationIdForUpdate(applicationId))
         .thenReturn(Optional.of(vr));
-    when(verificationImageRepository.countByApplicationId(applicationId)).thenReturn(0L);
+    when(verificationImageRepository.countActiveSlots(eq(applicationId), any())).thenReturn(0L);
     when(r2Service.uploadImage(eq(applicationId), anyInt(), eq(file))).thenReturn("test/url");
     when(verificationImageRepository.save(any(VerificationImage.class)))
         .thenAnswer(

@@ -1,7 +1,9 @@
 package com.services.core.applydays.entity.subscription;
 
 import com.services.core.common.persistence.BaseSoftDeleteEntity;
+import com.services.core.common.persistence.converter.CryptoConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -9,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -51,6 +54,34 @@ public class ApplyDaysPayment extends BaseSoftDeleteEntity {
 
   @Column(name = "approval_no")
   private String approvalNo;
+
+  private UUID paymentPlanId;
+
+  @Convert(converter = CryptoConverter.class)
+  private String pendingBillingKey;
+
+  private boolean renewal;
+
+  private LocalDateTime chargeRequestedAt;
+
+  public void prepare(UUID planId, String billingKey, boolean renewal) {
+    this.paymentPlanId = planId;
+    this.pendingBillingKey = billingKey;
+    this.renewal = renewal;
+    markChargeRequested();
+  }
+
+  public void markChargeRequested() {
+    this.chargeRequestedAt = LocalDateTime.now();
+  }
+
+  public void resolve(PaymentStatus status, String reason, String receiptUrl, String approvalNo) {
+    this.status = status;
+    this.failReason = reason;
+    this.receiptUrl = receiptUrl;
+    this.approvalNo = approvalNo;
+    this.pendingBillingKey = null;
+  }
 
   @Builder
   public ApplyDaysPayment(

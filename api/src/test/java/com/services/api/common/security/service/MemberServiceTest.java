@@ -7,6 +7,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.services.core.applydays.entity.subscription.ApplyDaysPaymentMethod;
+import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
+import com.services.core.applydays.entity.subscription.SubscriptionStatus;
+import com.services.core.applydays.repository.ApplyDaysPaymentMethodRepository;
+import com.services.core.applydays.repository.ApplyDaysPaymentRepository;
+import com.services.core.applydays.repository.ApplyDaysSubscriptionRepository;
 import com.services.core.common.exception.NotFoundException;
 import com.services.core.common.infrastructure.RedisDataStorage;
 import com.services.core.common.persistence.entity.member.Member;
@@ -32,6 +38,9 @@ class MemberServiceTest {
   @Mock private MemberRepository memberRepository;
   @Mock private WithdrawLogRepository withdrawLogRepository;
   @Mock private RedisDataStorage redisDataStorage;
+  @Mock private ApplyDaysSubscriptionRepository subscriptionRepository;
+  @Mock private ApplyDaysPaymentMethodRepository paymentMethodRepository;
+  @Mock private ApplyDaysPaymentRepository paymentRepository;
 
   @InjectMocks private MemberService memberService;
 
@@ -44,6 +53,14 @@ class MemberServiceTest {
     ReflectionTestUtils.setField(member, "id", UUID.randomUUID());
 
     when(memberRepository.findByEmail(email)).thenReturn(Optional.of(member));
+    when(memberRepository.findByIdForUpdate(member.getId())).thenReturn(Optional.of(member));
+    ApplyDaysSubscription subscription =
+        ApplyDaysSubscription.builder().status(SubscriptionStatus.ACTIVE).build();
+    ApplyDaysPaymentMethod method = ApplyDaysPaymentMethod.builder().billingKey("fake").build();
+    when(subscriptionRepository.findWithLockByMemberId(member.getId()))
+        .thenReturn(Optional.of(subscription));
+    when(paymentMethodRepository.findByMemberIdAndDeletedFalse(member.getId()))
+        .thenReturn(Optional.of(method));
 
     // when
     memberService.withdraw(email, "OTHER", "Reason detail");
@@ -59,6 +76,8 @@ class MemberServiceTest {
     assertThat(member.getEmail()).isNull();
     assertThat(member.getName()).isNull();
     verify(memberRepository).delete(member);
+    assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.EXPIRED);
+    assertThat(method.isDeleted()).isTrue();
 
     // 3. Token Cleanup verification
     verify(redisDataStorage).deleteCache("REFRESH_TOKEN:" + email);

@@ -3,7 +3,6 @@ package com.services.api.applydays.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -70,7 +69,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ApplyDaysSubscriptionController.class)
 @Import({SecurityConfiguration.class, GlobalExceptionHandler.class, MessageSourceConfig.class})
-@TestPropertySource(properties = {"app.portone.webhook-secret=whsec_dGVzdC1zZWNyZXQ="})
+@TestPropertySource(
+    properties = {
+      "app.portone.webhook-secret=whsec_dGVzdC1zZWNyZXQ=",
+      "cors.allowed-origins=https://example.test"
+    })
 class ApplyDaysSubscriptionControllerTest {
 
   @Autowired private MockMvc mockMvc;
@@ -337,14 +340,14 @@ class ApplyDaysSubscriptionControllerTest {
             paymentId, "PAID", new Amount(16500L), null, null, null, null, "KRW");
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
 
-    ApplyDaysSubscription subscription =
-        ApplyDaysSubscription.builder().memberId(memberId).planId(UUID.randomUUID()).build();
-    given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
-        .willReturn(Optional.of(subscription));
-
-    ApplyDaysSubscriptionPlan plan = ApplyDaysSubscriptionPlan.builder().price(16500L).build();
-    given(subscriptionQueryService.getPlan(eq(subscription.getPlanId())))
-        .willReturn(Optional.of(plan));
+    ApplyDaysPayment existingPayment =
+        ApplyDaysPayment.builder()
+            .memberId(memberId)
+            .status(PaymentStatus.PENDING)
+            .amount(16500L)
+            .build();
+    given(subscriptionQueryService.getPaymentByPortonePaymentId(paymentId))
+        .willReturn(Optional.of(existingPayment));
 
     // when & then
     mockMvc
@@ -358,9 +361,7 @@ class ApplyDaysSubscriptionControllerTest {
         .andExpect(jsonPath("$.status").value(200));
 
     verify(portOneClient).verifyPayment(eq(paymentId));
-    verify(subscriptionService)
-        .savePaymentAndActivate(
-            eq(memberId), isNull(), eq(paymentId), eq(mockResponse), eq(plan.getId()));
+    verify(subscriptionService).settleCharge(existingPayment, mockResponse);
     verify(subscriptionService, never()).processPayment(any(), any(), any());
   }
 
@@ -475,15 +476,14 @@ class ApplyDaysSubscriptionControllerTest {
             "KRW"); // Actual amount 1000
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
 
-    ApplyDaysSubscription subscription =
-        ApplyDaysSubscription.builder().memberId(memberId).planId(UUID.randomUUID()).build();
-    given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
-        .willReturn(Optional.of(subscription));
-
-    ApplyDaysSubscriptionPlan plan =
-        ApplyDaysSubscriptionPlan.builder().price(16500L).build(); // Expected amount 16500
-    given(subscriptionQueryService.getPlan(eq(subscription.getPlanId())))
-        .willReturn(Optional.of(plan));
+    ApplyDaysPayment existingPayment =
+        ApplyDaysPayment.builder()
+            .memberId(memberId)
+            .status(PaymentStatus.PENDING)
+            .amount(16500L)
+            .build();
+    given(subscriptionQueryService.getPaymentByPortonePaymentId(paymentId))
+        .willReturn(Optional.of(existingPayment));
 
     // when & then
     mockMvc
@@ -563,6 +563,14 @@ class ApplyDaysSubscriptionControllerTest {
         new PortOnePaymentResponse(
             paymentId, "FAILED", new Amount(16500L), null, null, null, null, "KRW");
     given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
+    given(subscriptionQueryService.getPaymentByPortonePaymentId(paymentId))
+        .willReturn(
+            Optional.of(
+                ApplyDaysPayment.builder()
+                    .memberId(memberId)
+                    .status(PaymentStatus.PENDING)
+                    .amount(16500L)
+                    .build()));
 
     // when & then
     mockMvc
@@ -592,6 +600,14 @@ class ApplyDaysSubscriptionControllerTest {
 
     given(portOneClient.verifyPayment(eq(paymentId)))
         .willThrow(new RuntimeException("PortOne API Timeout"));
+    given(subscriptionQueryService.getPaymentByPortonePaymentId(paymentId))
+        .willReturn(
+            Optional.of(
+                ApplyDaysPayment.builder()
+                    .memberId(memberId)
+                    .status(PaymentStatus.PENDING)
+                    .amount(16500L)
+                    .build()));
 
     // when & then
     mockMvc
@@ -619,11 +635,7 @@ class ApplyDaysSubscriptionControllerTest {
             "time",
             new PortOneWebhookRequest.WebhookData(paymentId, "store", "tx", "bk"));
 
-    PortOnePaymentResponse mockResponse =
-        new PortOnePaymentResponse(
-            paymentId, "PAID", new Amount(16500L), null, null, null, null, "KRW");
-    given(portOneClient.verifyPayment(eq(paymentId))).willReturn(mockResponse);
-    given(subscriptionQueryService.getSubscriptionByMemberId(eq(memberId)))
+    given(subscriptionQueryService.getPaymentByPortonePaymentId(paymentId))
         .willReturn(Optional.empty());
 
     // when & then
@@ -638,6 +650,7 @@ class ApplyDaysSubscriptionControllerTest {
         .andExpect(jsonPath("$.status").value(503));
 
     verify(subscriptionService, never()).processPayment(any(), any(), any());
+    verifyNoInteractions(portOneClient);
   }
 
   @Test

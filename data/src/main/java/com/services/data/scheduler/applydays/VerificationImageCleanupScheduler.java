@@ -5,6 +5,8 @@ import com.services.core.applydays.repository.VerificationImageRepository;
 import com.services.core.common.notification.discord.DiscordChannel;
 import com.services.core.common.notification.discord.NotifyDiscord;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -54,7 +56,7 @@ public class VerificationImageCleanupScheduler {
     log.info("Starting scheduled cleanup of verification images of deleted applications.");
 
     List<DeletedImageProjection> deletedImages =
-        verificationImageRepository.findAllByApplicationDeletedTrue();
+        verificationImageRepository.findImagesPendingPurge(LocalDateTime.now());
 
     if (deletedImages.isEmpty()) {
       log.info("No verification images of deleted applications found for cleanup.");
@@ -64,20 +66,18 @@ public class VerificationImageCleanupScheduler {
     log.info(
         "Found {} verification images of deleted applications to clean up.", deletedImages.size());
 
-    int r2DeletedCount = 0;
+    List<UUID> idsToHardDelete = new ArrayList<>();
     for (DeletedImageProjection image : deletedImages) {
       try {
         s3Client.deleteObject(
             DeleteObjectRequest.builder().bucket(bucketName).key(image.getImageUrl()).build());
         log.debug("Successfully deleted image from R2: {}", image.getImageUrl());
-        r2DeletedCount++;
+        idsToHardDelete.add(image.getId());
       } catch (Exception e) {
         log.error(
             "Failed to delete image from R2: {}. Skipping DB hard-delete.", image.getImageUrl(), e);
       }
     }
-
-    List<UUID> idsToHardDelete = deletedImages.stream().map(DeletedImageProjection::getId).toList();
 
     if (!idsToHardDelete.isEmpty()) {
       verificationImageRepository.deleteAllByIdInBatch(idsToHardDelete);
@@ -87,6 +87,6 @@ public class VerificationImageCleanupScheduler {
         "Finished scheduled cleanup. Hard-deleted {} records from database.",
         idsToHardDelete.size());
 
-    return new CleanupReport(r2DeletedCount, idsToHardDelete.size());
+    return new CleanupReport(idsToHardDelete.size(), idsToHardDelete.size());
   }
 }

@@ -1,6 +1,7 @@
 package com.services.core.applydays.dto;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.UUID;
 
@@ -10,6 +11,10 @@ public final class SubscriptionPaymentId {
   private SubscriptionPaymentId() {}
 
   public static String create(UUID memberId) {
+    return create(memberId, UUID.randomUUID().toString());
+  }
+
+  public static String create(UUID memberId, String attempt) {
     byte[] bytes =
         ByteBuffer.allocate(16)
             .putLong(memberId.getMostSignificantBits())
@@ -18,7 +23,10 @@ public final class SubscriptionPaymentId {
     return "sub_"
         + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
         + "_"
-        + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        + UUID.nameUUIDFromBytes((memberId + ":" + attempt).getBytes(StandardCharsets.UTF_8))
+            .toString()
+            .replace("-", "")
+            .substring(0, 12);
   }
 
   public static UUID memberId(String paymentId) {

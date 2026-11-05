@@ -1,0 +1,1 @@
+ALTER TABLE verification_image ADD COLUMN IF NOT EXISTS reserved_until TIMESTAMP WITHOUT TIME ZONE;
