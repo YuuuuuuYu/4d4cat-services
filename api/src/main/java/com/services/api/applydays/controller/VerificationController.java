@@ -8,6 +8,7 @@ import com.services.api.common.annotation.AuditLog;
 import com.services.core.common.dto.BaseResponse;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -60,6 +61,13 @@ public class VerificationController {
       produces = {MediaType.IMAGE_PNG_VALUE, MediaType.IMAGE_JPEG_VALUE, "image/webp"})
   public ResponseEntity<byte[]> getImage(@PathVariable UUID imageId) {
     byte[] imageBytes = verificationQueryService.getImageBytes(imageId);
-    return ResponseEntity.ok(imageBytes);
+    return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(imageBytes);
+  }
+
+  @PostMapping("/applications/{applicationId}/images/{imageId}/confirm")
+  public BaseResponse<Void> confirmUpload(
+      Authentication authentication, @PathVariable UUID applicationId, @PathVariable UUID imageId) {
+    verificationCommandService.confirmUpload(authentication.getName(), applicationId, imageId);
+    return BaseResponse.of(HttpStatus.OK, null);
   }
 }

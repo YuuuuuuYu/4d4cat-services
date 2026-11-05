@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -73,9 +74,17 @@ public class PortOneClient {
         throw new IllegalStateException("PortOne payment verification returned null response");
       }
       return res;
+    } catch (HttpClientErrorException.NotFound e) {
+      throw new PaymentNotFound();
     } catch (RestClientException e) {
       log.warn("Error verifying payment via PortOne V2");
       throw new IllegalStateException("Failed to verify payment with PortOne V2");
+    }
+  }
+
+  public static class PaymentNotFound extends IllegalStateException {
+    public PaymentNotFound() {
+      super("PortOne payment not found");
     }
   }
 

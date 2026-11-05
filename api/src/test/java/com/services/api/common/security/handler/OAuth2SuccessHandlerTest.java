@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.services.api.common.security.ApplyDaysSessionGrant;
 import com.services.api.common.security.dto.SessionUser;
 import com.services.api.common.security.jwt.JwtProvider;
 import com.services.core.common.infrastructure.RedisDataStorage;
@@ -23,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -49,7 +51,7 @@ class OAuth2SuccessHandlerTest {
 
   @Test
   @DisplayName("로그인 성공 시 JWT를 생성하고 지정된 URL로 리다이렉트한다")
-  void onAuthenticationSuccess_shouldRedirectWithToken() throws IOException {
+  void onAuthenticationSuccess_shouldRedirectWithOneTimeCode() throws IOException {
     // Given
     String email = "test@example.com";
     String accessToken = "test-access-token";
@@ -62,6 +64,10 @@ class OAuth2SuccessHandlerTest {
     when(jwtProvider.createAccessToken(eq(email), anyString())).thenReturn(accessToken);
     when(jwtProvider.createRefreshToken(eq(email))).thenReturn(refreshToken);
 
+    MockHttpSession session = new MockHttpSession();
+    session.setAttribute(ApplyDaysSessionGrant.CHALLENGE, "a".repeat(43));
+    when(request.getSession(false)).thenReturn(session);
+
     // When
     oAuth2SuccessHandler.onAuthenticationSuccess(request, response, authentication);
 
@@ -73,7 +79,8 @@ class OAuth2SuccessHandlerTest {
 
     String redirectedUrl = urlCaptor.getValue();
     assertThat(redirectedUrl).contains("/login-success");
-    assertThat(redirectedUrl).contains("accessToken=" + accessToken);
+    assertThat(redirectedUrl).contains("#code=");
+    assertThat(redirectedUrl).doesNotContain(accessToken);
     assertThat(redirectedUrl).doesNotContain("refreshToken=");
   }
 }

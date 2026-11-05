@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -31,6 +32,17 @@ public class VerificationImage extends BaseEntity {
 
   @Column(name = "original_name", nullable = false)
   private String originalName;
+
+  @Column(name = "reserved_until")
+  private LocalDateTime reservedUntil;
+
+  public void reserveUntil(LocalDateTime expiresAt) {
+    reservedUntil = expiresAt;
+  }
+
+  public void confirmUpload() {
+    reservedUntil = null;
+  }
 
   @Builder
   public VerificationImage(UUID applicationId, String imageUrl, String originalName) {

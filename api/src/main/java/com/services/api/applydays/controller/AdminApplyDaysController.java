@@ -90,6 +90,7 @@ public class AdminApplyDaysController {
   public BaseResponse<List<VerificationImageResponse>> getApplicationImages(@PathVariable UUID id) {
     List<VerificationImageResponse> responses =
         verificationImageRepository.findAllByApplicationId(id).stream()
+            .filter(image -> image.getReservedUntil() == null)
             .map(VerificationImageResponse::from)
             .toList();
     return BaseResponse.of(HttpStatus.OK, responses);

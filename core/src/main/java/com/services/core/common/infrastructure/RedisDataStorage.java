@@ -106,6 +106,11 @@ public class RedisDataStorage {
     }
   }
 
+  public Optional<String> takeString(String key) {
+    Object value = redisTemplate.opsForValue().getAndDelete(key);
+    return value instanceof String text ? Optional.of(text) : Optional.empty();
+  }
+
   public void deleteKeysByPattern(String pattern) {
     try {
       Set<String> keys = redisTemplate.keys(pattern);

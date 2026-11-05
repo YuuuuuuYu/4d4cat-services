@@ -91,7 +91,8 @@ public class ApplyDaysSubscriptionCommandService {
                 subscription.cancel();
                 subscriptionRepository.save(subscription);
                 log.info(
-                    "Subscription scheduled for cancellation due to payment method deletion for memberId={}",
+                    "Subscription scheduled for cancellation due to payment method deletion for"
+                        + " memberId={}",
                     memberId);
               }
             });
@@ -106,72 +107,230 @@ public class ApplyDaysSubscriptionCommandService {
    */
   public ApplyDaysSubscription processPayment(
       UUID memberId, String billingKey, String paymentId, UUID planId) {
-    if (!StringUtils.hasText(paymentId)) {
-      paymentId = SubscriptionPaymentId.create(memberId);
+    String attempt = StringUtils.hasText(paymentId) ? paymentId : UUID.randomUUID().toString();
+    Charge charge =
+        selfProvider.getObject().prepareCharge(memberId, billingKey, attempt, planId, null);
+    if (charge.payment().getStatus() == PaymentStatus.SUCCESS) {
+      return charge.subscription();
+    }
+    if (charge.payment().getStatus() == PaymentStatus.FAILED) {
+      throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
+    }
+    PortOnePaymentResponse result = requestPayment(charge);
+    ApplyDaysSubscription subscription =
+        selfProvider.getObject().settleCharge(charge.payment(), result);
+    if ("FAILED".equalsIgnoreCase(result.status())) {
+      throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
+    }
+    return subscription;
+  }
+
+  public record Charge(
+      ApplyDaysPayment payment,
+      ApplyDaysSubscription subscription,
+      ApplyDaysSubscriptionPlan plan,
+      boolean created) {}
+
+  @Transactional
+  public Charge prepareCharge(
+      UUID memberId, String billingKey, String attempt, UUID planId, LocalDate renewalDate) {
+    memberRepository
+        .findByIdForUpdate(memberId)
+        .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+    var existingSubscription = subscriptionRepository.findWithLockByMemberId(memberId);
+    boolean renewal = renewalDate != null;
+    if (renewal
+        && existingSubscription
+            .filter(
+                subscription ->
+                    subscription.getStatus() == SubscriptionStatus.ACTIVE
+                        && renewalDate.equals(subscription.getNextBillingDate())
+                        && !renewalDate.isAfter(LocalDate.now()))
+            .isEmpty()) {
+      return null;
     }
 
-    log.info(
-        "Processing subscription payment outside transaction: memberId={}, paymentId={}, planId={}",
-        memberId,
-        paymentId,
-        planId);
-
-    // 1. Idempotency Check
-    if (paymentRepository.existsByPortonePaymentId(paymentId)) {
-      log.warn("Payment with paymentId={} already processed. Skipping.", paymentId);
-      return subscriptionRepository
-          .findByMemberId(memberId)
-          .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
+    String paymentId =
+        SubscriptionPaymentId.create(memberId, (renewal ? "renew:" : "pay:") + attempt);
+    var matching = paymentRepository.findByPortonePaymentId(paymentId);
+    if (matching.isPresent()) {
+      ApplyDaysPayment payment = matching.get();
+      return new Charge(
+          payment,
+          existingSubscription.orElseThrow(),
+          resolvePlan(memberId, payment.getPaymentPlanId()),
+          false);
+    }
+    var pending =
+        paymentRepository.findFirstByMemberIdAndStatusOrderByCreatedAtAsc(
+            memberId, PaymentStatus.PENDING);
+    if (pending.isPresent()) {
+      ApplyDaysPayment payment = pending.get();
+      if (payment.isRenewal() != renewal) {
+        throw new BadRequestException(ErrorCode.PAYMENT_PENDING);
+      }
+      return new Charge(
+          payment,
+          existingSubscription.orElseThrow(),
+          resolvePlan(memberId, payment.getPaymentPlanId()),
+          false);
     }
 
     ApplyDaysSubscriptionPlan plan = resolvePlan(memberId, planId);
-
-    String effectiveBillingKey =
-        (billingKey != null && !billingKey.isBlank())
+    if (plan.isDeleted()) {
+      throw new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND);
+    }
+    String key =
+        StringUtils.hasText(billingKey)
             ? billingKey
             : paymentMethodQueryService
                 .findByMemberId(memberId)
                 .map(ApplyDaysPaymentMethod::getBillingKey)
                 .orElse(null);
-
-    // 2. 외부 API를 통해 결제 승인 또는 검증 수행 (Connection Pool 점유 예방)
-    PortOnePaymentResponse portoneResponse;
-    if (effectiveBillingKey != null && !effectiveBillingKey.isBlank()) {
-      try {
-        portoneResponse =
-            portOneClient.payWithBillingKey(
-                effectiveBillingKey, paymentId, plan.getPrice(), plan.getName());
-      } catch (Exception e) {
-        log.error(
-            "PortOne billing-key payment call failed outside transaction for memberId={}",
-            memberId,
-            e);
-        selfProvider
-            .getObject()
-            .saveFailedPaymentAttempt(
-                memberId, paymentId, "Payment request call failed", plan.getId());
-        throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
+    if (!StringUtils.hasText(key)) {
+      if (renewal) {
+        saveRenewalFailureInternal(
+            existingSubscription.orElseThrow(), plan, paymentId, "No active payment method found");
+        return null;
       }
-    } else {
-      try {
-        portoneResponse = portOneClient.verifyPayment(paymentId);
-      } catch (Exception e) {
-        log.error(
-            "PortOne payment verification call failed outside transaction for memberId={}",
-            memberId,
-            e);
-        selfProvider
-            .getObject()
-            .saveFailedPaymentAttempt(
-                memberId, paymentId, "Payment verification call failed", plan.getId());
-        throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
-      }
+      throw new BadRequestException(ErrorCode.BILLING_KEY_NOT_FOUND);
     }
 
-    // 3. 결제 결과를 바탕으로 DB 트랜잭션 처리 위임 (Self-Proxy 호출)
-    return selfProvider
-        .getObject()
-        .savePaymentAndActivate(memberId, billingKey, paymentId, portoneResponse, plan.getId());
+    ApplyDaysSubscription subscription =
+        existingSubscription.orElseGet(
+            () ->
+                subscriptionRepository.save(
+                    ApplyDaysSubscription.builder()
+                        .memberId(memberId)
+                        .planId(plan.getId())
+                        .status(SubscriptionStatus.PAYMENT_FAILED)
+                        .build()));
+    ApplyDaysPayment payment =
+        ApplyDaysPayment.builder()
+            .subscriptionId(subscription.getId())
+            .memberId(memberId)
+            .amount(plan.getPrice())
+            .status(PaymentStatus.PENDING)
+            .portonePaymentId(paymentId)
+            .portoneMerchantUid(paymentId)
+            .build();
+    payment.prepare(plan.getId(), key, renewal);
+    return new Charge(paymentRepository.save(payment), subscription, plan, true);
+  }
+
+  private PortOnePaymentResponse requestPayment(Charge charge) {
+    ApplyDaysPayment payment = charge.payment();
+    try {
+      if (!charge.created()) {
+        try {
+          return portOneClient.verifyPayment(payment.getPortonePaymentId());
+        } catch (PortOneClient.PaymentNotFound e) {
+          if (!selfProvider
+              .getObject()
+              .claimChargeRetry(payment.getMemberId(), payment.getPortonePaymentId())) {
+            throw new BadRequestException(ErrorCode.PAYMENT_PENDING);
+          }
+        }
+      }
+      return portOneClient.payWithBillingKey(
+          payment.getPendingBillingKey(),
+          payment.getPortonePaymentId(),
+          payment.getAmount(),
+          charge.plan().getName());
+    } catch (RuntimeException e) {
+      log.warn("PortOne result is unknown for payment {}", payment.getPortonePaymentId());
+      throw new BadRequestException(ErrorCode.PAYMENT_PENDING);
+    }
+  }
+
+  @Transactional
+  public boolean claimChargeRetry(UUID memberId, String paymentId) {
+    if (memberRepository.findByIdForUpdate(memberId).isEmpty()) return false;
+    return paymentRepository
+        .findByPortonePaymentId(paymentId)
+        .filter(
+            payment ->
+                payment.getMemberId().equals(memberId)
+                    && payment.getStatus() == PaymentStatus.PENDING)
+        .filter(
+            payment ->
+                payment.getChargeRequestedAt() != null
+                    && payment.getChargeRequestedAt().isBefore(LocalDateTime.now().minusMinutes(1)))
+        .map(
+            payment -> {
+              if (payment.isRenewal()
+                  && subscriptionRepository
+                      .findWithLockByMemberId(memberId)
+                      .filter(subscription -> subscription.getStatus() == SubscriptionStatus.ACTIVE)
+                      .isEmpty()) return false;
+              payment.markChargeRequested();
+              return true;
+            })
+        .orElse(false);
+  }
+
+  @Transactional
+  public ApplyDaysSubscription settleCharge(ApplyDaysPayment order, PortOnePaymentResponse result) {
+    UUID memberId = order.getMemberId();
+    memberRepository
+        .findByIdForUpdate(memberId)
+        .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND));
+    ApplyDaysSubscription subscription =
+        subscriptionRepository
+            .findWithLockByMemberId(memberId)
+            .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
+    ApplyDaysPayment payment =
+        paymentRepository
+            .findByPortonePaymentId(order.getPortonePaymentId())
+            .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
+    if (payment.getStatus() == PaymentStatus.SUCCESS) {
+      return subscription;
+    }
+    if (result == null || !payment.getPortonePaymentId().equals(result.id())) {
+      throw new BadRequestException(ErrorCode.PAYMENT_PENDING);
+    }
+    if ("FAILED".equalsIgnoreCase(result.status())) {
+      if (payment.getStatus() == PaymentStatus.PENDING) {
+        String reason = result.failed() == null ? "Payment failed" : result.failed().reason();
+        if (payment.isRenewal() && subscription.getStatus() == SubscriptionStatus.ACTIVE) {
+          saveRenewalFailureInternal(
+              subscription,
+              resolvePlan(memberId, payment.getPaymentPlanId()),
+              payment.getPortonePaymentId(),
+              reason);
+        } else {
+          payment.resolve(PaymentStatus.FAILED, reason, null, result.pgTxId());
+        }
+      }
+      return subscription;
+    }
+    if (!"PAID".equalsIgnoreCase(result.status())
+        || result.amount() == null
+        || result.amount().total() != payment.getAmount()
+        || !"KRW".equals(result.currency())) {
+      throw new BadRequestException(ErrorCode.PAYMENT_PENDING);
+    }
+    if (payment.isRenewal()) {
+      boolean canceled = subscription.getStatus() == SubscriptionStatus.CANCELED;
+      if (canceled) {
+        subscription.resume();
+      }
+      saveRenewalResultIsolated(
+          memberId,
+          result,
+          payment.getPortonePaymentId(),
+          resolvePlan(memberId, payment.getPaymentPlanId()));
+      if (canceled) {
+        subscription.cancel();
+      }
+      return subscription;
+    }
+    return savePaymentAndActivate(
+        memberId,
+        payment.getPendingBillingKey(),
+        payment.getPortonePaymentId(),
+        result,
+        payment.getPaymentPlanId());
   }
 
   @Transactional
@@ -200,7 +359,10 @@ public class ApplyDaysSubscriptionCommandService {
     }
 
     // Double check idempotency under lock
-    if (paymentRepository.existsByPortonePaymentId(paymentId)) {
+    if (paymentRepository
+        .findByPortonePaymentId(paymentId)
+        .filter(payment -> payment.getStatus() == PaymentStatus.SUCCESS)
+        .isPresent()) {
       return subscription;
     }
 
@@ -225,11 +387,16 @@ public class ApplyDaysSubscriptionCommandService {
       throw new BadRequestException(ErrorCode.PAYMENT_FAILED);
     }
 
+    long expectedAmount =
+        paymentRepository
+            .findByPortonePaymentId(paymentId)
+            .map(ApplyDaysPayment::getAmount)
+            .orElse(plan.getPrice());
     long actualAmount = portoneResponse.amount() != null ? portoneResponse.amount().total() : 0L;
-    if (actualAmount != plan.getPrice()
+    if (actualAmount != expectedAmount
         || !"KRW".equals(portoneResponse.currency())
         || !paymentId.equals(portoneResponse.id())) {
-      log.error("Payment amount mismatch: expected={}, actual={}", plan.getPrice(), actualAmount);
+      log.error("Payment amount mismatch: expected={}, actual={}", expectedAmount, actualAmount);
       String errorMsg = "Payment ID, currency or amount mismatch";
       savePayment(
           subscription,
@@ -273,7 +440,7 @@ public class ApplyDaysSubscriptionCommandService {
     savePayment(
         savedSubscription,
         memberId,
-        plan.getPrice(),
+        actualAmount,
         PaymentStatus.SUCCESS,
         paymentId,
         null,
@@ -298,7 +465,7 @@ public class ApplyDaysSubscriptionCommandService {
             member.getEmail(),
             paymentId,
             plan.getName(),
-            plan.getPrice(),
+            actualAmount,
             now,
             nextBillingDate,
             receipt,
@@ -306,36 +473,6 @@ public class ApplyDaysSubscriptionCommandService {
 
     meterRegistry.counter("applydays.subscriptions.activated").increment();
     return savedSubscription;
-  }
-
-  @Transactional
-  public void saveFailedPaymentAttempt(
-      UUID memberId, String paymentId, String failReason, UUID planId) {
-    ApplyDaysSubscription subscription =
-        subscriptionRepository.findWithLockByMemberId(memberId).orElse(null);
-    ApplyDaysSubscriptionPlan plan = resolvePlan(memberId, planId);
-    if (subscription == null) {
-      subscription =
-          ApplyDaysSubscription.builder()
-              .memberId(memberId)
-              .planId(plan.getId())
-              .status(SubscriptionStatus.PAYMENT_FAILED)
-              .build();
-      subscription = subscriptionRepository.save(subscription);
-    }
-    long price = plan != null ? plan.getPrice() : 0L;
-    savePayment(
-        subscription, memberId, price, PaymentStatus.FAILED, paymentId, failReason, null, null);
-    subscription.markPaymentFailed();
-    subscriptionRepository.save(subscription);
-
-    Member member = memberRepository.findById(memberId).orElse(null);
-    String email = member != null ? member.getEmail() : "Unknown";
-    String name = member != null ? member.getName() : "Unknown";
-    String planName = plan != null ? plan.getName() : null;
-
-    eventPublisher.publishEvent(
-        new SubscriptionPaymentFailedEvent(memberId, name, email, planName, paymentId, failReason));
   }
 
   @Transactional
@@ -372,6 +509,7 @@ public class ApplyDaysSubscriptionCommandService {
 
   @Transactional
   public ApplyDaysSubscription resumeSubscription(UUID memberId) {
+    memberRepository.findByIdForUpdate(memberId);
     log.info("Resuming subscription for memberId={}", memberId);
     ApplyDaysSubscription subscription =
         subscriptionRepository
@@ -413,17 +551,16 @@ public class ApplyDaysSubscriptionCommandService {
 
   public int processRenewal() {
     LocalDate today = LocalDate.now();
-    int pageNumber = 0;
+    UUID cursor = new UUID(0, 0);
     int pageSize = 100;
     int totalProcessed = 0;
 
     log.info("Starting subscription renewal batch at {}", today);
 
     while (true) {
-      Pageable pageable = PageRequest.of(pageNumber, pageSize);
+      Pageable pageable = PageRequest.of(0, pageSize);
       Slice<ApplyDaysSubscription> targetSlice =
-          subscriptionRepository.findAllByStatusAndNextBillingDateLessThanEqual(
-              SubscriptionStatus.ACTIVE, today, pageable);
+          subscriptionRepository.findRenewals(today, cursor, pageable);
 
       List<ApplyDaysSubscription> targets = targetSlice.getContent();
       if (targets.isEmpty()) {
@@ -443,24 +580,69 @@ public class ApplyDaysSubscriptionCommandService {
       if (!targetSlice.hasNext()) {
         break;
       }
-      pageNumber++;
+      cursor = targets.getLast().getMemberId();
     }
     return totalProcessed;
   }
 
+  public void reconcilePendingPayments() {
+    UUID cursor = new UUID(0, 0);
+    Slice<ApplyDaysPayment> page;
+    do {
+      page =
+          paymentRepository.findByStatusAndIdGreaterThanOrderById(
+              PaymentStatus.PENDING, cursor, PageRequest.of(0, 100));
+      for (ApplyDaysPayment payment : page.getContent()) {
+        cursor = payment.getId();
+        try {
+          PortOnePaymentResponse result =
+              portOneClient.verifyPayment(payment.getPortonePaymentId());
+          selfProvider.getObject().settleCharge(payment, result);
+        } catch (PortOneClient.PaymentNotFound e) {
+          selfProvider.getObject().expireMissingCharge(payment);
+        } catch (RuntimeException e) {
+          log.warn("Payment {} still requires reconciliation", payment.getPortonePaymentId());
+        }
+      }
+    } while (page.hasNext());
+  }
+
+  @Transactional
+  public void expireMissingCharge(ApplyDaysPayment order) {
+    UUID memberId = order.getMemberId();
+    if (memberRepository.findByIdForUpdate(memberId).isEmpty()) return;
+    ApplyDaysPayment payment =
+        paymentRepository.findByPortonePaymentId(order.getPortonePaymentId()).orElse(null);
+    if (payment == null
+        || payment.getStatus() != PaymentStatus.PENDING
+        || payment.getChargeRequestedAt() == null
+        || payment.getChargeRequestedAt().isAfter(LocalDateTime.now().minusDays(1))) return;
+    ApplyDaysSubscription subscription =
+        subscriptionRepository.findWithLockByMemberId(memberId).orElseThrow();
+    String reason = "No payment found at PortOne after 24 hours";
+    if (payment.isRenewal() && subscription.getStatus() == SubscriptionStatus.ACTIVE) {
+      saveRenewalFailureInternal(
+          subscription,
+          resolvePlan(memberId, payment.getPaymentPlanId()),
+          payment.getPortonePaymentId(),
+          reason);
+    } else {
+      payment.resolve(PaymentStatus.FAILED, reason, null, null);
+    }
+  }
+
   public int processExpiration() {
     LocalDate today = LocalDate.now();
-    int pageNumber = 0;
+    UUID cursor = new UUID(0, 0);
     int pageSize = 100;
     int totalProcessed = 0;
 
     log.info("Starting subscription expiration batch at {}", today);
 
     while (true) {
-      Pageable pageable = PageRequest.of(pageNumber, pageSize);
+      Pageable pageable = PageRequest.of(0, pageSize);
       Slice<ApplyDaysSubscription> targetSlice =
-          subscriptionRepository.findAllByStatusAndEndDateLessThan(
-              SubscriptionStatus.CANCELED, today, pageable);
+          subscriptionRepository.findExpirations(today, cursor, pageable);
 
       List<ApplyDaysSubscription> targets = targetSlice.getContent();
       if (targets.isEmpty()) {
@@ -480,7 +662,7 @@ public class ApplyDaysSubscriptionCommandService {
       if (!targetSlice.hasNext()) {
         break;
       }
-      pageNumber++;
+      cursor = targets.getLast().getMemberId();
     }
     return totalProcessed;
   }
@@ -491,48 +673,19 @@ public class ApplyDaysSubscriptionCommandService {
 
   /** 정기결제 갱신 처리 (Transaction-After-API 패턴 적용) 외부 API 호출은 트랜잭션 바깥에서 수행하고, 결과 기록만 격리된 트랜잭션 내에서 처리 */
   public void renewSubscription(ApplyDaysSubscription sub) {
-    ApplyDaysSubscriptionPlan plan =
-        planRepository
-            .findById(sub.getPlanId())
-            .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_PLAN_NOT_FOUND));
-
-    String paymentId = SubscriptionPaymentId.create(sub.getMemberId());
-    PortOnePaymentResponse portoneResponse;
-
-    String billingKey =
-        paymentMethodQueryService
-            .findByMemberId(sub.getMemberId())
-            .map(ApplyDaysPaymentMethod::getBillingKey)
-            .orElse(null);
-
-    if (billingKey == null) {
-      log.error("No payment method found for member {}", sub.getMemberId());
-      selfProvider
-          .getObject()
-          .saveRenewalFailureIsolated(
-              sub.getMemberId(), plan, paymentId, "No active payment method found");
+    LocalDate due = sub.getNextBillingDate();
+    if (due == null || memberRepository.findById(sub.getMemberId()).isEmpty()) {
       return;
     }
-
-    try {
-      portoneResponse =
-          portOneClient.payWithBillingKey(billingKey, paymentId, plan.getPrice(), plan.getName());
-    } catch (Exception e) {
-      log.error(
-          "PortOne payWithBillingKey call failed outside transaction for member {}",
-          sub.getMemberId(),
-          e);
-      selfProvider
-          .getObject()
-          .saveRenewalFailureIsolated(
-              sub.getMemberId(), plan, paymentId, "Billing key renewal call failed");
+    Charge charge =
+        selfProvider
+            .getObject()
+            .prepareCharge(sub.getMemberId(), null, due.toString(), sub.getPlanId(), due);
+    if (charge == null || charge.payment().getStatus() != PaymentStatus.PENDING) {
       return;
     }
-
-    // DB 반영 작업을 격리된 트랜잭션에 위임
-    selfProvider
-        .getObject()
-        .saveRenewalResultIsolated(sub.getMemberId(), portoneResponse, paymentId, plan);
+    PortOnePaymentResponse response = requestPayment(charge);
+    selfProvider.getObject().settleCharge(charge.payment(), response);
   }
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -546,7 +699,10 @@ public class ApplyDaysSubscriptionCommandService {
             .findWithLockByMemberId(memberId)
             .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
 
-    if (paymentRepository.existsByPortonePaymentId(paymentId)) {
+    if (paymentRepository
+        .findByPortonePaymentId(paymentId)
+        .filter(payment -> payment.getStatus() == PaymentStatus.SUCCESS)
+        .isPresent()) {
       return;
     }
 
@@ -569,9 +725,14 @@ public class ApplyDaysSubscriptionCommandService {
       return;
     }
 
+    long expectedAmount =
+        paymentRepository
+            .findByPortonePaymentId(paymentId)
+            .map(ApplyDaysPayment::getAmount)
+            .orElse(plan.getPrice());
     if (!paymentId.equals(portoneResponse.id())
         || portoneResponse.amount() == null
-        || portoneResponse.amount().total() != plan.getPrice()
+        || portoneResponse.amount().total() != expectedAmount
         || !"KRW".equals(portoneResponse.currency())) {
       saveRenewalFailureInternal(
           subscription, plan, paymentId, "Payment ID, currency or amount mismatch");
@@ -590,7 +751,7 @@ public class ApplyDaysSubscriptionCommandService {
     savePayment(
         subscription,
         subscription.getMemberId(),
-        plan.getPrice(),
+        expectedAmount,
         PaymentStatus.SUCCESS,
         paymentId,
         null,
@@ -609,23 +770,13 @@ public class ApplyDaysSubscriptionCommandService {
             member.getEmail(),
             paymentId,
             plan.getName(),
-            plan.getPrice(),
+            expectedAmount,
             LocalDateTime.now(),
             nextBillingDate,
             receiptUrl,
             true));
 
     log.info("Successfully renewed subscription for memberId={}", subscription.getMemberId());
-  }
-
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public void saveRenewalFailureIsolated(
-      UUID memberId, ApplyDaysSubscriptionPlan plan, String paymentId, String failReason) {
-    ApplyDaysSubscription subscription =
-        subscriptionRepository
-            .findWithLockByMemberId(memberId)
-            .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
-    saveRenewalFailureInternal(subscription, plan, paymentId, failReason);
   }
 
   private void saveRenewalFailureInternal(
@@ -665,13 +816,15 @@ public class ApplyDaysSubscriptionCommandService {
 
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void expireSubscriptionIsolated(UUID memberId) {
+    memberRepository.findByIdForUpdate(memberId);
     ApplyDaysSubscription subscription =
         subscriptionRepository
             .findWithLockByMemberId(memberId)
             .orElseThrow(() -> new NotFoundException(ErrorCode.SUBSCRIPTION_NOT_FOUND));
 
     if (subscription.getStatus() != SubscriptionStatus.CANCELED
-        || !subscription.getEndDate().isBefore(LocalDate.now())) {
+        || !subscription.getEndDate().isBefore(LocalDate.now())
+        || paymentRepository.existsByMemberIdAndStatus(memberId, PaymentStatus.PENDING)) {
       return; // Already processed
     }
 
@@ -729,6 +882,13 @@ public class ApplyDaysSubscriptionCommandService {
       truncatedReason = truncatedReason.substring(0, 252) + "...";
     }
 
+    var existing = paymentRepository.findByPortonePaymentId(paymentId);
+    if (existing.isPresent()) {
+      ApplyDaysPayment payment = existing.get();
+      payment.resolve(status, truncatedReason, receiptUrl, approvalNo);
+      paymentRepository.save(payment);
+      return;
+    }
     ApplyDaysPayment payment =
         ApplyDaysPayment.builder()
             .subscriptionId(subscription.getId())

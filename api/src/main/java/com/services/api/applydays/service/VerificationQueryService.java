@@ -19,6 +19,7 @@ public class VerificationQueryService {
     VerificationImage image =
         verificationImageRepository
             .findById(imageId)
+            .filter(candidate -> candidate.getReservedUntil() == null)
             .orElseThrow(() -> new NotFoundException(ErrorCode.DATA_NOT_FOUND));
     return r2Service.getImageBytes(image.getImageUrl());
   }

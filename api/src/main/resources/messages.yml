@@ -29,6 +29,7 @@ error:
     SUBSCRIPTION_NOT_FOUND: "Subscription not found"
     AD1012: "Failed to delete image from R2"
     PAYMENT_FAILED: "Payment failed"
+    PAYMENT_PENDING: "결제 결과를 확인 중입니다. 잠시 후 같은 결제의 상태를 다시 확인해 주세요."
     INVALID_SUBSCRIPTION_STATUS: "Invalid subscription status"
     SUBSCRIPTION_EXPIRED: "Subscription expired"
     BILLING_KEY_NOT_FOUND: "Billing key not found"

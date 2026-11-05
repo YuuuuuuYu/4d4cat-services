@@ -14,7 +14,6 @@ import com.services.core.applydays.dto.SubscriptionManageData;
 import com.services.core.applydays.dto.SubscriptionPaymentId;
 import com.services.core.applydays.entity.subscription.ApplyDaysPayment;
 import com.services.core.applydays.entity.subscription.ApplyDaysSubscription;
-import com.services.core.applydays.entity.subscription.ApplyDaysSubscriptionPlan;
 import com.services.core.applydays.entity.subscription.PaymentStatus;
 import com.services.core.applydays.service.ApplyDaysPaymentMethodQueryService;
 import com.services.core.applydays.service.ApplyDaysSubscriptionCommandService;
@@ -229,7 +228,8 @@ public class ApplyDaysSubscriptionController {
     if (!PortOneWebhookVerifier.verify(
         webhookSecret, webhookId, webhookTimestamp, signature, body)) {
       log.warn(
-          "Invalid PortOne webhook signature: idPresent={}, timestampPresent={}, signaturePresent={}",
+          "Invalid PortOne webhook signature: idPresent={}, timestampPresent={},"
+              + " signaturePresent={}",
           webhookId != null,
           webhookTimestamp != null,
           signature != null);
@@ -246,7 +246,9 @@ public class ApplyDaysSubscriptionController {
     }
     log.info("PortOne V2 webhook received: type={}", request.type());
 
-    if ("Transaction.Paid".equalsIgnoreCase(request.type())) {
+    boolean paidEvent = "Transaction.Paid".equalsIgnoreCase(request.type());
+    boolean failedEvent = "Transaction.Failed".equalsIgnoreCase(request.type());
+    if (paidEvent || failedEvent) {
       if (request.data() == null) {
         throw new BadRequestException(ErrorCode.INVALID_REQUEST);
       }
@@ -259,7 +261,14 @@ public class ApplyDaysSubscriptionController {
 
       ApplyDaysPayment existingPayment =
           subscriptionQueryService.getPaymentByPortonePaymentId(paymentId).orElse(null);
-      if (existingPayment != null && existingPayment.getStatus() == PaymentStatus.SUCCESS) {
+      if (existingPayment == null) {
+        // A deployment may still have a payment from the previous implementation in flight.
+        return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
+      }
+      if (!memberId.equals(existingPayment.getMemberId())) {
+        return webhookResponse(HttpStatus.BAD_REQUEST);
+      }
+      if (existingPayment.getStatus() == PaymentStatus.SUCCESS) {
         log.info(
             "Webhook: Payment {} already processed successfully, idempotency check passed",
             paymentId);
@@ -268,39 +277,24 @@ public class ApplyDaysSubscriptionController {
 
       try {
         PortOnePaymentResponse verifiedPayment = portOneClient.verifyPayment(paymentId);
-        if (!"PAID".equalsIgnoreCase(verifiedPayment.status())) {
+        if (!(paidEvent ? "PAID" : "FAILED").equalsIgnoreCase(verifiedPayment.status())) {
           log.warn("PortOne payment 2nd verification failed: status={}", verifiedPayment.status());
           return webhookResponse(HttpStatus.BAD_REQUEST);
         }
 
-        ApplyDaysSubscription subscription =
-            subscriptionQueryService.getSubscriptionByMemberId(memberId).orElse(null);
-        if (subscription == null) {
-          log.warn("Webhook: Subscription not found for memberId={}", memberId);
-          // The first payment webhook may arrive before /pay commits the subscription.
-          return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
-        }
-
-        ApplyDaysSubscriptionPlan plan =
-            subscriptionQueryService.getPlan(subscription.getPlanId()).orElse(null);
-        if (plan == null) {
-          log.warn("Webhook: Subscription plan not found for planId={}", subscription.getPlanId());
-          return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
-        }
-
         if (!paymentId.equals(verifiedPayment.id())
-            || verifiedPayment.amount() == null
-            || verifiedPayment.amount().total() != plan.getPrice()
-            || !"KRW".equals(verifiedPayment.currency())) {
+            || (paidEvent
+                && (verifiedPayment.amount() == null
+                    || verifiedPayment.amount().total() != existingPayment.getAmount()
+                    || !"KRW".equals(verifiedPayment.currency())))) {
           log.warn(
               "Webhook: Payment amount verification failed. expected={}, actual={}",
-              plan.getPrice(),
+              existingPayment.getAmount(),
               verifiedPayment.amount() != null ? verifiedPayment.amount().total() : null);
           return webhookResponse(HttpStatus.BAD_REQUEST);
         }
 
-        subscriptionService.savePaymentAndActivate(
-            memberId, null, paymentId, verifiedPayment, plan.getId());
+        subscriptionService.settleCharge(existingPayment, verifiedPayment);
       } catch (Exception e) {
         log.error("PortOne payment 2nd verification exception for paymentId={}", paymentId, e);
         return webhookResponse(HttpStatus.SERVICE_UNAVAILABLE);
